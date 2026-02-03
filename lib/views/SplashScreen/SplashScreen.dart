@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:math';
 
-class SplashScreen extends StatefulWidget {
+  class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
   @override
@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Contrôleur pour l'animation de chargement
     _loadingController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 10),
     );
 
     _loadingAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -269,7 +269,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           'Version 1.0.0',
                           style: TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
+                            fontSize: 17,
                           ),
                         ),
                         SizedBox(height: 8),
@@ -277,7 +277,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           ' 2026 winzy. Tous droits réservés.',
                           style: TextStyle(
                             color: Colors.white38,
-                            fontSize: 10,
+                            fontSize: 15,
                           ),
                         ),
                       ],

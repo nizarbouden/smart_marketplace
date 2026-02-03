@@ -5,39 +5,25 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isTablet = screenWidth > 600;
+    final crossAxisCount = isTablet ? 3 : 2;
+    final childAspectRatio = isTablet ? 0.8 : 0.75;
+    
     return Scaffold(
       backgroundColor: Colors.grey[100],
-
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Smart Market',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart, color: Colors.black),
-            onPressed: () {
-              // TODO: aller vers la page panier
-            },
-          ),
-        ],
-      ),
-
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isTablet ? 24 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: isTablet ? 30 : 20),
 
-            // 🔍 Search bar
+            // 🔍 Barre de recherche
             TextField(
               decoration: InputDecoration(
-                hintText: 'Search products...',
+                hintText: 'Rechercher des produits...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
@@ -45,61 +31,69 @@ class HomePage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? 20 : 16,
+                  vertical: isTablet ? 16 : 12,
+                ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: isTablet ? 30 : 20),
 
-            // 🏷 Categories
-            const Text(
-              'Categories',
+            // 🏷 Catégories
+            Text(
+              'Catégories',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: isTablet ? 22 : 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: isTablet ? 15 : 10),
 
             SizedBox(
-              height: 50,
+              height: isTablet ? 60 : 50,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
-                  _categoryItem('All'),
-                  _categoryItem('Electronics'),
-                  _categoryItem('Fashion'),
-                  _categoryItem('Shoes'),
-                  _categoryItem('Accessories'),
+                  _categoryItem('Tous', isTablet),
+                  _categoryItem('Électronique', isTablet),
+                  _categoryItem('Mode', isTablet),
+                  _categoryItem('Chaussures', isTablet),
+                  _categoryItem('Accessoires', isTablet),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: isTablet ? 30 : 20),
 
-            // 🛍 Products
-            const Text(
-              'Popular Products',
+            // 🛍 Produits
+            Text(
+              'Produits Populaires',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: isTablet ? 22 : 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: isTablet ? 15 : 10),
 
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 6,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.75,
-              ),
-              itemBuilder: (context, index) {
-                return _productCard();
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 6,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: isTablet ? 16 : 12,
+                    crossAxisSpacing: isTablet ? 16 : 12,
+                    childAspectRatio: childAspectRatio,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _productCard(isTablet);
+                  },
+                );
               },
             ),
           ],
@@ -108,11 +102,14 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 🟣 Category widget
-  Widget _categoryItem(String title) {
+  // 🟣 Widget catégorie
+  Widget _categoryItem(String title, bool isTablet) {
     return Container(
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.only(right: isTablet ? 15 : 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 24 : 20,
+        vertical: isTablet ? 12 : 8,
+      ),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.deepPurple,
@@ -120,13 +117,16 @@ class HomePage extends StatelessWidget {
       ),
       child: Text(
         title,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: isTablet ? 14 : 12,
+        ),
       ),
     );
   }
 
-  // 🟣 Product card
-  Widget _productCard() {
+  // 🟣 Carte produit
+  Widget _productCard(bool isTablet) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -145,29 +145,36 @@ class HomePage extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              child: Image.asset(
-                'assets/images/product.png', // image temporaire
-                fit: BoxFit.cover,
-                width: double.infinity,
+              child: Container(
+                color: Colors.grey[200],
+                child: Icon(
+                  Icons.image,
+                  size: isTablet ? 60 : 40,
+                  color: Colors.grey[400],
+                ),
               ),
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(isTablet ? 12 : 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Product Name',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  'Nom du produit',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isTablet ? 16 : 14,
+                  ),
                 ),
-                SizedBox(height: 5),
+                SizedBox(height: isTablet ? 8 : 5),
                 Text(
-                  '\$49.99',
+                  '49,99 €',
                   style: TextStyle(
                     color: Colors.deepPurple,
                     fontWeight: FontWeight.bold,
+                    fontSize: isTablet ? 16 : 14,
                   ),
                 ),
               ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
-import 'views/home/home_page.dart';
+import 'views/layout/main_layout.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
 
       routes: {
         '/': (context) => const SplashScreen(),
-        '/home': (context) => const HomePage(),
+        '/home': (context) => const MainLayout(),
       },
     );
   }
