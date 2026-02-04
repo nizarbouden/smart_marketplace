@@ -7,93 +7,111 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final isTablet = screenWidth > 600;
-    final crossAxisCount = isTablet ? 3 : 2;
-    final childAspectRatio = isTablet ? 0.8 : 0.75;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isDesktop = screenWidth >= 1200;
+    
+    // Responsive grid settings
+    int crossAxisCount;
+    double childAspectRatio;
+    double padding;
+    
+    if (isDesktop) {
+      crossAxisCount = 4;
+      childAspectRatio = 0.9;
+      padding = 32;
+    } else if (isTablet) {
+      crossAxisCount = 3;
+      childAspectRatio = 0.8;
+      padding = 24;
+    } else {
+      crossAxisCount = 2;
+      childAspectRatio = 0.75;
+      padding = 16;
+    }
     
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(isTablet ? 24 : 16),
+        padding: EdgeInsets.all(padding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: isTablet ? 30 : 20),
+            SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
             // 🔍 Barre de recherche
             TextField(
               decoration: InputDecoration(
                 hintText: 'Rechercher des produits...',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, size: isDesktop ? 28 : isTablet ? 24 : 20),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(isDesktop ? 16 : 12),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: EdgeInsets.symmetric(
-                  horizontal: isTablet ? 20 : 16,
-                  vertical: isTablet ? 16 : 12,
+                  horizontal: isDesktop ? 24 : isTablet ? 20 : 16,
+                  vertical: isDesktop ? 20 : isTablet ? 16 : 12,
+                ),
+                hintStyle: TextStyle(
+                  fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                 ),
               ),
             ),
 
-            SizedBox(height: isTablet ? 30 : 20),
+            SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
             // 🏷 Catégories
             Text(
               'Catégories',
               style: TextStyle(
-                fontSize: isTablet ? 22 : 18,
+                fontSize: isDesktop ? 28 : isTablet ? 22 : 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            SizedBox(height: isTablet ? 15 : 10),
+            SizedBox(height: isDesktop ? 20 : isTablet ? 15 : 10),
 
             SizedBox(
-              height: isTablet ? 60 : 50,
+              height: isDesktop ? 80 : isTablet ? 60 : 50,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 children: [
-                  _categoryItem('Tous', isTablet),
-                  _categoryItem('Électronique', isTablet),
-                  _categoryItem('Mode', isTablet),
-                  _categoryItem('Chaussures', isTablet),
-                  _categoryItem('Accessoires', isTablet),
+                  _categoryCard('Électronique', Icons.computer, isDesktop, isTablet),
+                  _categoryCard('Mode', Icons.checkroom, isDesktop, isTablet),
+                  _categoryCard('Maison', Icons.home, isDesktop, isTablet),
+                  _categoryCard('Sports', Icons.sports_soccer, isDesktop, isTablet),
+                  _categoryCard('Livres', Icons.book, isDesktop, isTablet),
                 ],
               ),
             ),
 
-            SizedBox(height: isTablet ? 30 : 20),
+            SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
-            // 🛍 Produits
+            // 🛍️ Produits populaires
             Text(
-              'Produits Populaires',
+              'Produits populaires',
               style: TextStyle(
-                fontSize: isTablet ? 22 : 18,
+                fontSize: isDesktop ? 28 : isTablet ? 22 : 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            SizedBox(height: isTablet ? 15 : 10),
+            SizedBox(height: isDesktop ? 20 : isTablet ? 15 : 10),
 
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 6,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    mainAxisSpacing: isTablet ? 16 : 12,
-                    crossAxisSpacing: isTablet ? 16 : 12,
-                    childAspectRatio: childAspectRatio,
-                  ),
-                  itemBuilder: (context, index) {
-                    return _productCard(isTablet);
-                  },
-                );
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: childAspectRatio,
+                crossAxisSpacing: isDesktop ? 20 : isTablet ? 16 : 12,
+                mainAxisSpacing: isDesktop ? 20 : isTablet ? 16 : 12,
+              ),
+              itemCount: 8,
+              itemBuilder: (context, index) {
+                return _productCard('Produit ${index + 1}', '${(index + 1) * 15.99} €', isDesktop, isTablet);
               },
             ),
           ],
@@ -103,34 +121,46 @@ class HomePage extends StatelessWidget {
   }
 
   // 🟣 Widget catégorie
-  Widget _categoryItem(String title, bool isTablet) {
+  Widget _categoryCard(String title, IconData icon, bool isDesktop, bool isTablet) {
     return Container(
-      margin: EdgeInsets.only(right: isTablet ? 15 : 10),
+      margin: EdgeInsets.only(right: isDesktop ? 20 : isTablet ? 15 : 10),
       padding: EdgeInsets.symmetric(
-        horizontal: isTablet ? 24 : 20,
-        vertical: isTablet ? 12 : 8,
+        horizontal: isDesktop ? 28 : isTablet ? 24 : 20,
+        vertical: isDesktop ? 16 : isTablet ? 12 : 8,
       ),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.deepPurple,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(isDesktop ? 30 : 25),
       ),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: isTablet ? 14 : 12,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white,
+            size: isDesktop ? 24 : isTablet ? 20 : 16,
+          ),
+          SizedBox(width: isDesktop ? 12 : isTablet ? 8 : 6),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isDesktop ? 16 : isTablet ? 14 : 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // 🟣 Carte produit
-  Widget _productCard(bool isTablet) {
+  Widget _productCard(String name, String price, bool isDesktop, bool isTablet) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(isDesktop ? 20 : 15),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -144,12 +174,12 @@ class HomePage extends StatelessWidget {
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(isDesktop ? 20 : 15)),
               child: Container(
                 color: Colors.grey[200],
                 child: Icon(
                   Icons.image,
-                  size: isTablet ? 60 : 40,
+                  size: isDesktop ? 80 : isTablet ? 60 : 40,
                   color: Colors.grey[400],
                 ),
               ),
@@ -157,24 +187,26 @@ class HomePage extends StatelessWidget {
           ),
 
           Padding(
-            padding: EdgeInsets.all(isTablet ? 12 : 8),
+            padding: EdgeInsets.all(isDesktop ? 16 : isTablet ? 12 : 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nom du produit',
+                  name,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 16 : 14,
+                    fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: isTablet ? 8 : 5),
+                SizedBox(height: isDesktop ? 12 : isTablet ? 8 : 5),
                 Text(
-                  '49,99 €',
+                  price,
                   style: TextStyle(
                     color: Colors.deepPurple,
                     fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 16 : 14,
+                    fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                   ),
                 ),
               ],

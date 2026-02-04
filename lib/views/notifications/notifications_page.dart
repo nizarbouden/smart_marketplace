@@ -8,7 +8,7 @@ class NotificationsPage extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final isDesktop = screenWidth > 1200;
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Padding(
@@ -17,7 +17,7 @@ class NotificationsPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: isTablet ? 30 : 20),
-            
+
             // Header avec options
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -43,9 +43,9 @@ class NotificationsPage extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             SizedBox(height: isTablet ? 30 : 20),
-            
+
             // Liste des notifications
             Expanded(
               child: ListView.builder(
@@ -121,9 +121,9 @@ class NotificationsPage extends StatelessWidget {
         'color': Colors.grey,
       },
     ];
-    
+
     final notification = notifications[index % notifications.length];
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: isTablet ? 16 : 12),
       decoration: BoxDecoration(
@@ -136,9 +136,9 @@ class NotificationsPage extends StatelessWidget {
             offset: const Offset(0, 5),
           ),
         ],
-        border: isUnread 
-          ? Border.all(color: Colors.deepPurple.withOpacity(0.3), width: 2)
-          : null,
+        border: isUnread
+            ? Border.all(color: Colors.deepPurple.withOpacity(0.3), width: 2)
+            : null,
       ),
       child: Padding(
         padding: EdgeInsets.all(isTablet ? 20 : 16),
@@ -159,9 +159,9 @@ class NotificationsPage extends StatelessWidget {
                 size: isTablet ? 24 : 20,
               ),
             ),
-            
+
             SizedBox(width: isTablet ? 16 : 12),
-            
+
             // Contenu de la notification
             Expanded(
               child: Column(

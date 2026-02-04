@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'views/layout/main_layout.dart';
+import 'views/cart/cart_page_stateful.dart';
+import 'views/history/history_page.dart';
+import 'views/profile/profile_page.dart';
+import 'views/notifications/notifications_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,6 +32,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/home': (context) => const MainLayout(),
+        '/panier': (context) => const CartPageStateful(),
+        '/historique': (context) => const HistoryPage(),
+        '/profil': (context) => const ProfilePage(),
+        '/notifications': (context) => const NotificationsPage(),
       },
     );
   }

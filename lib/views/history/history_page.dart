@@ -8,7 +8,7 @@ class HistoryPage extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final isDesktop = screenWidth > 1200;
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Padding(
@@ -17,7 +17,7 @@ class HistoryPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: isTablet ? 30 : 20),
-            
+
             // Filtres
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -73,9 +73,9 @@ class HistoryPage extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             SizedBox(height: isTablet ? 30 : 20),
-            
+
             // Liste des commandes
             Expanded(
               child: ListView.builder(
@@ -156,9 +156,9 @@ class HistoryPage extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             SizedBox(height: isTablet ? 16 : 12),
-            
+
             // Produits de la commande
             Row(
               children: [
@@ -208,10 +208,10 @@ class HistoryPage extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             SizedBox(height: isTablet ? 16 : 12),
             const Divider(),
-            
+
             // Actions
             Column(
               children: [
@@ -252,7 +252,7 @@ class HistoryPage extends StatelessWidget {
                             child: const Text('Recommander', style: TextStyle(fontSize: 12)),
                           ),
                         ],
-                  ),
+                      ),
                   ],
                 ),
                 if (isTablet)
