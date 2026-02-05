@@ -133,18 +133,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           Column(
             children: [
               // Header fixe
-              Container(
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+              SafeArea(
+                child: Container(
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -188,6 +189,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
+              ),
               ),
               
               // Contenu principal

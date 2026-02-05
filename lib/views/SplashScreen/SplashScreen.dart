@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Contrôleur pour l'animation de chargement
     _loadingController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 1),
     );
 
     _loadingAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
