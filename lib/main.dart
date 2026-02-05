@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'package:smart_marketplace/views/auth/login_screen.dart';
 import 'package:smart_marketplace/views/auth/signup_screen.dart';
+import 'package:smart_marketplace/views/auth/reset_password_screen.dart';
+import 'package:smart_marketplace/views/auth/forget_password_otp_screen.dart';
 import 'views/layout/main_layout.dart';
 import 'views/cart/cart_page_stateful.dart';
 import 'views/history/history_page.dart';
@@ -40,6 +42,8 @@ class MyApp extends StatelessWidget {
         '/notifications': (context) => const NotificationsPage(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),
+        '/reset-password': (context) => const ResetPasswordScreen(),
+        '/forget-Password': (context) => const ForgetPasswordOtpScreen(),
       },
     );
   }

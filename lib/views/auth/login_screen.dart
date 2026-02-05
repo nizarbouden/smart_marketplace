@@ -14,6 +14,13 @@ class _LoginScreenState extends State<LoginScreen> {
   String _email = '';
   String _password = '';
 
+  // Méthodes de validation
+  bool _hasMinLength(String password) => password.length >= 8;
+  bool _hasLowerCase(String password) => password.contains(RegExp(r'[a-z]'));
+  bool _hasUpperCase(String password) => password.contains(RegExp(r'[A-Z]'));
+  bool _isPasswordValid(String password) => 
+      _hasMinLength(password) && _hasLowerCase(password) && _hasUpperCase(password);
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -27,9 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF5689FF),
-              Color(0xFF3665D3),
-              Color(0xFF1E3A8A),
+              const Color(0xFF6366F1),
+              const Color(0xFF8B5CF6),
+              const Color(0xFFA855F7),
             ],
           ),
         ),
@@ -64,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E3A8A),
+                            color: Color(0xFF8700FF),
                           ),
                         ),
                         const SizedBox(height: 30),
@@ -77,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             filled: true,
                             fillColor: Colors.grey[50],
                             hintText: 'Email',
-                            prefixIcon: const Icon(Icons.email, color: Color(0xFF5689FF)),
+                            prefixIcon: const Icon(Icons.email, color: Color(0xFF8700FF)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -88,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF5689FF), width: 2),
+                              borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
                             ),
                           ),
                           onChanged: (value) => _email = value,
@@ -113,11 +120,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             filled: true,
                             fillColor: Colors.grey[50],
                             hintText: 'Mot de passe',
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF5689FF)),
+                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF8700FF)),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                                color: const Color(0xFF5689FF),
+                                color: const Color(0xFF8700FF),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -135,36 +142,62 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF5689FF), width: 2),
+                              borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
                             ),
                           ),
-                          onChanged: (value) => _password = value,
+                          onChanged: (value) {
+                            setState(() {
+                              _password = value;
+                            });
+                          },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Veuillez entrer votre mot de passe';
                             }
                             
-                            List<String> errors = [];
-                            
-                            if (value.length < 8) {
-                              errors.add('8 caractères minimum');
-                            }
-                            
-                            if (!value.contains(RegExp(r'[a-z]'))) {
-                              errors.add('1 lettre minuscule');
-                            }
-                            
-                            if (!value.contains(RegExp(r'[A-Z]'))) {
-                              errors.add('1 lettre majuscule');
-                            }
-                            
-                            if (errors.isNotEmpty) {
-                              return 'Le mot de passe doit contenir:\n' + errors.join('\n');
+                            if (!_isPasswordValid(value)) {
+                              return '';
                             }
                             
                             return null;
                           },
                         ),
+                        
+                        // Indicateurs de validation du mot de passe
+                        if (_password.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _isPasswordValid(_password) 
+                                    ? Colors.green.withOpacity(0.3) 
+                                    : Colors.grey[300]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildValidationIndicator(
+                                  '8 caractères minimum',
+                                  _hasMinLength(_password),
+                                ),
+                                const SizedBox(height: 4),
+                                _buildValidationIndicator(
+                                  '1 lettre minuscule',
+                                  _hasLowerCase(_password),
+                                ),
+                                const SizedBox(height: 4),
+                                _buildValidationIndicator(
+                                  '1 lettre majuscule',
+                                  _hasUpperCase(_password),
+                                ),
+                              ],
+                            ),
+                          ),
 
                         const SizedBox(height: 15),
 
@@ -178,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _rememberMe = value!;
                                 });
                               },
-                              activeColor: const Color(0xFF5689FF),
+                              activeColor: const Color(0xFF8700FF),
                             ),
                             const Text(
                               'Se souvenir de moi',
@@ -198,12 +231,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             GestureDetector(
                               onTap: () {
-                                // TODO: Navigate to forgot password
+                                Navigator.pushNamed(context, '/forget-Password');
                               },
                               child: const Text(
                                 'Mot de passe oublié?',
                                 style: TextStyle(
-                                  color: Color(0xFF5689FF),
+                                  color: Color(0xFF8700FF),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -218,7 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: double.infinity,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF5689FF),
+                              backgroundColor: const Color(0xFF8700FF),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -261,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF5689FF),
+                                  color: Color(0xFF8700FF),
                                 ),
                               ),
                             ),
@@ -276,6 +309,38 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildValidationIndicator(String text, bool isValid) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isValid ? Colors.green : Colors.grey[300],
+            border: isValid ? Border.all(color: Colors.green, width: 2) : null,
+          ),
+          child: isValid
+              ? const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 12,
+                )
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: isValid ? Colors.green : Colors.grey[600],
+            fontWeight: isValid ? FontWeight.w500 : FontWeight.normal,
+          ),
+        ),
+      ],
     );
   }
 }
