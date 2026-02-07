@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
 import 'package:smart_marketplace/widgets/custom_text_field.dart';
+import 'package:smart_marketplace/views/profile/add_address_page.dart';
 
 class AddressPage extends StatefulWidget {
   const AddressPage({super.key});
@@ -217,9 +218,9 @@ class _AddressPageState extends State<AddressPage> {
                     height: isMobile ? 24 : 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: address['isDefault'] == true ? Colors.black : Colors.transparent,
+                      color: address['isDefault'] == true ? Colors.deepPurple : Colors.transparent,
                       border: Border.all(
-                        color: address['isDefault'] == true ? Colors.black : Colors.grey[300]!,
+                        color: address['isDefault'] == true ? Colors.deepPurple : Colors.grey[300]!,
                         width: 2,
                       ),
                     ),
@@ -254,7 +255,7 @@ class _AddressPageState extends State<AddressPage> {
                         transform: Matrix4.identity()..scale(1.0),
                         child: Icon(
                           Icons.delete_outline,
-                          color: Colors.grey[400],
+                          color: Colors.red[400],
                           size: isDesktop ? 24 : isTablet ? 22 : 20,
                         ),
                       ),
@@ -269,7 +270,7 @@ class _AddressPageState extends State<AddressPage> {
                         transform: Matrix4.identity()..scale(1.0),
                         child: Icon(
                           Icons.edit_outlined,
-                          color: Colors.grey[400],
+                          color: Colors.deepPurple,
                           size: isDesktop ? 24 : isTablet ? 22 : 20,
                         ),
                       ),
@@ -325,7 +326,12 @@ class _AddressPageState extends State<AddressPage> {
         width: double.infinity,
         height: isMobile ? 52 : isTablet ? 56 : 60,
         child: AnimatedButton(
-          onPressed: () => Navigator.of(context).pushNamed('/add-address'),
+          onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddAddressPage()),
+          );
+        },
           text: 'Ajouter une nouvelle adresse',
           fontSize: isDesktop ? 18 : isTablet ? 16 : 15,
         ),
@@ -570,9 +576,9 @@ class _AnimatedButtonState extends State<AnimatedButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: ElevatedButton(
-          onPressed: null,
+          onPressed: widget.onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black87,
+            backgroundColor: Colors.deepPurple,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
             ),
