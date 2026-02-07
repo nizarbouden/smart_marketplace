@@ -20,41 +20,167 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final ImagePicker _imagePicker = ImagePicker();
   File? _profileImage;
 
-  // Liste des pays avec leurs codes
+  // Liste complète des pays avec leurs codes
   final List<Map<String, String>> _countries = [
+    // Afrique du Nord
     {'name': 'Tunisie', 'code': '+216', 'flag': '🇹🇳'},
-    {'name': 'France', 'code': '+33', 'flag': '🇫🇷'},
     {'name': 'Algérie', 'code': '+213', 'flag': '🇩🇿'},
     {'name': 'Maroc', 'code': '+212', 'flag': '🇲🇦'},
     {'name': 'Libye', 'code': '+218', 'flag': '🇱🇾'},
     {'name': 'Égypte', 'code': '+20', 'flag': '🇪🇬'},
-    {'name': 'États-Unis', 'code': '+1', 'flag': '🇺🇸'},
-    {'name': 'Canada', 'code': '+1', 'flag': '🇨🇦'},
+
+    // Europe
+    {'name': 'France', 'code': '+33', 'flag': '🇫🇷'},
     {'name': 'Royaume-Uni', 'code': '+44', 'flag': '🇬🇧'},
     {'name': 'Allemagne', 'code': '+49', 'flag': '🇩🇪'},
     {'name': 'Italie', 'code': '+39', 'flag': '🇮🇹'},
     {'name': 'Espagne', 'code': '+34', 'flag': '🇪🇸'},
     {'name': 'Belgique', 'code': '+32', 'flag': '🇧🇪'},
     {'name': 'Suisse', 'code': '+41', 'flag': '🇨🇭'},
+    {'name': 'Pays-Bas', 'code': '+31', 'flag': '🇳🇱'},
+    {'name': 'Autriche', 'code': '+43', 'flag': '🇦🇹'},
+    {'name': 'Suède', 'code': '+46', 'flag': '🇸🇪'},
+    {'name': 'Norvège', 'code': '+47', 'flag': '🇳🇴'},
+    {'name': 'Danemark', 'code': '+45', 'flag': '🇩🇰'},
+    {'name': 'Finlande', 'code': '+358', 'flag': '🇫🇮'},
+    {'name': 'Pologne', 'code': '+48', 'flag': '🇵🇱'},
+    {'name': 'République Tchèque', 'code': '+420', 'flag': '🇨🇿'},
+    {'name': 'Slovaquie', 'code': '+421', 'flag': '🇸🇰'},
+    {'name': 'Hongrie', 'code': '+36', 'flag': '🇭🇺'},
+    {'name': 'Roumanie', 'code': '+40', 'flag': '🇷🇴'},
+    {'name': 'Bulgarie', 'code': '+359', 'flag': '🇧🇬'},
+    {'name': 'Grèce', 'code': '+30', 'flag': '🇬🇷'},
+    {'name': 'Croatie', 'code': '+385', 'flag': '🇭🇷'},
+    {'name': 'Serbie', 'code': '+381', 'flag': '🇷🇸'},
+    {'name': 'Ukraine', 'code': '+380', 'flag': '🇺🇦'},
+    {'name': 'Russie', 'code': '+7', 'flag': '🇷🇺'},
+    {'name': 'Portugal', 'code': '+351', 'flag': '🇵🇹'},
+    {'name': 'Irlande', 'code': '+353', 'flag': '🇮🇪'},
+
+    // Moyen-Orient
     {'name': 'Arabie Saoudite', 'code': '+966', 'flag': '🇸🇦'},
     {'name': 'Émirats Arabes Unis', 'code': '+971', 'flag': '🇦🇪'},
     {'name': 'Qatar', 'code': '+974', 'flag': '🇶🇦'},
     {'name': 'Koweït', 'code': '+965', 'flag': '🇰🇼'},
+    {'name': 'Bahreïn', 'code': '+973', 'flag': '🇧🇭'},
+    {'name': 'Oman', 'code': '+968', 'flag': '🇴🇲'},
+    {'name': 'Yémen', 'code': '+967', 'flag': '🇾🇪'},
+    {'name': 'Irak', 'code': '+964', 'flag': '🇮🇶'},
+    {'name': 'Syrie', 'code': '+963', 'flag': '🇸🇾'},
+    {'name': 'Liban', 'code': '+961', 'flag': '🇱🇧'},
+    {'name': 'Israël', 'code': '+972', 'flag': '🇮🇱'},
+    {'name': 'Palestine', 'code': '+970', 'flag': '🇵🇸'},
+    {'name': 'Jordanie', 'code': '+962', 'flag': '🇯🇴'},
     {'name': 'Turquie', 'code': '+90', 'flag': '🇹🇷'},
+    {'name': 'Iran', 'code': '+98', 'flag': '🇮🇷'},
+    {'name': 'Afghanistan', 'code': '+93', 'flag': '🇦🇫'},
+
+    // Asie
     {'name': 'Japon', 'code': '+81', 'flag': '🇯🇵'},
     {'name': 'Chine', 'code': '+86', 'flag': '🇨🇳'},
     {'name': 'Inde', 'code': '+91', 'flag': '🇮🇳'},
-    {'name': 'Brésil', 'code': '+55', 'flag': '🇧🇷'},
-    {'name': 'Argentine', 'code': '+54', 'flag': '🇦🇷'},
+    {'name': 'Thaïlande', 'code': '+66', 'flag': '🇹🇭'},
+    {'name': 'Vietnam', 'code': '+84', 'flag': '🇻🇳'},
+    {'name': 'Philippines', 'code': '+63', 'flag': '🇵🇭'},
+    {'name': 'Indonésie', 'code': '+62', 'flag': '🇮🇩'},
+    {'name': 'Malaisie', 'code': '+60', 'flag': '🇲🇾'},
+    {'name': 'Singapour', 'code': '+65', 'flag': '🇸🇬'},
+    {'name': 'Cambodge', 'code': '+855', 'flag': '🇰🇭'},
+    {'name': 'Laos', 'code': '+856', 'flag': '🇱🇦'},
+    {'name': 'Myanmar', 'code': '+95', 'flag': '🇲🇲'},
+    {'name': 'Bangladesh', 'code': '+880', 'flag': '🇧🇩'},
+    {'name': 'Pakistan', 'code': '+92', 'flag': '🇵🇰'},
+    {'name': 'Sri Lanka', 'code': '+94', 'flag': '🇱🇰'},
+    {'name': 'Népal', 'code': '+977', 'flag': '🇳🇵'},
+    {'name': 'Corée du Sud', 'code': '+82', 'flag': '🇰🇷'},
+    {'name': 'Corée du Nord', 'code': '+850', 'flag': '🇰🇵'},
+    {'name': 'Taïwan', 'code': '+886', 'flag': '🇹🇼'},
+    {'name': 'Hong Kong', 'code': '+852', 'flag': '🇭🇰'},
+    {'name': 'Macao', 'code': '+853', 'flag': '🇲🇴'},
+    {'name': 'Mongolie', 'code': '+976', 'flag': '🇲🇳'},
+    {'name': 'Kazakhstan', 'code': '+7', 'flag': '🇰🇿'},
+    {'name': 'Ouzbékistan', 'code': '+998', 'flag': '🇺🇿'},
+    {'name': 'Turkménistan', 'code': '+993', 'flag': '🇹🇲'},
+    {'name': 'Tadjikistan', 'code': '+992', 'flag': '🇹🇯'},
+    {'name': 'Kirghizistan', 'code': '+996', 'flag': '🇰🇬'},
+
+    // Amérique du Nord
+    {'name': 'États-Unis', 'code': '+1', 'flag': '🇺🇸'},
+    {'name': 'Canada', 'code': '+1', 'flag': '🇨🇦'},
     {'name': 'Mexique', 'code': '+52', 'flag': '🇲🇽'},
+
+    // Amérique Centrale et Caraïbes
+    {'name': 'Guatemala', 'code': '+502', 'flag': '🇬🇹'},
+    {'name': 'Honduras', 'code': '+504', 'flag': '🇭🇳'},
+    {'name': 'El Salvador', 'code': '+503', 'flag': '🇸🇻'},
+    {'name': 'Nicaragua', 'code': '+505', 'flag': '🇳🇮'},
+    {'name': 'Costa Rica', 'code': '+506', 'flag': '🇨🇷'},
+    {'name': 'Panama', 'code': '+507', 'flag': '🇵🇦'},
+    {'name': 'Cuba', 'code': '+53', 'flag': '🇨🇺'},
+    {'name': 'République Dominicaine', 'code': '+1', 'flag': '🇩🇴'},
+    {'name': 'Jamaïque', 'code': '+1', 'flag': '🇯🇲'},
+    {'name': 'Haïti', 'code': '+509', 'flag': '🇭🇹'},
+    {'name': 'Trinité-et-Tobago', 'code': '+1', 'flag': '🇹🇹'},
+
+    // Amérique du Sud
+    {'name': 'Colombie', 'code': '+57', 'flag': '🇨🇴'},
+    {'name': 'Venezuela', 'code': '+58', 'flag': '🇻🇪'},
+    {'name': 'Équateur', 'code': '+593', 'flag': '🇪🇨'},
+    {'name': 'Pérou', 'code': '+51', 'flag': '🇵🇪'},
+    {'name': 'Bolivie', 'code': '+591', 'flag': '🇧🇴'},
+    {'name': 'Brésil', 'code': '+55', 'flag': '🇧🇷'},
+    {'name': 'Paraguay', 'code': '+595', 'flag': '🇵🇾'},
+    {'name': 'Chili', 'code': '+56', 'flag': '🇨🇱'},
+    {'name': 'Argentine', 'code': '+54', 'flag': '🇦🇷'},
+    {'name': 'Uruguay', 'code': '+598', 'flag': '🇺🇾'},
+    {'name': 'Guyane', 'code': '+592', 'flag': '🇬🇾'},
+    {'name': 'Suriname', 'code': '+597', 'flag': '🇸🇷'},
+
+    // Afrique
+    {'name': 'Nigeria', 'code': '+234', 'flag': '🇳🇬'},
+    {'name': 'Ghana', 'code': '+233', 'flag': '🇬🇭'},
+    {'name': 'Côte d\'Ivoire', 'code': '+225', 'flag': '🇨🇮'},
+    {'name': 'Cameroun', 'code': '+237', 'flag': '🇨🇲'},
+    {'name': 'Afrique du Sud', 'code': '+27', 'flag': '🇿🇦'},
+    {'name': 'Kenya', 'code': '+254', 'flag': '🇰🇪'},
+    {'name': 'Tanzanie', 'code': '+255', 'flag': '🇹🇿'},
+    {'name': 'Ouganda', 'code': '+256', 'flag': '🇺🇬'},
+    {'name': 'Éthiopie', 'code': '+251', 'flag': '🇪🇹'},
+    {'name': 'Soudan', 'code': '+249', 'flag': '🇸🇩'},
+    {'name': 'Maroc', 'code': '+212', 'flag': '🇲🇦'},
+    {'name': 'Sénégal', 'code': '+221', 'flag': '🇸🇳'},
+    {'name': 'Mali', 'code': '+223', 'flag': '🇲🇱'},
+    {'name': 'Mauritanie', 'code': '+222', 'flag': '🇲🇷'},
+    {'name': 'Guinée', 'code': '+224', 'flag': '🇬🇳'},
+    {'name': 'Gabon', 'code': '+241', 'flag': '🇬🇦'},
+    {'name': 'Angola', 'code': '+244', 'flag': '🇦🇴'},
+    {'name': 'Mozambique', 'code': '+258', 'flag': '🇲🇿'},
+    {'name': 'Zambie', 'code': '+260', 'flag': '🇿🇲'},
+    {'name': 'Zimbabwe', 'code': '+263', 'flag': '🇿🇼'},
+    {'name': 'Botswana', 'code': '+267', 'flag': '🇧🇼'},
+    {'name': 'Namibie', 'code': '+264', 'flag': '🇳🇦'},
+    {'name': 'Mauritius', 'code': '+230', 'flag': '🇲🇺'},
+    {'name': 'Seychelles', 'code': '+248', 'flag': '🇸🇨'},
+
+    // Océanie
     {'name': 'Australie', 'code': '+61', 'flag': '🇦🇺'},
+    {'name': 'Nouvelle-Zélande', 'code': '+64', 'flag': '🇳🇿'},
+    {'name': 'Fidji', 'code': '+679', 'flag': '🇫🇯'},
+    {'name': 'Polynésie Française', 'code': '+689', 'flag': '🇵🇫'},
+    {'name': 'Papouasie-Nouvelle-Guinée', 'code': '+675', 'flag': '🇵🇬'},
   ];
 
-  String? _selectedCountryCode = '+216'; // Tunisie par défaut
+  late List<Map<String, String>> _filteredCountries;
+  String? _selectedCountryCode = '+216';
   String _selectedCountryName = 'Tunisie';
   String _selectedCountryFlag = '🇹🇳';
-
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredCountries = List.from(_countries);
+  }
 
   @override
   void dispose() {
@@ -68,7 +194,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
@@ -123,15 +248,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           CircleAvatar(
                             radius: isDesktop ? 80 : isTablet ? 70 : 60,
                             backgroundColor: Colors.deepPurple[100],
-                            backgroundImage: _profileImage != null 
+                            backgroundImage: _profileImage != null
                                 ? FileImage(_profileImage!) as ImageProvider
                                 : null,
                             child: _profileImage == null
                                 ? Icon(
-                                    Icons.person,
-                                    size: isDesktop ? 80 : isTablet ? 70 : 60,
-                                    color: Colors.deepPurple,
-                                  )
+                              Icons.person,
+                              size: isDesktop ? 80 : isTablet ? 70 : 60,
+                              color: Colors.deepPurple,
+                            )
                                 : null,
                           ),
                           Positioned(
@@ -145,7 +270,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 decoration: BoxDecoration(
                                   color: Colors.deepPurple,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 3),
+                                  border:
+                                  Border.all(color: Colors.white, width: 3),
                                 ),
                                 child: Icon(
                                   Icons.camera_alt,
@@ -169,7 +295,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ],
                   ),
                 ),
-
                 SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
 
                 // Informations de base
@@ -211,7 +336,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                   ],
                 ),
-
                 SizedBox(height: isDesktop ? 20 : isTablet ? 16 : 12),
 
                 _buildTextField(
@@ -225,17 +349,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     if (value == null || value.isEmpty) {
                       return 'L\'email est requis';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value)) {
                       return 'Veuillez entrer un email valide';
                     }
                     return null;
                   },
                 ),
-
                 SizedBox(height: isDesktop ? 20 : isTablet ? 16 : 12),
 
                 _buildPhoneField(isDesktop, isTablet),
-
                 SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
 
                 // Bouton d'enregistrement
@@ -246,19 +369,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     onPressed: _isLoading ? null : _saveProfile,
                     icon: _isLoading
                         ? SizedBox(
-                            width: isDesktop ? 24 : isTablet ? 20 : 16,
-                            height: isDesktop ? 24 : isTablet ? 20 : 16,
-                            child: const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                      width: isDesktop ? 24 : isTablet ? 20 : 16,
+                      height: isDesktop ? 24 : isTablet ? 20 : 16,
+                      child: const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                         : Icon(
-                            Icons.save,
-                            size: isDesktop ? 24 : isTablet ? 20 : 16,
-                          ),
+                      Icons.save,
+                      size: isDesktop ? 24 : isTablet ? 20 : 16,
+                    ),
                     label: Text(
-                      _isLoading ? 'Enregistrement...' : 'Enregistrer les modifications',
+                      _isLoading
+                          ? 'Enregistrement...'
+                          : 'Enregistrer les modifications',
                       style: TextStyle(
                         fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                         fontWeight: FontWeight.w600,
@@ -276,7 +401,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                   ),
                 ),
-
                 SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
               ],
             ),
@@ -298,15 +422,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildTextField(
-    String label,
-    TextEditingController controller,
-    IconData icon,
-    bool isDesktop,
-    bool isTablet, {
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
-  }) {
+      String label,
+      TextEditingController controller,
+      IconData icon,
+      bool isDesktop,
+      bool isTablet, {
+        TextInputType? keyboardType,
+        List<TextInputFormatter>? inputFormatters,
+        String? Function(String?)? validator,
+      }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -369,117 +493,98 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
       child: Row(
         children: [
-          // Liste déroulante des pays
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isDesktop ? 12 : isTablet ? 10 : 8,
-              vertical: isDesktop ? 16 : isTablet ? 14 : 12,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-              ),
-              border: Border(
-                right: BorderSide(
-                  color: Colors.grey[300]!,
-                  width: 1,
+          // Sélecteur de pays
+          Expanded(
+            flex: 2,
+            child: GestureDetector(
+              onTap: () => _showCountryDialog(),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 12 : isTablet ? 10 : 8,
+                  vertical: isDesktop ? 16 : isTablet ? 14 : 12,
                 ),
-              ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCountryCode,
-                isDense: true,
-                style: TextStyle(
-                  fontSize: isDesktop ? 14 : isTablet ? 12 : 11,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w500,
-                ),
-                items: _countries.map((country) {
-                  return DropdownMenuItem<String>(
-                    value: country['code'],
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          country['flag']!,
-                          style: TextStyle(
-                            fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
-                          ),
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          country['code']!,
-                          style: TextStyle(
-                            fontSize: isDesktop ? 14 : isTablet ? 12 : 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                      ],
+                child: Row(
+                  children: [
+                    Text(
+                      _selectedCountryFlag,
+                      style: const TextStyle(fontSize: 24),
                     ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _selectedCountryCode = newValue;
-                      final selectedCountry = _countries.firstWhere(
-                        (country) => country['code'] == newValue,
-                      );
-                      _selectedCountryName = selectedCountry['name']!;
-                      _selectedCountryFlag = selectedCountry['flag']!;
-                    });
-                  }
-                },
+                    SizedBox(width: isDesktop ? 12 : isTablet ? 10 : 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedCountryCode ?? '+216',
+                            style: TextStyle(
+                              fontSize: isDesktop ? 14 : isTablet ? 12 : 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.deepPurple,
+                            ),
+                          ),
+                          Text(
+                            _selectedCountryName,
+                            style: TextStyle(
+                              fontSize: isDesktop ? 12 : isTablet ? 10 : 9,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: Colors.deepPurple,
+                      size: isDesktop ? 24 : isTablet ? 22 : 20,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          
-          // Séparateur
-          Container(
+          VerticalDivider(
             width: 1,
-            height: isDesktop ? 24 : isTablet ? 20 : 16,
             color: Colors.grey[300],
           ),
-          
           // Champ téléphone
           Expanded(
+            flex: 3,
             child: TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
               style: TextStyle(
                 fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                 color: Colors.black87,
               ),
               decoration: InputDecoration(
-                labelText: 'Téléphone',
+                labelText: 'Numéro',
                 labelStyle: TextStyle(
                   color: Colors.grey[600],
                   fontSize: isDesktop ? 16 : isTablet ? 14 : 12,
                 ),
-                prefixIcon: Icon(
-                  Icons.phone,
-                  color: Colors.deepPurple,
-                  size: isDesktop ? 24 : isTablet ? 22 : 20,
-                ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 20 : isTablet ? 16 : 12,
+                  horizontal: isDesktop ? 16 : isTablet ? 14 : 12,
                   vertical: isDesktop ? 16 : isTablet ? 14 : 12,
                 ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Numéro requis';
+                }
+                if (value.length < 8) {
+                  return 'Numéro invalide';
+                }
+                return null;
+              },
             ),
           ),
         ],
@@ -496,7 +601,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _isLoading = true;
     });
 
-    // Simuler une sauvegarde
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
@@ -519,11 +623,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          margin: EdgeInsets.all(16),
+          margin: const EdgeInsets.all(16),
         ),
       );
 
-      // Retour à la page de profil
       Navigator.of(context).pop();
     }
   }
@@ -531,12 +634,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void _showImagePickerBottomSheet() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: Colors.white,
       builder: (context) => Container(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -548,7 +651,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               'Choisir une photo',
               style: TextStyle(
@@ -557,14 +660,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 color: Colors.black87,
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _imagePickerOption(
                   'Caméra',
                   Icons.camera_alt,
-                  () {
+                      () {
                     Navigator.pop(context);
                     _pickImageFromCamera();
                   },
@@ -572,14 +675,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 _imagePickerOption(
                   'Galerie',
                   Icons.photo_library,
-                  () {
+                      () {
                     Navigator.pop(context);
                     _pickImageFromGallery();
                   },
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -604,10 +707,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               size: 30,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
@@ -632,23 +735,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
       }
     } catch (e) {
-      print('Erreur caméra: $e'); // Debug
-      _showErrorSnackBar('Erreur lors de la capture de la photo: ${e.toString()}');
+      _showErrorSnackBar('Erreur lors de la capture de la photo');
     }
   }
 
   Future<void> _pickImageFromGallery() async {
     try {
-      // Vérifier si l'utilisateur a annulé la sélection
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
         maxWidth: 512,
         maxHeight: 512,
       );
-      
+
       if (image != null) {
-        // Vérifier que le fichier existe
         final file = File(image.path);
         if (await file.exists()) {
           setState(() {
@@ -658,14 +758,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _showErrorSnackBar('Le fichier sélectionné n\'existe pas');
         }
       }
-      // Si image est null, l'utilisateur a annulé (pas une erreur)
     } on PlatformException catch (e) {
-      print('PlatformException galerie: ${e.code} - ${e.message}');
       String message = 'Erreur lors de la sélection de la photo';
-      
+
       switch (e.code) {
         case 'photo_access_denied':
-          message = 'Accès à la galerie refusé. Veuillez autoriser l\'accès dans les paramètres.';
+          message =
+          'Accès à la galerie refusé. Veuillez autoriser l\'accès dans les paramètres.';
           break;
         case 'photo_access_unavailable':
           message = 'La galerie n\'est pas disponible sur cet appareil.';
@@ -678,8 +777,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
       _showErrorSnackBar(message);
     } catch (e) {
-      print('Erreur galerie: $e');
-      _showErrorSnackBar('Erreur inattendue: ${e.toString()}');
+      _showErrorSnackBar('Erreur inattendue');
     }
   }
 
@@ -688,13 +786,156 @@ class _EditProfilePageState extends State<EditProfilePage> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        margin: EdgeInsets.all(16),
+        margin: const EdgeInsets.all(16),
       ),
     );
+  }
+
+  void _showCountryDialog() {
+    // Réinitialiser la liste au complet quand le dialog s'ouvre
+    setState(() {
+      _filteredCountries = List.from(_countries);
+    });
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: MediaQuery.of(context).size.height * 0.8,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Header avec titre et bouton fermer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Sélectionner un pays',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                          color: Colors.grey[600],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Barre de recherche
+                    TextField(
+                      onChanged: (value) {
+                        setDialogState(() {
+                          _filterCountries(value);
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher un pays...',
+                        hintStyle: TextStyle(
+                          color: Colors.grey[500],
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Colors.grey[400],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.deepPurple,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Liste des pays
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _filteredCountries.length,
+                        itemBuilder: (context, index) {
+                          final country = _filteredCountries[index];
+                          return ListTile(
+                            leading: Text(
+                              country['flag']!,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            title: Text(
+                              country['name']!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            subtitle: Text(
+                              country['code']!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _selectedCountryCode = country['code'];
+                                _selectedCountryName = country['name']!;
+                                _selectedCountryFlag = country['flag']!;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _filterCountries(String query) {
+    if (query.isEmpty) {
+      _filteredCountries = List.from(_countries);
+    } else {
+      _filteredCountries = _countries
+          .where((country) {
+        return country['name']!
+            .toLowerCase()
+            .contains(query.toLowerCase()) ||
+            country['code']!.toLowerCase().contains(query.toLowerCase());
+      })
+          .toList();
+    }
   }
 }
