@@ -1,11 +1,10 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'dart:math';
 
-  class SplashScreen extends StatefulWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
   @override
@@ -13,14 +12,13 @@ import 'dart:math';
 }
 
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<Color?> _colorAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _pulseAnimation;
+  late AnimationController _mainController;
   late AnimationController _loadingController;
-  late Animation<double> _loadingAnimation;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoOpacity;
+  late Animation<double> _textOpacity;
+  late Animation<Offset> _textSlide;
+  late Animation<double> _progressAnimation;
 
   @override
   void initState() {
@@ -32,84 +30,73 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       ),
     );
 
-    _animationController = AnimationController(
+    // Contrôleur principal pour les animations d'introduction
+    _mainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1800),
     );
 
-    // Contrôleur pour l'animation de chargement
+    // Contrôleur pour la barre de progression
     _loadingController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 1),
     );
 
-    _loadingAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    // Animation du logo : apparition avec zoom subtil
+    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+      ),
+    );
+
+    _logoScale = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Animation du texte : déplacement fluide vers le haut avec apparition
+    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+      ),
+    );
+
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 0.25),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.3, 0.7, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Animation de la barre de progression
+    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _loadingController,
         curve: Curves.easeInOut,
       ),
     )..addStatusListener((status) {
-        // Redirection vers la page d'accueil une fois l'animation terminée
-        if (status == AnimationStatus.completed) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) {
           Navigator.of(context).pushReplacementNamed('/home');
         }
-      });
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.elasticOut),
-      ),
-    );
-
-    _colorAnimation = ColorTween(
-      begin: const Color(0xFF6C5CE7),
-      end: const Color(0xFF4A3BB4),
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.3, 0.8, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 1.0, curve: Curves.easeInOut),
-      )..addStatusListener((status) {
-          if (status == AnimationStatus.completed) {
-            _animationController.reverse();
-          } else if (status == AnimationStatus.dismissed) {
-            _animationController.forward();
-          }
-        }),
-    );
+      }
+    });
 
     // Démarrer les animations
-    _animationController.forward();
+    _mainController.forward();
     _loadingController.forward();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _mainController.dispose();
     _loadingController.dispose();
     super.dispose();
   }
@@ -117,221 +104,171 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          return Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _colorAnimation.value!,
-                  _colorAnimation.value!.withBlue((_colorAnimation.value!.blue * 0.8).toInt()),
-                ],
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Effet de particules subtil en arrière-plan
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: 0.1,
-                    child: CustomPaint(
-                      painter: _DotsPainter(
-                        animation: _animationController,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF6C5CE7),
+              Color(0xFF4A3BB4),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Contenu principal
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo avec animation de zoom et opacité
+                  FadeTransition(
+                    opacity: _logoOpacity,
+                    child: ScaleTransition(
+                      scale: _logoScale,
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 25,
+                              spreadRadius: 8,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(20),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo avec effet de pulsation
-                      ScaleTransition(
-                        scale: _pulseAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Container(
-                            width: 150,
-                            height: 150,
-                            decoration: BoxDecoration(
+
+                  const SizedBox(height: 50),
+
+                  // Texte et barre de progression
+                  SlideTransition(
+                    position: _textSlide,
+                    child: FadeTransition(
+                      opacity: _textOpacity,
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Chargement en cours',
+                            style: TextStyle(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(30),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(25),
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              fit: BoxFit.contain,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.8,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 28),
+                          _buildProgressBar(),
+                        ],
                       ),
-
-                      const SizedBox(height: 40),
-
-                      // Texte de chargement avec animation de défilement
-                      SlideTransition(
-                        position: _slideAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Chargement...',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w300,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // Barre de progression personnalisée avec animation fluide
-                              Container(
-                                width: 200,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                child: AnimatedBuilder(
-                                  animation: _loadingAnimation,
-                                  builder: (context, child) {
-                                    return Stack(
-                                      children: [
-                                        // Fond de la barre de progression
-                                        Container(
-                                          width: 200,
-                                          height: 4,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.3),
-                                            borderRadius: BorderRadius.circular(2),
-                                          ),
-                                        ),
-                                        // Barre de progression animée
-                                        AnimatedContainer(
-                                          duration: const Duration(milliseconds: 300),
-                                          width: 200 * _loadingAnimation.value,
-                                          height: 4,
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Colors.white,
-                                                Color(0xFFA5B4FC),
-                                              ],
-                                            ),
-                                            borderRadius: BorderRadius.circular(2),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.white.withOpacity(0.8),
-                                                blurRadius: 8,
-                                                spreadRadius: 1,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+
+            // Footer avec version et copyright
+            Positioned(
+              bottom: 35,
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _textOpacity,
+                child: const Column(
+                  children: [
+                    Text(
+                      'Version 1.0.0',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '© 2026 winzy. Tous droits réservés.',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ],
                 ),
-                
-                // Version et copyright en bas
-                Positioned(
-                  bottom: 30,
-                  left: 0,
-                  right: 0,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: const Column(
-                      children: [
-                        Text(
-                          'Version 1.0.0',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 17,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          ' 2026 winzy. Tous droits réservés.',
-                          style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 15,
-                          ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return AnimatedBuilder(
+      animation: _progressAnimation,
+      builder: (context, child) {
+        return Column(
+          children: [
+            Container(
+              width: 220,
+              height: 6,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Stack(
+                children: [
+                  // Barre de progression animée avec dégradé
+                  Container(
+                    width: 220 * _progressAnimation.value,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFFFFFFF),
+                          Color(0xFFC7D2FE),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.6),
+                          blurRadius: 10,
+                          spreadRadius: 1,
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        },
-      ),
+            const SizedBox(height: 16),
+            Text(
+              '${(_progressAnimation.value * 100).toStringAsFixed(0)}%',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
-}
-
-class _DotsPainter extends CustomPainter {
-  final Animation<double> animation;
-  final int dotCount = 50;
-  final List<Offset> dots = [];
-  final Random random = Random();
-
-  _DotsPainter({required this.animation}) : super(repaint: animation) {
-    // Initialiser les positions aléatoires des points
-    for (int i = 0; i < dotCount; i++) {
-      dots.add(Offset(
-        random.nextDouble(),
-        random.nextDouble(),
-      ));
-    }
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-
-    for (final dot in dots) {
-      final offset = Offset(
-        dot.dx * size.width,
-        dot.dy * size.height,
-      );
-      
-      // Animation de pulsation pour chaque point
-      final scale = 1.0 + 0.5 * math.sin(animation.value * 2 * math.pi + dot.dx * 10) * 0.5;
-      
-      canvas.save();
-      canvas.translate(offset.dx, offset.dy);
-      canvas.scale(scale);
-      canvas.drawCircle(Offset.zero, 1.5, paint);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

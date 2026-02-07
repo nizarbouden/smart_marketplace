@@ -8,6 +8,7 @@ import 'views/layout/main_layout.dart';
 import 'views/cart/cart_page_stateful.dart';
 import 'views/history/history_page.dart';
 import 'views/profile/profile_page.dart';
+import 'views/profile/edit_profile_page.dart';
 import 'views/notifications/notifications_page.dart';
 
 void main() {
@@ -39,6 +40,7 @@ class MyApp extends StatelessWidget {
         '/panier': (context) => const CartPageStateful(),
         '/historique': (context) => const HistoryPage(),
         '/profil': (context) => const ProfilePage(),
+        '/edit-profile': (context) => const EditProfilePage(),
         '/notifications': (context) => const NotificationsPage(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),

@@ -640,7 +640,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           Expanded(
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.of(context).size.width < 360 ? 12 : 16, 
+                  vertical: MediaQuery.of(context).size.width < 360 ? 1 : 2
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -697,14 +700,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               isActive ? activeIcon : icon,
               key: ValueKey(isActive),
               color: isActive ? Colors.deepPurple : Colors.grey[600],
-              size: 24,
+              size: MediaQuery.of(context).size.width < 360 ? 16 : 20,
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: MediaQuery.of(context).size.width < 360 ? 0.5 : 1),
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 200),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: MediaQuery.of(context).size.width < 360 ? 8 : 10,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
               color: isActive ? Colors.deepPurple : Colors.grey[600],
             ),

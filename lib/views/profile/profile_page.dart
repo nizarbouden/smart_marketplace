@@ -195,6 +195,8 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: () {
             if (title == 'Déconnexion') {
               _showLogoutDialog();
+            } else if (title == 'Informations personnelles') {
+              Navigator.pushNamed(context, '/edit-profile');
             } else {
               // TODO: Navigation pour autres options
             }
