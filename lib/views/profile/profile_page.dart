@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_marketplace/views/profile/address_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -197,6 +198,11 @@ class _ProfilePageState extends State<ProfilePage> {
               _showLogoutDialog();
             } else if (title == 'Informations personnelles') {
               Navigator.pushNamed(context, '/edit-profile');
+            } else if (title == 'Adresses') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddressPage()),
+              );
             } else {
               // TODO: Navigation pour autres options
             }
