@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
-import 'package:smart_marketplace/widgets/custom_text_field.dart';
-import 'package:smart_marketplace/views/profile/add_address_page.dart';
+import 'add_address_page.dart';
+import 'edit_address_page.dart';
 
 class AddressPage extends StatefulWidget {
   const AddressPage({super.key});
@@ -16,14 +16,31 @@ class _AddressPageState extends State<AddressPage> {
   List<Map<String, dynamic>> addresses = [
     {
       'id': 1,
-      'name': 'Nizar Bouden',
-      'phone': '+216 93489229',
+      'contactName': 'Nizar Bouden',
+      'phone': '93489229',
+      'countryCode': '+216',
+      'countryName': 'Tunisia',
+      'countryFlag': '🇹🇳',
       'street': 'Rue Taher Sfar Dar Chaabennabeul',
+      'complement': 'Appartement 3',
+      'province': 'Nabeul',
       'city': 'Nabeul',
-      'region': 'Dar chaaben',
-      'country': 'Tunisia',
       'postalCode': '8011',
       'isDefault': true,
+    },
+    {
+      'id': 2,
+      'contactName': 'Nizar Bouden',
+      'phone': '93489229',
+      'countryCode': '+216',
+      'countryName': 'Tunisia',
+      'countryFlag': '🇹🇳',
+      'street': 'Avenue Habib Bourguiba',
+      'complement': 'Bureau 2',
+      'province': 'Tunis',
+      'city': 'Tunis',
+      'postalCode': '1000',
+      'isDefault': false,
     },
   ];
 
@@ -147,7 +164,7 @@ class _AddressPageState extends State<AddressPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  address['name'] as String,
+                  address['contactName'] as String,
                   style: TextStyle(
                     fontSize: isDesktop ? 18 : isTablet ? 17 : 16,
                     fontWeight: FontWeight.bold,
@@ -156,7 +173,7 @@ class _AddressPageState extends State<AddressPage> {
                 ),
                 SizedBox(height: isMobile ? 4 : 8),
                 Text(
-                  address['phone'] as String,
+                  '${address['countryCode']} ${address['phone'] as String}',
                   style: TextStyle(
                     fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
                     color: Colors.grey[600],
@@ -182,9 +199,21 @@ class _AddressPageState extends State<AddressPage> {
                     height: 1.5,
                   ),
                 ),
+                if (address['complement'] != null && address['complement'].toString().isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: isMobile ? 4 : 8),
+                    child: Text(
+                      address['complement'] as String,
+                      style: TextStyle(
+                        fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
+                        color: Colors.black87,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
                 SizedBox(height: isMobile ? 4 : 8),
                 Text(
-                  '${address['city']}, ${address['region']}, ${address['country']}, ${address['postalCode']}',
+                  '${address['city']}, ${address['province']}, ${address['countryName']}, ${address['postalCode']}',
                   style: TextStyle(
                     fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
                     color: Colors.black87,
@@ -263,7 +292,15 @@ class _AddressPageState extends State<AddressPage> {
                     SizedBox(width: isMobile ? 8 : 12),
                     // Icône éditer avec animation
                     GestureDetector(
-                      onTap: () => Navigator.of(context).pushNamed('/edit-address', arguments: index),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EditAddressPage(
+                              addressData: addresses[index],
+                            ),
+                          ),
+                        );
+                      },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(8),

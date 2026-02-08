@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:smart_marketplace/views/profile/address_page.dart';
+import '../adress/address_page.dart';
+import '../notifications/notification_settings_page.dart';
+import '../security/security_settings_page.dart';
+import '../help/help_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -129,7 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _menuTile('Informations personnelles', Icons.person, isDesktop, isTablet),
                   _menuTile('Adresses', Icons.location_on, isDesktop, isTablet),
                   _menuTile('Moyens de paiement', Icons.credit_card, isDesktop, isTablet),
-                  _menuTile('Notifications', Icons.notifications, isDesktop, isTablet),
+                  _menuTile('Paramètres de notifications', Icons.notifications, isDesktop, isTablet),
                   _menuTile('Sécurité', Icons.security, isDesktop, isTablet),
                   _menuTile('Aide', Icons.help, isDesktop, isTablet),
                   _menuTile('Déconnexion', Icons.logout, isDesktop, isTablet, isLast: true),
@@ -202,6 +205,21 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddressPage()),
+              );
+            } else if (title == 'Paramètres de notifications') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationSettingsPage()),
+              );
+            } else if (title == 'Sécurité') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SecuritySettingsPage()),
+              );
+            } else if (title == 'Aide') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HelpPage()),
               );
             } else {
               // TODO: Navigation pour autres options

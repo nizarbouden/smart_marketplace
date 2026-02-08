@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import '../compte/profile/profile_page.dart';
 import '../home/home_page.dart';
 import '../cart/cart_page_stateful.dart';
 import '../history/history_page.dart';
-import '../profile/profile_page.dart';
 import '../notifications/notifications_page.dart';
 import '../../services/selection_service.dart';
 
