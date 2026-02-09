@@ -79,14 +79,19 @@ class AuthProvider with ChangeNotifier {
     required String password,
   }) async {
     try {
+      print('🔄 AuthProvider: Début de la connexion pour $email');
       _setLoading(true);
       _clearError();
       
+      print('🔄 AuthProvider: Appel de signInWithEmailAndPassword');
       _user = await _authService.signInWithEmailAndPassword(email, password);
+      print('🔄 AuthProvider: UserModel reçu: ${_user?.email}');
       
       notifyListeners();
+      print('✅ AuthProvider: Connexion réussie, retour true');
       return true;
     } catch (e) {
+      print('❌ AuthProvider: Erreur lors de la connexion: $e');
       _setError(e.toString());
       notifyListeners();
       return false;

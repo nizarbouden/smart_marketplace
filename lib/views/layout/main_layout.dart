@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../cart/cart_page.dart';
-import '../compte/profile/profile_page.dart';
+import '../compte/profile_page.dart';
 import '../home/home_page.dart';
 import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
 import '../payment/checkout_page.dart';
 import '../../services/selection_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -24,6 +25,177 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   
   // Service de sélection partagé
   final SelectionService _selectionService = SelectionService();
+  
+  // Instance Firebase Auth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // Vérifier si l'utilisateur est connecté
+  bool _isUserConnected() {
+    final user = _auth.currentUser;
+    print('🔄 MainLayout: Vérification connexion - Utilisateur: ${user?.email ?? 'null'}');
+    return user != null;
+  }
+  
+  // Afficher un message demandant la connexion
+  void _showLoginRequiredMessage() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF6366F1), // Indigo moderne
+                  const Color(0xFF8B5CF6), // Violet moderne
+                  const Color(0xFFA855F7), // Violet clair
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header avec icône animée
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.lock_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                
+                // Contenu blanc
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Connexion requise',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8700FF),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Vous devez être connecté pour accéder\nà cette fonctionnalité.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+                      
+                      // Boutons modernes
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: Color(0xFF6366F1),
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                ),
+                                child: const Text(
+                                  'Plus tard',
+                                  style: TextStyle(
+                                    color: Color(0xFF6366F1),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  Navigator.pushReplacementNamed(context, '/login');
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6366F1),
+                                  foregroundColor: Colors.white,
+                                  shadowColor: const Color(0xFF6366F1).withOpacity(0.3),
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: const FittedBox(
+                                  child: Text(
+                                    'Se connecter',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -75,19 +247,39 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onItemTapped(int index) {
-    _animationController.forward().then((_) {
+    print('🔄 MainLayout: Navigation demandée vers index $index');
+    print('🔄 MainLayout: Utilisateur connecté? ${_isUserConnected()}');
+    
+    // Vérifier si l'utilisateur est connecté pour les pages protégées
+    if (index == 0) {
+      // Home page - toujours accessible
+      print('✅ MainLayout: Navigation vers Home (toujours accessible)');
       setState(() {
         _currentIndex = index;
-        _showNotifications = false;
       });
-      _animationController.reverse();
-    });
+    } else {
+      // Pages protégées - vérifier la connexion
+      if (_isUserConnected()) {
+        print('✅ MainLayout: Utilisateur connecté, navigation autorisée vers index $index');
+        setState(() {
+          _currentIndex = index;
+        });
+      } else {
+        print('❌ MainLayout: Utilisateur non connecté, affichage dialogue connexion requise');
+        _showLoginRequiredMessage();
+      }
+    }
   }
 
   void _toggleNotifications() {
-    setState(() {
-      _showNotifications = !_showNotifications;
-    });
+    // Vérifier si l'utilisateur est connecté avant d'accéder aux notifications
+    if (_isUserConnected()) {
+      setState(() {
+        _showNotifications = !_showNotifications;
+      });
+    } else {
+      _showLoginRequiredMessage();
+    }
   }
 
   void _updateCartItemCount(int totalCount) {
@@ -684,7 +876,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 // Prix total avec flèche (uniquement si articles sélectionnés)
                 if (_selectedCartItems > 0)
                   GestureDetector(
-                    onTap: _toggleCartOverlay,
+                    onTap: () {
+                      // Vérifier si l'utilisateur est connecté
+                      if (_isUserConnected()) {
+                        _toggleCartOverlay();
+                      } else {
+                        _showLoginRequiredMessage();
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(

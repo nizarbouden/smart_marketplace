@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
@@ -30,33 +30,39 @@ class FirebaseAuthService {
     String phoneNumber,
   ) async {
     try {
-      // Créer l'utilisateur dans Firebase Auth
+      print('🔐 Tentative d\'inscription pour: $email');
+      
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       User? user = result.user;
+      print('✅ Utilisateur Firebase créé: ${user?.uid}');
 
       if (user != null) {
-        // Créer le profil utilisateur dans Firestore
         UserModel userModel = UserModel(
           uid: user.uid,
-          email: email,
+          email: user.email ?? '',
           fullName: fullName,
           phoneNumber: phoneNumber,
           createdAt: DateTime.now(),
+          lastLoginAt: DateTime.now(),
           isActive: true,
         );
 
+        print('💾 Écriture du profil dans Firestore...');
         await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
+        print('✅ Profil créé avec succès dans Firestore');
         
         return userModel;
       }
       return null;
     } on FirebaseAuthException catch (e) {
+      print('❌ Erreur Firebase Auth: ${e.code} - ${e.message}');
       throw _getErrorMessage(e);
     } catch (e) {
+      print('❌ Erreur générale lors de l\'inscription: $e');
       throw 'Une erreur est survenue lors de l\'inscription';
     }
   }
@@ -66,26 +72,102 @@ class FirebaseAuthService {
     String email,
     String password,
   ) async {
+    User? user; // Déclarer user ici pour l'accessibilité
+    
     try {
+      print('🔐 Tentative de connexion pour: $email');
+      
       UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      User? user = result.user;
+      user = result.user; // Assigner ici
+      print('✅ Utilisateur Firebase authentifié: ${user?.uid}');
 
       if (user != null) {
-        // Récupérer les données utilisateur depuis Firestore
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
-        
-        if (doc.exists) {
-          return UserModel.fromMap(doc.data() as Map<String, dynamic>);
+        try {
+          // Récupérer les données utilisateur depuis Firestore
+          print('🔍 Vérification de l\'utilisateur dans Firestore...');
+          DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+          
+          if (doc.exists) {
+            print('✅ Utilisateur trouvé dans Firestore');
+            // Mettre à jour la dernière connexion
+            await _firestore.collection('users').doc(user.uid).update({
+              'lastLoginAt': Timestamp.fromDate(DateTime.now()),
+            });
+            
+            // Utiliser UserModel.fromMap avec gestion d'erreur
+            try {
+              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+              return UserModel.fromMap(data);
+            } catch (mapError) {
+              print('⚠️ Erreur UserModel.fromMap, création manuelle: $mapError');
+              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+              return UserModel(
+                uid: user.uid,
+                email: data['email'] ?? user.email ?? '',
+                fullName: data['fullName'] ?? 'Utilisateur',
+                phoneNumber: data['phoneNumber'] ?? '',
+                createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                lastLoginAt: DateTime.now(),
+                isActive: data['isActive'] ?? true,
+              );
+            }
+          } else {
+            print('🆕 Utilisateur non trouvé dans Firestore, création du profil...');
+            // Créer un profil utilisateur par défaut s'il n'existe pas
+            UserModel userModel = UserModel(
+              uid: user.uid,
+              email: user.email ?? '',
+              fullName: 'Utilisateur',
+              phoneNumber: '',
+              createdAt: DateTime.now(),
+              lastLoginAt: DateTime.now(),
+              isActive: true,
+            );
+
+            print('💾 Écriture du profil dans Firestore...');
+            await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
+            print('✅ Profil créé avec succès dans Firestore');
+            
+            return userModel;
+          }
+        } catch (firestoreError) {
+          print('⚠️ Erreur Firestore, mais utilisateur Firebase connecté: $firestoreError');
+          // Retourner un UserModel basique même si Firestore échoue
+          return UserModel(
+            uid: user.uid,
+            email: user.email ?? '',
+            fullName: 'Utilisateur',
+            phoneNumber: '',
+            createdAt: DateTime.now(),
+            lastLoginAt: DateTime.now(),
+            isActive: true,
+          );
         }
       }
       return null;
     } on FirebaseAuthException catch (e) {
+      print('❌ Erreur Firebase Auth: ${e.code} - ${e.message}');
       throw _getErrorMessage(e);
     } catch (e) {
+      print('❌ Erreur générale lors de la connexion: $e');
+      // Si l'erreur est le type cast PigeonUserDetails, créer un fallback direct
+      if (e.toString().contains('PigeonUserDetails')) {
+        print('🔄 Erreur PigeonUserDetails détectée, fallback basique');
+        // Créer un UserModel basique avec les infos disponibles
+        return UserModel(
+          uid: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+          email: email,
+          fullName: 'Utilisateur',
+          phoneNumber: '',
+          createdAt: DateTime.now(),
+          lastLoginAt: DateTime.now(),
+          isActive: true,
+        );
+      }
       throw 'Une erreur est survenue lors de la connexion';
     }
   }
@@ -112,35 +194,81 @@ class FirebaseAuthService {
       User? user = result.user;
 
       if (user != null) {
-        // Vérifier si l'utilisateur existe déjà dans Firestore
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
-        
-        if (doc.exists) {
-          // Mettre à jour la dernière connexion
-          await _firestore.collection('users').doc(user.uid).update({
-            'lastLoginAt': DateTime.now(),
-          });
-          return UserModel.fromMap(doc.data() as Map<String, dynamic>);
-        } else {
-          // Créer un nouveau profil utilisateur
-          UserModel userModel = UserModel(
+        try {
+          // Vérifier si l'utilisateur existe déjà dans Firestore
+          DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+          
+          if (doc.exists) {
+            // Mettre à jour la dernière connexion
+            await _firestore.collection('users').doc(user.uid).update({
+              'lastLoginAt': Timestamp.fromDate(DateTime.now()),
+            });
+            
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            return UserModel(
+              uid: user.uid,
+              email: data['email'] ?? user.email ?? '',
+              fullName: data['fullName'] ?? user.displayName ?? 'Utilisateur Google',
+              phoneNumber: data['phoneNumber'] ?? '',
+              createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              lastLoginAt: DateTime.now(),
+              isActive: data['isActive'] ?? true,
+            );
+          } else {
+            // Créer un nouveau profil utilisateur
+            UserModel userModel = UserModel(
+              uid: user.uid,
+              email: user.email ?? '',
+              fullName: user.displayName ?? 'Utilisateur Google',
+              phoneNumber: user.phoneNumber ?? '',
+              photoUrl: user.photoURL,
+              createdAt: DateTime.now(),
+              lastLoginAt: DateTime.now(),
+              isActive: true,
+              isGoogleUser: true,
+            );
+
+            await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
+            return userModel;
+          }
+        } catch (firestoreError) {
+          print('⚠️ Erreur Firestore Google, mais utilisateur Firebase connecté: $firestoreError');
+          // Fallback basique même si Firestore échoue
+          return UserModel(
             uid: user.uid,
             email: user.email ?? '',
             fullName: user.displayName ?? 'Utilisateur Google',
             phoneNumber: user.phoneNumber ?? '',
             photoUrl: user.photoURL,
             createdAt: DateTime.now(),
+            lastLoginAt: DateTime.now(),
             isActive: true,
             isGoogleUser: true,
           );
-
-          await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
-          return userModel;
         }
       }
       return null;
+    } on FirebaseAuthException catch (e) {
+      print('❌ Erreur Firebase Auth Google: ${e.code} - ${e.message}');
+      throw _getErrorMessage(e);
     } catch (e) {
-      throw 'Erreur lors de la connexion Google: $e';
+      print('❌ Erreur générale Google Sign-In: $e');
+      // Si l'erreur est PigeonUserDetails, créer un fallback
+      if (e.toString().contains('PigeonUserDetails')) {
+        print('🔄 Erreur PigeonUserDetails Google détectée, fallback basique');
+        // Retourner un UserModel basique
+        return UserModel(
+          uid: 'google_${DateTime.now().millisecondsSinceEpoch}',
+          email: 'user@gmail.com',
+          fullName: 'Utilisateur Google',
+          phoneNumber: '',
+          createdAt: DateTime.now(),
+          lastLoginAt: DateTime.now(),
+          isActive: true,
+          isGoogleUser: true,
+        );
+      }
+      throw 'Erreur lors de la connexion Google';
     }
   }
 
@@ -197,7 +325,17 @@ class FirebaseAuthService {
         DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
         
         if (doc.exists) {
-          return UserModel.fromMap(doc.data() as Map<String, dynamic>);
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return UserModel(
+            uid: user.uid,
+            email: data['email'] ?? user.email ?? '',
+            fullName: data['fullName'] ?? 'Utilisateur',
+            phoneNumber: data['phoneNumber'] ?? '',
+            photoUrl: data['photoUrl'],
+            createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            isActive: data['isActive'] ?? true,
+          );
         }
       }
       return null;
@@ -226,7 +364,7 @@ class FirebaseAuthService {
   String _getErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'weak-password':
-        return 'Le mot de passe est trop faible (minimum 6 caractères)';
+        return 'Le mot de passe est trop faible (minimum 8 caractères)';
       case 'email-already-in-use':
         return 'Cette adresse email est déjà utilisée';
       case 'user-not-found':

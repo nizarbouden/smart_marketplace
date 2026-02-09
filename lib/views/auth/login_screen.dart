@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -331,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Image.asset(
-                                  'assets/images/google_logo.png',
+                                  'assets/icons/google-icon.png',
                                   height: 24,
                                   width: 24,
                                   errorBuilder: (context, error, stackTrace) {
@@ -352,6 +353,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+
+                        // Bouton Continuer comme visiteur
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () async {
+                              // Forcer la déconnexion complète avant de continuer comme visiteur
+                              try {
+                                await FirebaseAuth.instance.signOut();
+                                print('✅ LoginScreen: Déconnexion forcée réussie');
+                              } catch (e) {
+                                print('⚠️ LoginScreen: Erreur lors de la déconnexion: $e');
+                              }
+                              
+                              // Naviguer vers l'accueil
+                              Navigator.pushReplacementNamed(context, '/home');
+                            },
+                            child: const Text(
+                              'Continuer comme visiteur',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFF8700FF),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -433,23 +461,23 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
+    print('🔄 LoginScreen: Appel de authProvider.signIn');
     bool success = await authProvider.signIn(
       email: _email.trim(),
       password: _password,
     );
+    print('🔄 LoginScreen: Résultat de signIn: $success');
 
     setState(() {
       _isLoading = false;
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connexion réussie !'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      print('✅ LoginScreen: Connexion réussie, navigation vers /home');
       Navigator.pushReplacementNamed(context, '/home');
+      print('✅ LoginScreen: Navigation vers /home effectuée');
+    } else {
+      print('❌ LoginScreen: Connexion échouée');
     }
   }
 
@@ -467,13 +495,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connexion Google réussie !'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      print('✅ LoginScreen: Connexion Google réussie, navigation vers /home');
       Navigator.pushReplacementNamed(context, '/home');
+      print('✅ LoginScreen: Navigation vers /home effectuée');
+    } else {
+      print('❌ LoginScreen: Connexion Google échouée');
     }
   }
 }

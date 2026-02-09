@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../adress/address_page.dart';
-import '../notifications/notification_settings_page.dart';
-import '../security/security_settings_page.dart';
-import '../help/help_page.dart';
-import '../payment/payment_methods_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'adress/address_page.dart';
+import 'notifications/notification_settings_page.dart';
+import 'security/security_settings_page.dart';
+import 'help/help_page.dart';
+import 'payment/payment_methods_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -365,9 +366,22 @@ class _ProfilePageState extends State<ProfilePage> {
                             child: Container(
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  Navigator.pushReplacementNamed(context, '/login');
+                                onPressed: () async {
+                                  try {
+                                    // Forcer la déconnexion réelle
+                                    await FirebaseAuth.instance.signOut();
+                                    print('✅ ProfilePage: Déconnexion réussie');
+                                    
+                                    // Fermer le dialogue et naviguer vers login
+                                    Navigator.of(context).pop();
+                                    Navigator.pushReplacementNamed(context, '/login');
+                                  } catch (e) {
+                                    print('⚠️ ProfilePage: Erreur lors de la déconnexion: $e');
+                                    
+                                    // Même en cas d'erreur, essayer de naviguer
+                                    Navigator.of(context).pop();
+                                    Navigator.pushReplacementNamed(context, '/login');
+                                  }
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF6366F1),

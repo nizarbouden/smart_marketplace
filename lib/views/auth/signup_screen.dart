@@ -363,7 +363,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Image.asset(
-                                  'assets/images/google_logo.png',
+                                  'assets/icons/google-icon.png',
                                   height: 24,
                                   width: 24,
                                   errorBuilder: (context, error, stackTrace) {
@@ -487,13 +487,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Compte créé avec succès !'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      print('✅ SignUpScreen: Compte créé avec succès, navigation vers /home');
       Navigator.pushReplacementNamed(context, '/home');
+      print('✅ SignUpScreen: Navigation vers /home effectuée');
+    } else {
+      print('❌ SignUpScreen: Échec de la création du compte');
     }
   }
 
@@ -511,13 +509,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connexion Google réussie !'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      print('✅ SignUpScreen: Connexion Google réussie, navigation vers /home');
       Navigator.pushReplacementNamed(context, '/home');
+      print('✅ SignUpScreen: Navigation vers /home effectuée');
+    } else {
+      print('❌ SignUpScreen: Échec de la connexion Google');
     }
   }
 
@@ -540,7 +536,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Bienvenue sur Smart Marketplace !\n\n',
+                  'Bienvenue sur Winzy !\n\n',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const Text(
@@ -556,7 +552,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Text(
-                  '• Smart Marketplace est une plateforme de mise en relation entre acheteurs et vendeurs.\n'
+                  '• Winzy est une plateforme de mise en relation entre acheteurs et vendeurs.\n'
                   '• Vous devez fournir des informations exactes et véridiques.\n'
                   '• Vous êtes responsable de la sécurité de votre compte.\n'
                   '• Toute activité frauduleuse entraînera la suspension immédiate de votre compte.\n\n',
@@ -570,7 +566,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   '• Les vendeurs doivent décrire précisément leurs produits.\n'
                   '• Les prix affichés doivent être fermes et non négociables sur la plateforme.\n'
                   '• Les vendeurs sont responsables de la livraison des produits vendus.\n'
-                  '• Smart Marketplace n\'est pas responsable des transactions entre vendeurs et acheteurs.\n\n',
+                  '• Winzy n\'est pas responsable des transactions entre vendeurs et acheteurs.\n\n',
                   style: TextStyle(fontSize: 13),
                 ),
                 const Text(
@@ -589,7 +585,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const Text(
                   '• Tout contenu publié sur la plateforme reste la propriété de son auteur.\n'
-                  '• Smart Marketplace dispose d\'une licence d\'utilisation pour afficher ce contenu.\n'
+                  '• Winzy dispose d\'une licence d\'utilisation pour afficher ce contenu.\n'
                   '• Toute copie ou utilisation non autorisée est strictement interdite.\n\n',
                   style: TextStyle(fontSize: 13),
                 ),
@@ -608,7 +604,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Text(
-                  '• Smart Marketplace se réserve le droit de modifier ces conditions à tout moment.\n'
+                  '• Winzy se réserve le droit de modifier ces conditions à tout moment.\n'
                   '• Les modifications seront notifiées aux utilisateurs par email ou via l\'application.\n'
                   '• La poursuite de l\'utilisation de l\'application vaut acceptation des nouvelles conditions.\n\n',
                   style: TextStyle(fontSize: 13),
@@ -628,7 +624,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Text(
-                  '• Smart Marketplace agit comme intermédiaire et ne peut être tenue responsable des dommages directs ou indirects.\n'
+                  '• Winzy agit comme intermédiaire et ne peut être tenue responsable des dommages directs ou indirects.\n'
                   '• Notre responsabilité est limitée au montant des commissions perçues.\n'
                   '• Nous ne garantissons pas la qualité des produits vendus par les tiers.\n\n',
                   style: TextStyle(fontSize: 13),
@@ -636,13 +632,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const Text(
                   '10. Contact et Support\n',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Pour toute question, contactez notre support client.\n'
-                  '• Email : support@smartmarketplace.com\n'
-                  '• Téléphone : +33 1 234 567 890\n'
-                  '• Horaires : Lun-Ven 9h-18h\n\n',
-                  style: TextStyle(fontSize: 13),
                 ),
                 Text(
                   'Dernière mise à jour : ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',

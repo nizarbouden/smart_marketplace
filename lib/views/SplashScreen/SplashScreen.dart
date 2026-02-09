@@ -1,7 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -38,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Contrôleur pour la barre de progression
     _loadingController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: const Duration(seconds: 5),
     );
 
     // Animation du logo : apparition avec zoom subtil
@@ -83,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     )..addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/home');
+          _checkAuthAndRedirect();
         }
       }
     });
@@ -91,6 +90,81 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Démarrer les animations
     _mainController.forward();
     _loadingController.forward();
+    
+    // Vérifier l'état de connexion après un court délai
+    _checkAuthAfterDelay();
+  }
+  
+  // Vérifier la connexion après un délai
+  void _checkAuthAfterDelay() async {
+    print('🔄 SplashScreen: Démarrage de la vérification de connexion...');
+    
+    // Attendre que Firebase soit initialisé
+    await Future.delayed(const Duration(seconds: 2));
+    
+    // Forcer la vérification de l'état actuel
+    if (mounted) {
+      await _forceAuthCheck();
+    }
+  }
+  
+  // Forcer la vérification de l'état d'authentification
+  Future<void> _forceAuthCheck() async {
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    
+    try {
+      // Forcer le rechargement de l'utilisateur
+      await auth.currentUser?.reload();
+      
+      // Attendre un peu pour que Firebase se stabilise
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Vérifier à nouveau
+      final user = auth.currentUser;
+      print('🔄 SplashScreen: Vérification après reload - Utilisateur: ${user?.email ?? 'null'}');
+      
+      // Vérification supplémentaire avec getIdToken
+      if (user != null) {
+        try {
+          final idToken = await user.getIdToken();
+          print('🔄 SplashScreen: Token valide: ${idToken?.isNotEmpty ?? false}');
+          
+          if (idToken != null && idToken.isNotEmpty) {
+            print('✅ SplashScreen: Utilisateur connecté avec token valide, redirection vers /home');
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+            return;
+          } else {
+            print('⚠️ SplashScreen: Token vide ou null, utilisateur invalide');
+          }
+        } catch (e) {
+          print('⚠️ SplashScreen: Erreur token: $e');
+        }
+      }
+      
+      // Si on arrive ici, l'utilisateur n'est pas valide
+      print('❌ SplashScreen: Utilisateur non valide ou déconnecté, redirection vers /login');
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+      
+    } catch (e) {
+      print('⚠️ SplashScreen: Erreur lors du reload: $e');
+      // En cas d'erreur, vérifier l'état actuel
+      final user = auth.currentUser;
+      if (user != null) {
+        print('⚠️ SplashScreen: Utilisateur détecté malgré l''erreur, redirection vers /home');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        print('❌ SplashScreen: Pas d''utilisateur, redirection vers /login');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      }
+    }
   }
 
   @override
@@ -269,5 +343,40 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         );
       },
     );
+  }
+
+  // Vérifier l'état de connexion et rediriger
+  void _checkAuthAndRedirect() async {
+    print('');
+    
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    
+    // Attendre un peu plus pour que Firebase s'initialise complètement
+    await Future.delayed(const Duration(seconds: 1));
+    
+    // Vérifier plusieurs fois pour être sûr
+    int attempts = 0;
+    while (attempts < 3) {
+      final user = auth.currentUser;
+      print('');
+      
+      if (user != null) {
+        print('');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+        return;
+      }
+      
+      attempts++;
+      if (attempts < 3) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+    }
+    
+    print('');
+    if (mounted) {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 }
