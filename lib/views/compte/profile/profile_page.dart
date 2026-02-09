@@ -3,6 +3,7 @@ import '../adress/address_page.dart';
 import '../notifications/notification_settings_page.dart';
 import '../security/security_settings_page.dart';
 import '../help/help_page.dart';
+import '../payment/payment_methods_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -220,6 +221,11 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const HelpPage()),
+              );
+            } else if (title == 'Moyens de paiement') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PaymentMethodsPage()),
               );
             } else {
               // TODO: Navigation pour autres options

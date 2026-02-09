@@ -8,10 +8,10 @@ import 'package:smart_marketplace/views/compte/profile/edit_profile_page.dart';
 import 'package:smart_marketplace/views/compte/profile/profile_page.dart';
 import 'package:smart_marketplace/views/compte/notifications/notification_settings_page.dart';
 import 'package:smart_marketplace/views/compte/adress/address_page.dart';
-import 'package:smart_marketplace/views/compte/adress/add_address_page.dart';
-import 'package:smart_marketplace/views/compte/help/help_page.dart';
+import 'package:smart_marketplace/views/compte/payment/payment_methods_page.dart';
+import 'package:smart_marketplace/views/payment/checkout_page.dart';
 import 'views/layout/main_layout.dart';
-import 'views/cart/cart_page_stateful.dart';
+import 'views/cart/cart_page.dart';
 import 'views/history/history_page.dart';
 import 'views/notifications/notifications_page.dart';
 
@@ -41,14 +41,15 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/home': (context) => const MainLayout(),
-        '/panier': (context) => const CartPageStateful(),
+        '/panier': (context) => const CartPage(),
+        '/paiement': (context) => const CheckoutPage(),
         '/historique': (context) => const HistoryPage(),
         '/profil': (context) => const ProfilePage(),
         '/edit-profile': (context) => const EditProfilePage(),
         '/notifications': (context) => const NotificationsPage(),
         '/notification-settings': (context) => const NotificationSettingsPage(),
         '/addresses': (context) => const AddressPage(),
-        '/help': (context) => const HelpPage(),
+        '/payment-methods': (context) => const PaymentMethodsPage(),
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),
         '/reset-password': (context) => const ResetPasswordScreen(),

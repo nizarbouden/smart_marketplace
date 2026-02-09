@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../cart/cart_page.dart';
 import '../compte/profile/profile_page.dart';
 import '../home/home_page.dart';
-import '../cart/cart_page_stateful.dart';
 import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
+import '../payment/checkout_page.dart';
 import '../../services/selection_service.dart';
 
 class MainLayout extends StatefulWidget {
@@ -15,7 +16,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   int _currentIndex = 0;
-  int _totalCartItems = 0;
+  int _totalCartItems = 5; // Initialiser avec 5 articles au démarrage
   int _selectedCartItems = 0;
   double _selectedTotal = 0.0;
   bool _showNotifications = false;
@@ -24,24 +25,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   // Service de sélection partagé
   final SelectionService _selectionService = SelectionService();
   
-  // Données des produits synchronisées avec la page panier
-  final List<Map<String, dynamic>> _cartProducts = [
-    {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
-    {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
-    {'id': '3', 'name': 'Produit C', 'price': 89.99, 'quantity': 1},
-    {'id': '4', 'name': 'Produit D', 'price': 39.99, 'quantity': 1},
-    {'id': '5', 'name': 'Produit E', 'price': 59.99, 'quantity': 2},
-  ];
-  
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
   final List<Widget> _pages = [
     const HomePage(),
-    CartPageStateful(
-      onTotalCartItemsChanged: (totalCount) {},
-      onCartSelectionChanged: (selectedCount, selectedTotal) {},
-    ),
+    const CartPage(),
     const HistoryPage(),
     const ProfilePage(),
   ];
@@ -49,6 +38,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -57,7 +47,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     
-    // Écouter les changements de sélection
+    // Écouter les changements de sélection du service partagé
     _selectionService.addListener(_onSelectionChanged);
   }
 
@@ -76,15 +66,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   // Méthode pour calculer les vrais totaux du panier
   Map<String, dynamic> _calculateRealTotals() {
-    if (_selectionService.isAllSelected) {
-      // Calculer le total réel de tous les produits
-      double total = 0.0;
-      int count = 0;
-      for (var product in _cartProducts) {
-        total += (product['price'] as double) * (product['quantity'] as int);
-        count += product['quantity'] as int;
-      }
-      return {'count': count, 'total': total};
+    // Utiliser les données de sélection réelles plutôt que le service global
+    if (_selectedCartItems > 0) {
+      return {'count': _selectedCartItems, 'total': _selectedTotal};
     } else {
       return {'count': 0, 'total': 0.0};
     }
@@ -109,6 +93,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   void _updateCartItemCount(int totalCount) {
     setState(() {
       _totalCartItems = totalCount;
+      
+      // Si le nombre d'articles devient 0, réinitialiser les sélections
+      if (_totalCartItems == 0) {
+        _selectedCartItems = 0;
+        _selectedTotal = 0.0;
+        _selectionService.setAllSelected(false);
+        _showCartOverlay = false;
+      }
     });
   }
 
@@ -200,10 +192,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       index: _currentIndex,
                       children: [
                         const HomePage(),
-                        CartPageStateful(
-                          onTotalCartItemsChanged: _updateCartItemCount,
-                          onCartSelectionChanged: _updateCartSelection,
-                        ),
+                        _totalCartItems == 0 
+                          ? _buildEmptyCart()
+                          : Builder(
+                              builder: (context) {
+                                return CartPage(
+                                  onTotalCartItemsChanged: _updateCartItemCount,
+                                  onCartSelectionChanged: _updateCartSelection,
+                                );
+                              },
+                            ),
                         const HistoryPage(),
                         const ProfilePage(),
                       ],
@@ -317,11 +315,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 12),
                       
-                      if (_calculateRealTotals()['count'] > 0)
+                      if (_selectedCartItems > 0)
                         Expanded(
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
-                            itemCount: _cartProducts.length, // Utiliser le vrai nombre de produits
+                            itemCount: _selectedCartItems, // Utiliser le vrai nombre d'articles sélectionnés
                             itemBuilder: (context, index) {
                               return _selectedItemCard(index);
                             },
@@ -353,11 +351,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                           ),
                           child: Column(
                             children: [
-                              _summaryRow('Sous-total', '${_calculateRealTotals()['total'].toStringAsFixed(2)} €'),
+                              _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
                               _summaryRow('Livraison', '5.99 €'),
                               _summaryRow(
                                 'Total',
-                                '${(_calculateRealTotals()['total'] + 5.99).toStringAsFixed(2)} €',
+                                '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
                                 isBold: true,
                                 isLarge: true,
                               ),
@@ -376,36 +374,152 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   Widget _selectedItemCard(int index) {
-    return Container(
-      width: 120,
-      height: 120, // Carré - juste pour la photo
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.image,
-            color: Colors.grey[400],
-            size: 40,
-          ),
+    // Récupérer les articles sélectionnés depuis CartPage
+    final selectedItems = <Map<String, dynamic>>[];
+    
+    // Pour l'instant, utiliser les données de test
+    // TODO: Récupérer les vraies données depuis CartPage
+    final testItems = [
+      {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
+      {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
+    ];
+    
+    if (index < testItems.length) {
+      final item = testItems[index];
+      return Container(
+        width: 80, // Réduit de 120 à 80
+        height: 80, // Réduit de 120 à 80 - carré plus petit
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Photo
+            Expanded(
+              flex: 3, // 3/4 de l'espace pour la photo
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  child: Icon(
+                    Icons.image,
+                    color: Colors.grey[400],
+                    size: 24, // Réduit de 40 à 24
+                  ),
+                ),
+              ),
+            ),
+            // Quantité
+            Expanded(
+              flex: 1, // 1/4 de l'espace pour la quantité
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                decoration: const BoxDecoration(
+                  color: Colors.deepPurple,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                ),
+                child: Center(
+                  child: Text(
+                    'x${item['quantity']}', // Affiche la quantité
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Container(); // Retourner un container vide si index hors limites
+  }
+
+  Widget _buildEmptyCart() {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icône du panier vide
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                color: Colors.deepPurple,
+                size: 60,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Message principal
+            const Text(
+              'Votre panier est vide',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Message secondaire
+            Text(
+              'Ajoutez des articles pour commencer vos achats',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            // Bouton pour aller aux courses
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 0; // Aller à la page Home
+                });
+              },
+              icon: const Icon(Icons.shopping_bag),
+              label: const Text('Commencer mes achats'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -555,7 +669,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 // Nombre d'articles sélectionnés
                 Expanded(
                   child: Text(
-                    '${_calculateRealTotals()['count']} article(s)',
+                    '$_selectedCartItems article(s)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -568,7 +682,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 const SizedBox(width: 12),
                 
                 // Prix total avec flèche (uniquement si articles sélectionnés)
-                if (_calculateRealTotals()['count'] > 0)
+                if (_selectedCartItems > 0)
                   GestureDetector(
                     onTap: _toggleCartOverlay,
                     child: Container(
@@ -581,8 +695,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${_calculateRealTotals()['total'].toStringAsFixed(2)} €',
-                            style: TextStyle(
+                            '${_selectedTotal.toStringAsFixed(2)} €',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Colors.deepPurple,
@@ -600,7 +714,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   )
                 else
                   Text(
-                    '${_selectedTotal.toStringAsFixed(2)} €',
+                    '0.00 €',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -613,7 +727,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 // Bouton paiement
                 ElevatedButton(
                   onPressed: _selectedCartItems > 0 ? () {
-                    // TODO: procéder au paiement
+                    Navigator.pushNamed(context, '/paiement');
                   } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _selectedCartItems > 0 ? Colors.deepPurple : Colors.grey[300],
