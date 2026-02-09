@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'package:smart_marketplace/views/auth/login_screen.dart';
 import 'package:smart_marketplace/views/auth/signup_screen.dart';
@@ -10,12 +12,16 @@ import 'package:smart_marketplace/views/compte/notifications/notification_settin
 import 'package:smart_marketplace/views/compte/adress/address_page.dart';
 import 'package:smart_marketplace/views/compte/payment/payment_methods_page.dart';
 import 'package:smart_marketplace/views/payment/checkout_page.dart';
-import 'views/layout/main_layout.dart';
-import 'views/cart/cart_page.dart';
-import 'views/history/history_page.dart';
-import 'views/notifications/notifications_page.dart';
+import 'package:smart_marketplace/views/layout/main_layout.dart';
+import 'package:smart_marketplace/views/cart/cart_page.dart';
+import 'package:smart_marketplace/views/history/history_page.dart';
+import 'package:smart_marketplace/views/notifications/notifications_page.dart';
+import 'package:smart_marketplace/config/firebase_config.dart';
+import 'package:smart_marketplace/providers/auth_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseConfig.initializeFirebase();
   runApp(const MyApp());
 }
 
@@ -24,37 +30,40 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'smart_marketplace',
+    return ChangeNotifierProvider(
+      create: (context) => AuthProvider(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'smart_marketplace',
 
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.deepPurple,
+          ),
+          useMaterial3: true,
         ),
-        useMaterial3: true,
+
+        // ✅ SplashScreen en premier
+        initialRoute: '/',
+
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/home': (context) => const MainLayout(),
+          '/panier': (context) => const CartPage(),
+          '/paiement': (context) => const CheckoutPage(),
+          '/historique': (context) => const HistoryPage(),
+          '/profil': (context) => const ProfilePage(),
+          '/edit-profile': (context) => const EditProfilePage(),
+          '/notifications': (context) => const NotificationsPage(),
+          '/notification-settings': (context) => const NotificationSettingsPage(),
+          '/addresses': (context) => const AddressPage(),
+          '/payment-methods': (context) => const PaymentMethodsPage(),
+          '/login': (context) => const LoginScreen(),
+          '/signup': (context) => const SignUpScreen(),
+          '/reset-password': (context) => const ResetPasswordScreen(),
+          '/forget-Password': (context) => const ForgetPasswordOtpScreen(),
+        },
       ),
-
-      // ✅ SplashScreen en premier
-      initialRoute: '/',
-
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/home': (context) => const MainLayout(),
-        '/panier': (context) => const CartPage(),
-        '/paiement': (context) => const CheckoutPage(),
-        '/historique': (context) => const HistoryPage(),
-        '/profil': (context) => const ProfilePage(),
-        '/edit-profile': (context) => const EditProfilePage(),
-        '/notifications': (context) => const NotificationsPage(),
-        '/notification-settings': (context) => const NotificationSettingsPage(),
-        '/addresses': (context) => const AddressPage(),
-        '/payment-methods': (context) => const PaymentMethodsPage(),
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignUpScreen(),
-        '/reset-password': (context) => const ResetPasswordScreen(),
-        '/forget-Password': (context) => const ForgetPasswordOtpScreen(),
-      },
     );
   }
 }

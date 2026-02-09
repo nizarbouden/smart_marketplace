@@ -9,7 +9,7 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   int _selectedPaymentMethod = 0; // 0: Carte, 1: PayPal, 2: Apple Pay
-  String _selectedAddress = '1 rue de la Paix, 75001 Paris';
+  final String _selectedAddress = '1 rue de la Paix, 75001 Paris';
   bool _isProcessing = false;
 
   final List<Map<String, dynamic>> _paymentMethods = [
@@ -280,7 +280,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

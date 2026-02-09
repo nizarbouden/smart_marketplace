@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -14,6 +16,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String _email = '';
   String _password = '';
   String _confirmPassword = '';
+  bool _isLoading = false;
+  bool _agreeToTerms = false;
 
   // Méthodes de validation
   bool _hasMinLength(String password) => password.length >= 8;
@@ -24,6 +28,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -165,7 +170,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                         
                         // Indicateurs de validation du mot de passe
-                        if (_password.isNotEmpty)
+                        if (_password.isNotEmpty && !_isPasswordValid(_password))
                           Container(
                             margin: const EdgeInsets.only(top: 8),
                             padding: const EdgeInsets.all(12),
@@ -173,9 +178,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               color: Colors.grey[50],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: _isPasswordValid(_password) 
-                                    ? Colors.green.withOpacity(0.3) 
-                                    : Colors.grey[300]!,
+                                color: Colors.grey[300]!,
                                 width: 1,
                               ),
                             ),
@@ -247,7 +250,62 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 20),
+
+                        // Checkbox conditions générales
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _agreeToTerms,
+                              onChanged: (value) {
+                                setState(() {
+                                  _agreeToTerms = value ?? false;
+                                });
+                              },
+                              activeColor: const Color(0xFF8700FF),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showTermsAndConditions();
+                                },
+                                child: const Text(
+                                  'J\'accepte les conditions générales d\'utilisation',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF8700FF),
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Message d'erreur
+                        if (authProvider.errorMessage != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              border: Border.all(color: Colors.red[200]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.red[600], size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    authProvider.errorMessage!,
+                                    style: TextStyle(color: Colors.red[600], fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
 
                         SizedBox(
                           width: double.infinity,
@@ -260,23 +318,68 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               elevation: 2,
                             ),
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Création du compte en cours...'),
-                                    backgroundColor: Color(0xFF8700FF),
+                            onPressed: (authProvider.isLoading || _isLoading) ? null : _handleSignUp,
+                            child: (authProvider.isLoading || _isLoading)
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Inscription en cours...'),
+                                    ],
+                                  )
+                                : const Text(
+                                    'S\'inscrire',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                );
-                              }
-                            },
-                            child: const Text(
-                              'S\'inscrire',
-                              style: TextStyle(
-                                color: Colors.white, 
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Bouton Google
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              side: const BorderSide(color: Colors.grey),
+                            ),
+                            onPressed: (authProvider.isLoading || _isLoading) ? null : _handleGoogleSignIn,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/images/google_logo.png',
+                                  height: 24,
+                                  width: 24,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.account_circle, size: 24);
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Continuer avec Google',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -348,6 +451,249 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (!_agreeToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez accepter les conditions générales d\'utilisation'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    bool success = await authProvider.signUp(
+      email: _email.trim(),
+      password: _password,
+      fullName: 'Utilisateur', // Valeur par défaut
+      phoneNumber: '', // Vide pour l'instant
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Compte créé avec succès !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    bool success = await authProvider.signInWithGoogle();
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connexion Google réussie !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    }
+  }
+
+  void _showTermsAndConditions() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Conditions Générales d\'Utilisation',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF8700FF),
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Bienvenue sur Smart Marketplace !\n\n',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const Text(
+                  '1. Acceptation des Conditions\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  'En utilisant notre application, vous acceptez de respecter et de vous conformer aux conditions suivantes.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '2. Utilisation de la Plateforme\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Smart Marketplace est une plateforme de mise en relation entre acheteurs et vendeurs.\n'
+                  '• Vous devez fournir des informations exactes et véridiques.\n'
+                  '• Vous êtes responsable de la sécurité de votre compte.\n'
+                  '• Toute activité frauduleuse entraînera la suspension immédiate de votre compte.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '3. Responsabilités des Vendeurs\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Les vendeurs doivent décrire précisément leurs produits.\n'
+                  '• Les prix affichés doivent être fermes et non négociables sur la plateforme.\n'
+                  '• Les vendeurs sont responsables de la livraison des produits vendus.\n'
+                  '• Smart Marketplace n\'est pas responsable des transactions entre vendeurs et acheteurs.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '4. Responsabilités des Acheteurs\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Les acheteurs s\'engagent à payer les produits commandés.\n'
+                  '• Les retours doivent respecter la politique de retour du vendeur.\n'
+                  '• Les acheteurs doivent vérifier les produits avant confirmation de réception.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '5. Propriété Intellectuelle\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Tout contenu publié sur la plateforme reste la propriété de son auteur.\n'
+                  '• Smart Marketplace dispose d\'une licence d\'utilisation pour afficher ce contenu.\n'
+                  '• Toute copie ou utilisation non autorisée est strictement interdite.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '6. Confidentialité et Données\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Nous respectons votre vie privée et protégeons vos données personnelles.\n'
+                  '• Vos informations sont utilisées uniquement pour améliorer nos services.\n'
+                  '• Nous ne partageons jamais vos données sans votre consentement.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '7. Modification des Conditions\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Smart Marketplace se réserve le droit de modifier ces conditions à tout moment.\n'
+                  '• Les modifications seront notifiées aux utilisateurs par email ou via l\'application.\n'
+                  '• La poursuite de l\'utilisation de l\'application vaut acceptation des nouvelles conditions.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '8. Résolution des Litiges\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• En cas de litige, nous encourageons une résolution amiable entre les parties.\n'
+                  '• Si nécessaire, notre service client pourra intervenir pour médiation.\n'
+                  '• Les litiges seront soumis à la législation en vigueur dans votre pays.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '9. Limitation de Responsabilité\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Smart Marketplace agit comme intermédiaire et ne peut être tenue responsable des dommages directs ou indirects.\n'
+                  '• Notre responsabilité est limitée au montant des commissions perçues.\n'
+                  '• Nous ne garantissons pas la qualité des produits vendus par les tiers.\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const Text(
+                  '10. Contact et Support\n',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  '• Pour toute question, contactez notre support client.\n'
+                  '• Email : support@smartmarketplace.com\n'
+                  '• Téléphone : +33 1 234 567 890\n'
+                  '• Horaires : Lun-Ven 9h-18h\n\n',
+                  style: TextStyle(fontSize: 13),
+                ),
+                Text(
+                  'Dernière mise à jour : ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Fermer',
+                style: TextStyle(
+                  color: Color(0xFF8700FF),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _agreeToTerms = true;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Conditions générales acceptées !'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8700FF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'J\'accepte',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

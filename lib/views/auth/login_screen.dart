@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
   String _email = '';
   String _password = '';
+  bool _isLoading = false;
 
   // Méthodes de validation
   bool _hasMinLength(String password) => password.length >= 8;
@@ -23,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -246,6 +250,30 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 25),
 
+                        // Message d'erreur
+                        if (authProvider.errorMessage != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              border: Border.all(color: Colors.red[200]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.red[600], size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    authProvider.errorMessage!,
+                                    style: TextStyle(color: Colors.red[600], fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                         // Login Button
                         SizedBox(
                           width: double.infinity,
@@ -258,18 +286,68 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               elevation: 2,
                             ),
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                Navigator.pushReplacementNamed(context, '/main');
-                              }
-                            },
-                            child: const Text(
-                              'Se connecter',
-                              style: TextStyle(
-                                color: Colors.white, 
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            onPressed: (authProvider.isLoading || _isLoading) ? null : _handleLogin,
+                            child: (authProvider.isLoading || _isLoading)
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Connexion en cours...'),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Se connecter',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Bouton Google
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              side: const BorderSide(color: Colors.grey),
+                            ),
+                            onPressed: (authProvider.isLoading || _isLoading) ? null : _handleGoogleSignIn,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/images/google_logo.png',
+                                  height: 24,
+                                  width: 24,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.account_circle, size: 24);
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Continuer avec Google',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -342,5 +420,60 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    bool success = await authProvider.signIn(
+      email: _email.trim(),
+      password: _password,
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connexion réussie !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    bool success = await authProvider.signInWithGoogle();
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connexion Google réussie !'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pushReplacementNamed(context, '/home');
+    }
   }
 }

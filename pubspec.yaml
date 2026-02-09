@@ -36,6 +36,16 @@ dependencies:
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.1
   provider: ^6.1.5+1
+  
+  # Firebase dependencies
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  firebase_storage: ^11.5.6
+  
+  # Additional dependencies for Firebase
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^6.0.4
 
 
 dev_dependencies:
