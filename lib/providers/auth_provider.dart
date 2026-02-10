@@ -219,6 +219,11 @@ class AuthProvider with ChangeNotifier {
   void _setError(String error) {
     _errorMessage = error;
     notifyListeners();
+    
+    // Effacer automatiquement l'erreur après 5 secondes
+    Future.delayed(const Duration(seconds: 5), () {
+      _clearError();
+    });
   }
 
   void _clearError() {

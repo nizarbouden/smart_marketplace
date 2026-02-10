@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'package:smart_marketplace/views/auth/login_screen.dart';
 import 'package:smart_marketplace/views/auth/signup_screen.dart';
-import 'package:smart_marketplace/views/auth/reset_password_screen.dart';
-import 'package:smart_marketplace/views/auth/forget_password_otp_screen.dart';
+import 'package:smart_marketplace/views/auth/forgot_password_screen.dart';
 import 'package:smart_marketplace/views/compte/profile/edit_profile_page.dart';
 import 'package:smart_marketplace/views/compte/profile_page.dart';
 import 'package:smart_marketplace/views/compte/notifications/notification_settings_page.dart';
@@ -34,7 +33,7 @@ class MyApp extends StatelessWidget {
       create: (context) => AuthProvider(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'smart_marketplace',
+        title: 'Winzy',
 
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
@@ -60,8 +59,7 @@ class MyApp extends StatelessWidget {
           '/payment-methods': (context) => const PaymentMethodsPage(),
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignUpScreen(),
-          '/reset-password': (context) => const ResetPasswordScreen(),
-          '/forget-Password': (context) => const ForgetPasswordOtpScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
         },
       ),
     );

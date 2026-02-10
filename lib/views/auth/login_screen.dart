@@ -22,8 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hasMinLength(String password) => password.length >= 8;
   bool _hasLowerCase(String password) => password.contains(RegExp(r'[a-z]'));
   bool _hasUpperCase(String password) => password.contains(RegExp(r'[A-Z]'));
-  bool _isPasswordValid(String password) => 
-      _hasMinLength(password) && _hasLowerCase(password) && _hasUpperCase(password);
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               return 'Veuillez entrer votre mot de passe';
                             }
                             
-                            if (!_isPasswordValid(value)) {
+                            // Validation simple sans indicateurs visuels
+                            if (value.length < 8) {
                               return '';
                             }
                             
@@ -168,42 +167,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         
-                        // Indicateurs de validation du mot de passe
-                        if (_password.isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _isPasswordValid(_password) 
-                                    ? Colors.green.withOpacity(0.3) 
-                                    : Colors.grey[300]!,
-                                width: 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildValidationIndicator(
-                                  '8 caractères minimum',
-                                  _hasMinLength(_password),
-                                ),
-                                const SizedBox(height: 4),
-                                _buildValidationIndicator(
-                                  '1 lettre minuscule',
-                                  _hasLowerCase(_password),
-                                ),
-                                const SizedBox(height: 4),
-                                _buildValidationIndicator(
-                                  '1 lettre majuscule',
-                                  _hasUpperCase(_password),
-                                ),
-                              ],
-                            ),
-                          ),
-
                         const SizedBox(height: 15),
 
                         // Remember me
@@ -229,14 +192,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         
                         const SizedBox(height: 10),
-                        
+
                         // Forgot password
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             GestureDetector(
                               onTap: () {
-                                Navigator.pushNamed(context, '/forget-Password');
+                                Navigator.pushNamed(context, '/forgot-password');
                               },
                               child: const Text(
                                 'Mot de passe oublié?',
@@ -418,38 +381,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildValidationIndicator(String text, bool isValid) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isValid ? Colors.green : Colors.grey[300],
-            border: isValid ? Border.all(color: Colors.green, width: 2) : null,
-          ),
-          child: isValid
-              ? const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 12,
-                )
-              : null,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: isValid ? Colors.green : Colors.grey[600],
-            fontWeight: isValid ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-
+  /**
+   * Méthode pour gérer la connexion
+   */
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) {
       return;
