@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:math';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -18,72 +14,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
   bool _emailSent = false;
   String _errorMessage = '';
-  String _generatedOtp = '';
-
-  // Générer un code OTP de 6 chiffres
-  String _generateOtpCode() {
-    final Random random = Random();
-    final String otpCode = (100000 + random.nextInt(900000)).toString();
-    print('🔐 OTP généré: $otpCode');
-    return otpCode;
-  }
-
-  // Envoyer un email avec OTP via EmailJS
-  Future<bool> _sendOtpEmail(String email, String otpCode) async {
-    try {
-      const String serviceId = 'service_o6jt1gj';
-      const String templateId = 'template_ufme16q';
-      const String userId = 'HwkqFeJ-iru4f1Pbm';
-
-      final Map<String, String> templateParams = {
-        'to_email': email,
-        'otp_code': otpCode,
-        'app_name': 'Winzy',
-        'expiry_minutes': '15',
-      };
-
-      final response = await http.post(
-        Uri.parse('https://api.emailjs.com/api/v1.0/email/send'),
-        headers: {
-          'Content-Type': 'application/json',
-          'origin': 'http://localhost',
-        },
-        body: jsonEncode({
-          'service_id': serviceId,
-          'template_id': templateId,
-          'user_id': userId,
-          'template_params': templateParams,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        print('✅ Email OTP envoyé à $email');
-        return true;
-      } else {
-        print('❌ Erreur envoi email: ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      print('❌ Erreur EmailJS: $e');
-      return false;
-    }
-  }
-
-  // Stocker l'OTP dans Firestore
-  Future<void> _storeOtpInFirestore(String email, String otpCode) async {
-    try {
-      await FirebaseFirestore.instance.collection('otps').doc(email).set({
-        'otp': otpCode,
-        'email': email,
-        'timestamp': Timestamp.now(),
-        'verified': false,
-        'attempts': 0,
-      });
-      print('✅ OTP stocké dans Firestore pour $email');
-    } catch (e) {
-      print('❌ Erreur stockage OTP: $e');
-    }
-  }
 
   Future<void> _sendPasswordResetEmail() async {
     if (!_formKey.currentState!.validate()) {
@@ -100,48 +30,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     try {
       final String email = _emailController.text.trim();
       
-      // Vérifier si l'email existe dans Firebase Auth
-      List<String> signInMethods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
+      // Envoyer directement l'email de réinitialisation Firebase
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       
-      if (signInMethods.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Aucun compte trouvé avec cet email';
-        });
-        return;
+      setState(() {
+        _isLoading = false;
+        _emailSent = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Email de réinitialisation envoyé à $email'),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: Duration(seconds: 5),
+        ),
+      );
+      
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      String errorMessage = 'Une erreur est survenue';
+      
+      if (e.code == 'user-not-found') {
+        errorMessage = 'Aucun compte trouvé avec cet email';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Adresse email invalide';
+      } else if (e.code == 'too-many-requests') {
+        errorMessage = 'Trop de tentatives. Réessayez plus tard';
       }
 
-      // Générer et stocker l'OTP
-      final String otpCode = _generateOtpCode();
-      _generatedOtp = otpCode;
-      
-      // Stocker dans Firestore
-      await _storeOtpInFirestore(email, otpCode);
-      
-      // Envoyer l'email avec OTP
-      bool emailSent = await _sendOtpEmail(email, otpCode);
-      
-      if (emailSent) {
-        setState(() {
-          _isLoading = false;
-          _emailSent = true;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Code OTP envoyé à $email'),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: Duration(seconds: 5),
-          ),
-        );
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Erreur lors de l\'envoi de l\'email';
-        });
-      }
+      setState(() {
+        _errorMessage = errorMessage;
+      });
       
     } catch (e) {
       setState(() {
@@ -210,7 +134,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                             // Titre
                             Text(
-                              'ENVOYER L\'EMAIL DE RÉINITIALISATION',
+                              'MOT DE PASSE OUBLIÉ',
                               style: TextStyle(
                                 color: const Color(0xFF8700FF),
                                 fontSize: screenWidth * 0.06, // Responsive
@@ -341,7 +265,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     ),
                                     SizedBox(width: screenWidth * 0.02), // Responsive
                                     Text(
-                                      'Envoyer l\'email',
+                                      'Envoyer le lien',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: screenWidth * 0.04, // Responsive
@@ -465,8 +389,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ],
                         ],
                       ),
-                    ),
                   ),
+                ),
                 ),
               ],
             ),
