@@ -16,6 +16,15 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
   bool get isGuest => _user == null;
+  
+  // Getters pour les informations utilisateur
+  String? get nom => _user?.nom;
+  String? get prenom => _user?.prenom;
+  String? get genre => _user?.genre;
+  String? get countryCode => _user?.countryCode;
+  String? get fullName => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
+  List<String> get favorites => _user?.favoris ?? [];
+  List<String> get orders => _user?.commandes ?? [];
 
   // Constructeur - écouter les changements d'état
   AuthProvider() {
@@ -48,8 +57,11 @@ class AuthProvider with ChangeNotifier {
   Future<bool> signUp({
     required String email,
     required String password,
-    required String fullName,
-    required String phoneNumber,
+    String nom = '',
+    String prenom = '',
+    String? genre,
+    String? countryCode,
+    String? phoneNumber,
   }) async {
     try {
       _setLoading(true);
@@ -58,8 +70,11 @@ class AuthProvider with ChangeNotifier {
       _user = await _authService.signUpWithEmailAndPassword(
         email,
         password,
-        fullName,
-        phoneNumber,
+        nom,
+        prenom: prenom,
+        genre: genre,
+        countryCode: countryCode,
+        phoneNumber: phoneNumber,
       );
       
       notifyListeners();
@@ -158,8 +173,11 @@ class AuthProvider with ChangeNotifier {
 
   // Mettre à jour le profil
   Future<bool> updateProfile({
-    String? fullName,
+    String? nom,
+    String? prenom,
+    String? genre,
     String? phoneNumber,
+    String? countryCode,
     String? photoUrl,
   }) async {
     try {
@@ -167,8 +185,11 @@ class AuthProvider with ChangeNotifier {
       _clearError();
       
       await _authService.updateProfile(
-        fullName: fullName,
+        nom: nom,
+        prenom: prenom,
+        genre: genre,
         phoneNumber: phoneNumber,
+        countryCode: countryCode,
         photoUrl: photoUrl,
       );
       
@@ -208,6 +229,69 @@ class AuthProvider with ChangeNotifier {
   // Rafraîchir les données utilisateur
   Future<void> refreshUserData() async {
     await _loadUserData();
+  }
+
+  // Ajouter un produit favori
+  Future<bool> addFavorite(String productId) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      await _authService.addFavorite(productId);
+      
+      // Recharger les données utilisateur pour mettre à jour les favoris
+      await _loadUserData();
+      
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Supprimer un produit favori
+  Future<bool> removeFavorite(String productId) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      await _authService.removeFavorite(productId);
+      
+      // Recharger les données utilisateur pour mettre à jour les favoris
+      await _loadUserData();
+      
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Ajouter une commande
+  Future<bool> addOrder(String orderId) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      
+      await _authService.addOrder(orderId);
+      
+      // Recharger les données utilisateur pour mettre à jour les commandes
+      await _loadUserData();
+      
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   // Méthodes privées pour gérer l'état

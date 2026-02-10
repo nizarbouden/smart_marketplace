@@ -3,8 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel {
   final String uid;
   final String email;
-  final String fullName;
+  final String nom;
+  final String prenom;
+  final String? genre;
   final String phoneNumber;
+  final String? countryCode;
   final String? photoUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -12,13 +15,18 @@ class UserModel {
   final bool isActive;
   final bool isGoogleUser;
   final List<String>? addresses;
+  final List<String>? favoris; // Liste des produits favoris
+  final List<String>? commandes; // Liste des IDs de commandes
   final Map<String, dynamic>? preferences;
 
   UserModel({
     required this.uid,
     required this.email,
-    required this.fullName,
+    required this.nom,
+    required this.prenom,
+    this.genre,
     required this.phoneNumber,
+    this.countryCode,
     this.photoUrl,
     required this.createdAt,
     this.updatedAt,
@@ -26,6 +34,8 @@ class UserModel {
     this.isActive = true,
     this.isGoogleUser = false,
     this.addresses,
+    this.favoris,
+    this.commandes,
     this.preferences,
   });
 
@@ -34,8 +44,11 @@ class UserModel {
     return UserModel(
       uid: map['uid'] ?? '',
       email: map['email'] ?? '',
-      fullName: map['fullName'] ?? '',
+      nom: map['nom'] ?? '',
+      prenom: map['prenom'] ?? '',
+      genre: map['genre'],
       phoneNumber: map['phoneNumber'] ?? '',
+      countryCode: map['countryCode'],
       photoUrl: map['photoUrl'],
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
@@ -43,6 +56,8 @@ class UserModel {
       isActive: map['isActive'] ?? true,
       isGoogleUser: map['isGoogleUser'] ?? false,
       addresses: List<String>.from(map['addresses'] ?? []),
+      favoris: List<String>.from(map['favoris'] ?? []),
+      commandes: List<String>.from(map['commandes'] ?? []),
       preferences: Map<String, dynamic>.from(map['preferences'] ?? {}),
     );
   }
@@ -52,8 +67,11 @@ class UserModel {
     return {
       'uid': uid,
       'email': email,
-      'fullName': fullName,
+      'nom': nom,
+      'prenom': prenom,
+      'genre': genre,
       'phoneNumber': phoneNumber,
+      'countryCode': countryCode,
       'photoUrl': photoUrl,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -61,6 +79,8 @@ class UserModel {
       'isActive': isActive,
       'isGoogleUser': isGoogleUser,
       'addresses': addresses ?? [],
+      'favoris': favoris ?? [],
+      'commandes': commandes ?? [],
       'preferences': preferences ?? {},
     };
   }
@@ -69,8 +89,11 @@ class UserModel {
   UserModel copyWith({
     String? uid,
     String? email,
-    String? fullName,
+    String? nom,
+    String? prenom,
+    String? genre,
     String? phoneNumber,
+    String? countryCode,
     String? photoUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -78,13 +101,18 @@ class UserModel {
     bool? isActive,
     bool? isGoogleUser,
     List<String>? addresses,
+    List<String>? favoris,
+    List<String>? commandes,
     Map<String, dynamic>? preferences,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
       email: email ?? this.email,
-      fullName: fullName ?? this.fullName,
+      nom: nom ?? this.nom,
+      prenom: prenom ?? this.prenom,
+      genre: genre ?? this.genre,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      countryCode: countryCode ?? this.countryCode,
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -92,13 +120,15 @@ class UserModel {
       isActive: isActive ?? this.isActive,
       isGoogleUser: isGoogleUser ?? this.isGoogleUser,
       addresses: addresses ?? this.addresses,
+      favoris: favoris ?? this.favoris,
+      commandes: commandes ?? this.commandes,
       preferences: preferences ?? this.preferences,
     );
   }
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, fullName: $fullName, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber)';
   }
 
   @override
@@ -108,12 +138,13 @@ class UserModel {
     return other is UserModel &&
       other.uid == uid &&
       other.email == email &&
-      other.fullName == fullName &&
+      other.nom == nom &&
+      other.prenom == prenom &&
       other.phoneNumber == phoneNumber;
   }
 
   @override
   int get hashCode {
-    return uid.hashCode ^ email.hashCode ^ fullName.hashCode ^ phoneNumber.hashCode;
+    return uid.hashCode ^ email.hashCode ^ nom.hashCode ^ prenom.hashCode ^ phoneNumber.hashCode;
   }
 }

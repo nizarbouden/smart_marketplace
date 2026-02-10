@@ -26,9 +26,12 @@ class FirebaseAuthService {
   Future<UserModel?> signUpWithEmailAndPassword(
     String email,
     String password,
-    String fullName,
-    String phoneNumber,
-  ) async {
+    String nom, {
+    String prenom = '',
+    String? genre,
+    String? countryCode,
+    String? phoneNumber,
+  }) async {
     try {
       print('🔐 Tentative d\'inscription pour: $email');
       
@@ -44,8 +47,11 @@ class FirebaseAuthService {
         UserModel userModel = UserModel(
           uid: user.uid,
           email: user.email ?? '',
-          fullName: fullName,
-          phoneNumber: phoneNumber,
+          nom: nom,
+          prenom: prenom,
+          genre: genre,
+          phoneNumber: phoneNumber ?? '',
+          countryCode: countryCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
           isActive: true,
@@ -108,8 +114,11 @@ class FirebaseAuthService {
               return UserModel(
                 uid: user.uid,
                 email: data['email'] ?? user.email ?? '',
-                fullName: data['fullName'] ?? 'Utilisateur',
+                nom: data['nom'] ?? 'Utilisateur',
+                prenom: data['prenom'] ?? '',
+                genre: data['genre'],
                 phoneNumber: data['phoneNumber'] ?? '',
+                countryCode: data['countryCode'],
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
                 lastLoginAt: DateTime.now(),
                 isActive: data['isActive'] ?? true,
@@ -121,8 +130,11 @@ class FirebaseAuthService {
             UserModel userModel = UserModel(
               uid: user.uid,
               email: user.email ?? '',
-              fullName: 'Utilisateur',
+              nom: 'Utilisateur',
+              prenom: '',
+              genre: null,
               phoneNumber: '',
+              countryCode: null,
               createdAt: DateTime.now(),
               lastLoginAt: DateTime.now(),
               isActive: true,
@@ -140,8 +152,11 @@ class FirebaseAuthService {
           return UserModel(
             uid: user.uid,
             email: user.email ?? '',
-            fullName: 'Utilisateur',
+            nom: 'Utilisateur',
+            prenom: '',
+            genre: null,
             phoneNumber: '',
+            countryCode: null,
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
             isActive: true,
@@ -154,20 +169,6 @@ class FirebaseAuthService {
       throw _getErrorMessage(e);
     } catch (e) {
       print('❌ Erreur générale lors de la connexion: $e');
-      // Si l'erreur est le type cast PigeonUserDetails, créer un fallback direct
-      if (e.toString().contains('PigeonUserDetails')) {
-        print('🔄 Erreur PigeonUserDetails détectée, fallback basique');
-        // Créer un UserModel basique avec les infos disponibles
-        return UserModel(
-          uid: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-          email: email,
-          fullName: 'Utilisateur',
-          phoneNumber: '',
-          createdAt: DateTime.now(),
-          lastLoginAt: DateTime.now(),
-          isActive: true,
-        );
-      }
       throw 'Une erreur est survenue lors de la connexion';
     }
   }
@@ -208,19 +209,30 @@ class FirebaseAuthService {
             return UserModel(
               uid: user.uid,
               email: data['email'] ?? user.email ?? '',
-              fullName: data['fullName'] ?? user.displayName ?? 'Utilisateur Google',
+              nom: data['nom'] ?? user.displayName?.split(' ').last ?? 'Utilisateur',
+              prenom: data['prenom'] ?? user.displayName?.split(' ').first ?? '',
+              genre: data['genre'],
               phoneNumber: data['phoneNumber'] ?? '',
+              countryCode: data['countryCode'],
               createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
               lastLoginAt: DateTime.now(),
               isActive: data['isActive'] ?? true,
             );
           } else {
             // Créer un nouveau profil utilisateur
+            String displayName = user.displayName ?? 'Utilisateur Google';
+            List<String> nameParts = displayName.split(' ');
+            String firstName = nameParts.isNotEmpty ? nameParts.first : '';
+            String lastName = nameParts.length > 1 ? nameParts.last : nameParts.first;
+            
             UserModel userModel = UserModel(
               uid: user.uid,
               email: user.email ?? '',
-              fullName: user.displayName ?? 'Utilisateur Google',
+              nom: lastName,
+              prenom: firstName,
+              genre: null,
               phoneNumber: user.phoneNumber ?? '',
+              countryCode: null,
               photoUrl: user.photoURL,
               createdAt: DateTime.now(),
               lastLoginAt: DateTime.now(),
@@ -234,11 +246,19 @@ class FirebaseAuthService {
         } catch (firestoreError) {
           print('⚠️ Erreur Firestore Google, mais utilisateur Firebase connecté: $firestoreError');
           // Fallback basique même si Firestore échoue
+          String displayName = user.displayName ?? 'Utilisateur Google';
+          List<String> nameParts = displayName.split(' ');
+          String firstName = nameParts.isNotEmpty ? nameParts.first : '';
+          String lastName = nameParts.length > 1 ? nameParts.last : nameParts.first;
+          
           return UserModel(
             uid: user.uid,
             email: user.email ?? '',
-            fullName: user.displayName ?? 'Utilisateur Google',
+            nom: lastName,
+            prenom: firstName,
+            genre: null,
             phoneNumber: user.phoneNumber ?? '',
+            countryCode: null,
             photoUrl: user.photoURL,
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
@@ -253,21 +273,6 @@ class FirebaseAuthService {
       throw _getErrorMessage(e);
     } catch (e) {
       print('❌ Erreur générale Google Sign-In: $e');
-      // Si l'erreur est PigeonUserDetails, créer un fallback
-      if (e.toString().contains('PigeonUserDetails')) {
-        print('🔄 Erreur PigeonUserDetails Google détectée, fallback basique');
-        // Retourner un UserModel basique
-        return UserModel(
-          uid: 'google_${DateTime.now().millisecondsSinceEpoch}',
-          email: 'user@gmail.com',
-          fullName: 'Utilisateur Google',
-          phoneNumber: '',
-          createdAt: DateTime.now(),
-          lastLoginAt: DateTime.now(),
-          isActive: true,
-          isGoogleUser: true,
-        );
-      }
       throw 'Erreur lors de la connexion Google';
     }
   }
@@ -295,8 +300,11 @@ class FirebaseAuthService {
 
   // METTRE À JOUR LE PROFIL
   Future<void> updateProfile({
-    String? fullName,
+    String? nom,
+    String? prenom,
+    String? genre,
     String? phoneNumber,
+    String? countryCode,
     String? photoUrl,
   }) async {
     try {
@@ -304,8 +312,11 @@ class FirebaseAuthService {
       if (user != null) {
         Map<String, dynamic> updateData = {};
         
-        if (fullName != null) updateData['fullName'] = fullName;
+        if (nom != null) updateData['nom'] = nom;
+        if (prenom != null) updateData['prenom'] = prenom;
+        if (genre != null) updateData['genre'] = genre;
         if (phoneNumber != null) updateData['phoneNumber'] = phoneNumber;
+        if (countryCode != null) updateData['countryCode'] = countryCode;
         if (photoUrl != null) updateData['photoUrl'] = photoUrl;
         
         updateData['updatedAt'] = DateTime.now();
@@ -329,12 +340,18 @@ class FirebaseAuthService {
           return UserModel(
             uid: user.uid,
             email: data['email'] ?? user.email ?? '',
-            fullName: data['fullName'] ?? 'Utilisateur',
+            nom: data['nom'] ?? 'Utilisateur',
+            prenom: data['prenom'] ?? '',
+            genre: data['genre'],
             phoneNumber: data['phoneNumber'] ?? '',
+            countryCode: data['countryCode'],
             photoUrl: data['photoUrl'],
             createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             isActive: data['isActive'] ?? true,
+            favoris: List<String>.from(data['favoris'] ?? []),
+            commandes: List<String>.from(data['commandes'] ?? []),
+            preferences: Map<String, dynamic>.from(data['preferences'] ?? {}),
           );
         }
       }
@@ -357,6 +374,82 @@ class FirebaseAuthService {
       }
     } catch (e) {
       throw 'Erreur lors de la suppression du compte';
+    }
+  }
+
+  // AJOUTER UN PRODUIT FAVORI
+  Future<void> addFavorite(String productId) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'favoris': FieldValue.arrayUnion([productId])
+        });
+      }
+    } catch (e) {
+      throw 'Erreur lors de l\'ajout aux favoris';
+    }
+  }
+
+  // SUPPRIMER UN PRODUIT FAVORI
+  Future<void> removeFavorite(String productId) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'favoris': FieldValue.arrayRemove([productId])
+        });
+      }
+    } catch (e) {
+      throw 'Erreur lors de la suppression des favoris';
+    }
+  }
+
+  // AJOUTER UNE COMMANDE
+  Future<void> addOrder(String orderId) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'commandes': FieldValue.arrayUnion([orderId])
+        });
+      }
+    } catch (e) {
+      throw 'Erreur lors de l\'ajout de la commande';
+    }
+  }
+
+  // RÉCUPÉRER LES FAVORIS
+  Future<List<String>> getFavorites() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return List<String>.from(data['favoris'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      throw 'Erreur lors de la récupération des favoris';
+    }
+  }
+
+  // RÉCUPÉRER LES COMMANDES
+  Future<List<String>> getOrders() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return List<String>.from(data['commandes'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      throw 'Erreur lors de la récupération des commandes';
     }
   }
 
