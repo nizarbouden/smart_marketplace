@@ -32,7 +32,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   // Vérifier si l'utilisateur est connecté
   bool _isUserConnected() {
     final user = _auth.currentUser;
-    print('🔄 MainLayout: Vérification connexion - Utilisateur: ${user?.email ?? 'null'}');
     return user != null;
   }
   
@@ -247,25 +246,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onItemTapped(int index) {
-    print('🔄 MainLayout: Navigation demandée vers index $index');
-    print('🔄 MainLayout: Utilisateur connecté? ${_isUserConnected()}');
-    
     // Vérifier si l'utilisateur est connecté pour les pages protégées
     if (index == 0) {
       // Home page - toujours accessible
-      print('✅ MainLayout: Navigation vers Home (toujours accessible)');
       setState(() {
         _currentIndex = index;
       });
     } else {
       // Pages protégées - vérifier la connexion
       if (_isUserConnected()) {
-        print('✅ MainLayout: Utilisateur connecté, navigation autorisée vers index $index');
         setState(() {
           _currentIndex = index;
         });
       } else {
-        print('❌ MainLayout: Utilisateur non connecté, affichage dialogue connexion requise');
         _showLoginRequiredMessage();
       }
     }

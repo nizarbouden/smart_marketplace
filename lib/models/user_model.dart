@@ -18,6 +18,7 @@ class UserModel {
   final List<String>? favoris; // Liste des produits favoris
   final List<String>? commandes; // Liste des IDs de commandes
   final Map<String, dynamic>? preferences;
+  final int points; // Points de fidélité
 
   UserModel({
     required this.uid,
@@ -37,6 +38,7 @@ class UserModel {
     this.favoris,
     this.commandes,
     this.preferences,
+    this.points = 0,
   });
 
   // Créer un utilisateur à partir d'un Map (Firestore)
@@ -59,6 +61,7 @@ class UserModel {
       favoris: List<String>.from(map['favoris'] ?? []),
       commandes: List<String>.from(map['commandes'] ?? []),
       preferences: Map<String, dynamic>.from(map['preferences'] ?? {}),
+      points: map['points'] ?? 0,
     );
   }
 
@@ -82,6 +85,7 @@ class UserModel {
       'favoris': favoris ?? [],
       'commandes': commandes ?? [],
       'preferences': preferences ?? {},
+      'points': points,
     };
   }
 
@@ -104,6 +108,7 @@ class UserModel {
     List<String>? favoris,
     List<String>? commandes,
     Map<String, dynamic>? preferences,
+    int? points,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -123,12 +128,13 @@ class UserModel {
       favoris: favoris ?? this.favoris,
       commandes: commandes ?? this.commandes,
       preferences: preferences ?? this.preferences,
+      points: points ?? this.points,
     );
   }
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber)';
+    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber, points: $points)';
   }
 
   @override
@@ -140,11 +146,12 @@ class UserModel {
       other.email == email &&
       other.nom == nom &&
       other.prenom == prenom &&
-      other.phoneNumber == phoneNumber;
+      other.phoneNumber == phoneNumber &&
+      other.points == points;
   }
 
   @override
   int get hashCode {
-    return uid.hashCode ^ email.hashCode ^ nom.hashCode ^ prenom.hashCode ^ phoneNumber.hashCode;
+    return uid.hashCode ^ email.hashCode ^ nom.hashCode ^ prenom.hashCode ^ phoneNumber.hashCode ^ points.hashCode;
   }
 }

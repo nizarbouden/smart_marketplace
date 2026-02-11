@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';
 import 'security/security_settings_page.dart';
@@ -22,6 +24,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
+    
+    // Récupérer les données utilisateur depuis AuthProvider
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
     
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -53,37 +58,25 @@ class _ProfilePageState extends State<ProfilePage> {
                       CircleAvatar(
                         radius: isDesktop ? 80 : isTablet ? 60 : 50,
                         backgroundColor: Colors.deepPurple[100],
-                        child: Icon(
-                          Icons.person,
-                          size: isDesktop ? 80 : isTablet ? 60 : 50,
-                          color: Colors.deepPurple,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: isDesktop ? 40 : isTablet ? 32 : 24,
-                          height: isDesktop ? 40 : isTablet ? 32 : 24,
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.edit,
-                            color: Colors.white,
-                            size: isDesktop ? 20 : isTablet ? 16 : 12,
-                          ),
-                        ),
+                        backgroundImage: authProvider.user?.photoUrl != null 
+                            ? NetworkImage(authProvider.user!.photoUrl!) 
+                            : null,
+                        child: authProvider.user?.photoUrl == null 
+                            ? Icon(
+                                Icons.person,
+                                size: isDesktop ? 80 : isTablet ? 60 : 50,
+                                color: Colors.deepPurple,
+                              )
+                            : null,
                       ),
                     ],
                   ),
                   
                   SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
                   
-                  // Nom et email
+                  // Nom et email dynamiques
                   Text(
-                    'Jean Dupont',
+                    authProvider.fullName ?? 'Utilisateur',
                     style: TextStyle(
                       fontSize: isDesktop ? 28 : isTablet ? 24 : 20,
                       fontWeight: FontWeight.bold,
@@ -91,7 +84,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   SizedBox(height: isDesktop ? 8 : isTablet ? 6 : 4),
                   Text(
-                    'jean.dupont@email.com',
+                    authProvider.user?.email ?? 'email@example.com',
                     style: TextStyle(
                       fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                       color: Colors.grey[600],
@@ -100,13 +93,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   
                   SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
                   
-                  // Stats
+                  // Stats dynamiques
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _statItem('Commandes', '25', isDesktop, isTablet),
-                      _statItem('Favoris', '12', isDesktop, isTablet),
-                      _statItem('Points', '850', isDesktop, isTablet),
+                      _statItem('Commandes', '${authProvider.orders.length}', isDesktop, isTablet),
+                      _statItem('Favoris', '${authProvider.favorites.length}', isDesktop, isTablet),
+                      _statItem('Points', '${authProvider.user?.points ?? 0}', isDesktop, isTablet),
                     ],
                   ),
                 ],
