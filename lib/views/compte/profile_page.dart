@@ -99,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       _statItem('Commandes', '${authProvider.orders.length}', isDesktop, isTablet),
                       _statItem('Favoris', '${authProvider.favorites.length}', isDesktop, isTablet),
-                      _statItem('Points', '${authProvider.user?.points ?? 0}', isDesktop, isTablet),
+                      _statItem('Points', '${authProvider.points}', isDesktop, isTablet),
                     ],
                   ),
                 ],

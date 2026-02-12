@@ -23,6 +23,7 @@ class AuthProvider with ChangeNotifier {
   String? get genre => _user?.genre;
   String? get countryCode => _user?.countryCode;
   String? get fullName => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
+  int get points => _user?.points ?? 0;
   List<String> get favorites => _user?.favoris ?? [];
   List<String> get orders => _user?.commandes ?? [];
 

@@ -352,6 +352,7 @@ class FirebaseAuthService {
             favoris: List<String>.from(data['favoris'] ?? []),
             commandes: List<String>.from(data['commandes'] ?? []),
             preferences: Map<String, dynamic>.from(data['preferences'] ?? {}),
+            points: data['points'] ?? 0,
           );
         }
       }
