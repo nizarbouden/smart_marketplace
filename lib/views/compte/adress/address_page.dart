@@ -16,6 +16,8 @@ class _AddressPageState extends State<AddressPage> {
   List<Map<String, dynamic>> addresses = [];
   bool isLoading = true;
   String? _previousDefaultAddressId;
+  String? _animatingAddressId;
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final FirebaseAuthService _authService = FirebaseAuthService();
 
   @override
@@ -64,10 +66,52 @@ class _AddressPageState extends State<AddressPage> {
 
   Future<void> _setDefaultAddress(String addressId) async {
     try {
+      // Récupérer les dimensions de l'écran
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isMobile = screenWidth < 600;
+      final isTablet = screenWidth >= 600 && screenWidth < 1200;
+      final isDesktop = screenWidth >= 1200;
+      
+      // Trouver l'adresse actuelle et sa position
+      int currentIndex = -1;
+      Map<String, dynamic>? targetAddress;
+      
+      for (int i = 0; i < addresses.length; i++) {
+        if (addresses[i]['id'] == addressId) {
+          currentIndex = i;
+          targetAddress = addresses[i];
+          break;
+        }
+      }
+      
+      if (targetAddress == null || currentIndex == -1) return;
+      
+      // Mettre à jour l'adresse par défaut dans Firestore
       await _authService.setDefaultAddress(
         FirebaseAuthService().currentUser?.uid ?? '',
         addressId,
       );
+      
+      // Animation de déplacement : supprimer l'adresse de sa position actuelle
+      if (_listKey.currentState != null && currentIndex > 0) {
+        _listKey.currentState!.removeItem(
+          currentIndex,
+          (context, animation) => _buildAnimatedAddressCard(
+            context,
+            targetAddress!,
+            currentIndex,
+            animation,
+            false, // isRemoving
+            isMobile,
+            isTablet,
+            isDesktop,
+          ),
+          duration: const Duration(milliseconds: 300),
+        );
+        
+        // Attendre la fin de l'animation
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
       
       // Recharger les adresses pour mettre à jour l'UI
       await _loadAddresses();
@@ -235,22 +279,66 @@ class _AddressPageState extends State<AddressPage> {
   Widget _buildAddressesList(BuildContext context, bool isMobile, bool isTablet, bool isDesktop) {
     return Column(
       children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: addresses.length,
-          itemBuilder: (context, index) {
-            return _buildAddressCard(
-              context,
-              addresses[index],
-              index,
-              isMobile,
-              isTablet,
-              isDesktop,
-            );
-          },
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6, // Limiter la hauteur
+          child: AnimatedList(
+            key: _listKey,
+            initialItemCount: addresses.length,
+            shrinkWrap: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemBuilder: (context, index, animation) {
+              return _buildAnimatedAddressCard(
+                context,
+                addresses[index],
+                index,
+                animation,
+                false, // isRemoving
+                isMobile,
+                isTablet,
+                isDesktop,
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAnimatedAddressCard(
+    BuildContext context,
+    Map<String, dynamic> address,
+    int index,
+    Animation<double> animation,
+    bool isRemoving,
+    bool isMobile,
+    bool isTablet,
+    bool isDesktop,
+  ) {
+    final isDefault = address['isDefault'] == true;
+    final isNewDefault = isDefault && address['id'] != _previousDefaultAddressId;
+    
+    return SizeTransition(
+      sizeFactor: animation,
+      child: FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(isRemoving ? 0.0 : -1.0, 0.0), // Slide from left
+            end: Offset(isRemoving ? 1.0 : 0.0, 0.0),   // Slide to right if removing
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          )),
+          child: _buildAddressCard(
+            context,
+            address,
+            index,
+            isMobile,
+            isTablet,
+            isDesktop,
+          ),
+        ),
+      ),
     );
   }
 
@@ -265,13 +353,8 @@ class _AddressPageState extends State<AddressPage> {
     final isDefault = address['isDefault'] == true;
     final isNewDefault = isDefault && address['id'] != _previousDefaultAddressId;
     
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-      margin: EdgeInsets.only(
-        bottom: isMobile ? 16 : isTablet ? 20 : 24,
-        top: isNewDefault && index == 0 ? 8 : 0,
-      ),
+    return Container(
+      margin: EdgeInsets.only(bottom: isMobile ? 16 : isTablet ? 20 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -300,7 +383,9 @@ class _AddressPageState extends State<AddressPage> {
                 vertical: isMobile ? 8 : isTablet ? 10 : 12,
               ),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
+                color: isNewDefault 
+                    ? Colors.deepPurple.withOpacity(0.2)
+                    : Colors.deepPurple.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -325,11 +410,19 @@ class _AddressPageState extends State<AddressPage> {
                   const Spacer(),
                   if (isNewDefault)
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.bounceOut,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.green,
                         borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.green.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Text(
                         'Nouveau!',
