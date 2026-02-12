@@ -6,18 +6,48 @@ import 'package:smart_marketplace/widgets/custom_text_field.dart';
 import 'package:smart_marketplace/widgets/phone_field_widget.dart';
 import 'package:smart_marketplace/widgets/gender_field_widget.dart';
 import 'package:smart_marketplace/widgets/profile_image_widget.dart';
+import 'package:smart_marketplace/models/user_model.dart';
 
-class EditProfilePage extends StatelessWidget {
-  const EditProfilePage({super.key});
+class EditProfilePage extends StatefulWidget {
+  final UserModel? user;
+  
+  const EditProfilePage({super.key, this.user});
+
+  @override
+  State<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  late final ProfileViewModel viewModel;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    
+    viewModel = ProfileViewModel(
+      firstName: widget.user?.prenom ?? '',
+      lastName: widget.user?.nom ?? '',
+      email: widget.user?.email ?? '',
+      phone: widget.user?.phoneNumber ?? '',
+      countryCode: widget.user?.countryCode ?? '+216',
+      genre: widget.user?.genre,
+      photoUrl: widget.user?.photoUrl,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => ProfileViewModel(),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 1200;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+
+    return ChangeNotifierProvider.value(
+      value: viewModel,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: _buildAppBar(context),
-        body: _buildBody(context),
+        body: _buildBody(context, isDesktop, isTablet),
       ),
     );
   }
@@ -42,42 +72,36 @@ class EditProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 1200;
-    final isTablet = MediaQuery.of(context).size.width > 600 && MediaQuery.of(context).size.width <= 1200;
-
-    return Consumer<ProfileViewModel>(
-      builder: (context, viewModel, child) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
-          child: Form(
-            key: GlobalKey<FormState>(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Photo de profil
-                ProfileImageWidget(
-                  profileImage: viewModel.profileImage,
-                  onPickImage: viewModel.pickImageFromGallery,
-                  onTakePhoto: viewModel.takePhoto,
-                  isDesktop: isDesktop,
-                  isTablet: isTablet,
-                ),
-                
-                SizedBox(height: isDesktop ? 45 : isTablet ? 37 : 31),
-                
-                // Champs du formulaire
-                _buildFormFields(context, viewModel, isDesktop, isTablet),
-                
-                SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
-                
-                // Bouton de sauvegarde
-                _buildSaveButton(context, viewModel, isDesktop, isTablet),
-              ],
+  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Photo de profil
+            ProfileImageWidget(
+              profileImage: viewModel.profileImage,
+              profileImageUrl: viewModel.profileImageUrl,
+              onPickImage: viewModel.pickImageFromGallery,
+              onTakePhoto: viewModel.takePhoto,
+              isDesktop: isDesktop,
+              isTablet: isTablet,
             ),
-          ),
-        );
-      },
+            
+            SizedBox(height: isDesktop ? 45 : isTablet ? 37 : 31),
+            
+            // Champs du formulaire
+            _buildFormFields(context, viewModel, isDesktop, isTablet),
+            
+            SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
+            
+            // Bouton de sauvegarde
+            _buildSaveButton(context, isDesktop, isTablet),
+          ],
+        ),
+      ),
     );
   }
 
@@ -122,6 +146,29 @@ class EditProfilePage extends StatelessWidget {
           isTablet: isTablet,
           prefixIcon: Icons.email,
           keyboardType: TextInputType.emailAddress,
+          enabled: false, // Forcer la désactivation pour les tests
+          readOnly: true, // Forcer la lecture seule pour les tests
+        ),
+        
+        // Debug pour vérifier le type d'utilisateur
+        Container(
+          margin: EdgeInsets.only(top: 8),
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info, color: Colors.orange, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Email non modifiable (compte Google)',
+                style: TextStyle(color: Colors.orange, fontSize: 12),
+              ),
+            ],
+          ),
         ),
         
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
@@ -143,38 +190,38 @@ class EditProfilePage extends StatelessWidget {
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
         
         // Genre
-        GenderFieldWidget(
-          selectedGender: viewModel.selectedGender,
-          genders: viewModel.genders,
-          onGenderSelected: viewModel.selectGender,
-          isDesktop: isDesktop,
-          isTablet: isTablet,
+        Consumer<ProfileViewModel>(
+          builder: (context, viewModel, child) {
+            return GenderFieldWidget(
+              selectedGender: viewModel.selectedGender,
+              genders: viewModel.genders,
+              onGenderSelected: viewModel.selectGender,
+              isDesktop: isDesktop,
+              isTablet: isTablet,
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildSaveButton(BuildContext context, ProfileViewModel viewModel, bool isDesktop, bool isTablet) {
+  Widget _buildSaveButton(BuildContext context, bool isDesktop, bool isTablet) {
     return SizedBox(
       width: double.infinity,
       height: isDesktop ? 56 : isTablet ? 52 : 48,
       child: ElevatedButton.icon(
         onPressed: viewModel.isLoading ? null : () async {
-          final success = await viewModel.saveProfile();
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Profil mis à jour avec succès!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erreur lors de la mise à jour du profil'),
-                backgroundColor: Colors.red,
-              ),
-            );
+          // Valider le formulaire avant de sauvegarder
+          if (_formKey.currentState?.validate() ?? false) {
+            await viewModel.saveProfile();
+            
+            // Rafraîchir les données utilisateur
+            await viewModel.refreshUserData(context);
+            
+            // Rediriger vers la page profil après 1 seconde
+            Future.delayed(const Duration(seconds: 1), () {
+              Navigator.of(context).pop(); // Retour à la page profil
+            });
           }
         },
         icon: viewModel.isLoading

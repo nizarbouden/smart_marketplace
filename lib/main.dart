@@ -17,10 +17,15 @@ import 'package:smart_marketplace/views/history/history_page.dart';
 import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 import 'package:smart_marketplace/config/firebase_config.dart';
 import 'package:smart_marketplace/providers/auth_provider.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseConfig.initializeFirebase();
+  
+  // Nettoyer le cache Firestore pour éviter le crash SQLiteBlobTooBigException
+  await FirebaseAuthService().clearFirestoreCache();
+  
   runApp(const MyApp());
 }
 

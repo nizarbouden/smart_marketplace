@@ -319,12 +319,22 @@ class FirebaseAuthService {
         if (countryCode != null) updateData['countryCode'] = countryCode;
         if (photoUrl != null) updateData['photoUrl'] = photoUrl;
         
-        updateData['updatedAt'] = DateTime.now();
+        updateData['updatedAt'] = Timestamp.fromDate(DateTime.now());
 
         await _firestore.collection('users').doc(user.uid).update(updateData);
       }
     } catch (e) {
       throw 'Erreur lors de la mise à jour du profil';
+    }
+  }
+
+  // Nettoyer le cache Firestore pour résoudre le crash SQLiteBlobTooBigException
+  Future<void> clearFirestoreCache() async {
+    try {
+      await _firestore.clearPersistence();
+      print('✅ Cache Firestore nettoyé avec succès');
+    } catch (e) {
+      print('⚠️ Erreur lors du nettoyage du cache Firestore: $e');
     }
   }
 

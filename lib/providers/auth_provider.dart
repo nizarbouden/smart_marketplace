@@ -154,6 +154,21 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // Rafraîchir les données utilisateur
+  Future<void> refreshUserProfile() async {
+    try {
+      _setLoading(true);
+      _user = await _authService.getUserProfile();
+      _clearError();
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   // Déconnexion
   Future<void> signOut() async {
     try {

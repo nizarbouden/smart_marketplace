@@ -1,21 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'package:smart_marketplace/models/countries.dart';
 import 'package:smart_marketplace/models/profile_model.dart';
-import 'dart:io';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/providers/auth_provider.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   // Controllers
-  final TextEditingController firstNameController = TextEditingController(text: 'Jean');
-  final TextEditingController lastNameController = TextEditingController(text: 'Dupont');
-  final TextEditingController emailController = TextEditingController(text: 'jean.dupont@email.com');
-  final TextEditingController phoneController = TextEditingController(text: '612345678');
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final TextEditingController emailController;
+  final TextEditingController phoneController;
   
   // Controllers pour l'adresse
-  final TextEditingController streetController = TextEditingController(text: '123 Rue de la République');
-  final TextEditingController cityController = TextEditingController(text: 'Tunis');
-  final TextEditingController postalCodeController = TextEditingController(text: '1000');
-  final TextEditingController countryController = TextEditingController(text: 'Tunisie');
+  final TextEditingController streetController;
+  final TextEditingController cityController;
+  final TextEditingController postalCodeController;
+  final TextEditingController countryController;
+
+  // Service d'authentification
+  final FirebaseAuthService _authService = FirebaseAuthService();
+
+  // Constructeur avec données utilisateur (par défaut vide)
+  ProfileViewModel({
+    String firstName = '',
+    String lastName = '',
+    String email = '',
+    String phone = '',
+    String countryCode = '+216',
+    String? genre,
+    String? photoUrl,
+  }) 
+      : firstNameController = TextEditingController(text: firstName.isEmpty ? 'Jean' : firstName),
+        lastNameController = TextEditingController(text: lastName.isEmpty ? 'Dupont' : lastName),
+        emailController = TextEditingController(text: email.isEmpty ? 'jean.dupont@email.com' : email),
+        phoneController = TextEditingController(text: phone.isEmpty ? '' : phone), // Laisser vide si pas de numéro
+        streetController = TextEditingController(text: '123 Rue de la République'),
+        cityController = TextEditingController(text: 'Tunis'),
+        postalCodeController = TextEditingController(text: '1000'),
+        countryController = TextEditingController(text: 'Tunisie') {
+    _selectedCountryCode = countryCode;
+    _selectedGender = genre;
+    _profileImageUrl = photoUrl; // Stocker l'URL de la photo
+  }
 
   // État du profil
   ProfileModel _profile = ProfileModel(
@@ -49,9 +79,11 @@ class ProfileViewModel extends ChangeNotifier {
 
   // Variables pour l'image
   File? _profileImage;
+  String? _profileImageUrl; // URL de la photo depuis la base de données
   final ImagePicker _imagePicker = ImagePicker();
 
   File? get profileImage => _profileImage;
+  String? get profileImageUrl => _profileImageUrl;
 
   // Variables d'état
   bool _isLoading = false;
@@ -117,21 +149,25 @@ class ProfileViewModel extends ChangeNotifier {
 
   // Méthodes de validation
   String? validateFirstName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le prénom est requis';
-    }
-    if (value.length < 2) {
-      return 'Le prénom doit contenir au moins 2 caractères';
+    if (value != null && value.isNotEmpty) {
+      if (value.length < 2) {
+        return 'Le prénom doit contenir au moins 2 caractères';
+      }
+      if (!RegExp(r'^[a-zA-ZÀ-ÿ\s-]+$').hasMatch(value)) {
+        return 'Le prénom ne doit contenir que des lettres';
+      }
     }
     return null;
   }
 
   String? validateLastName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le nom est requis';
-    }
-    if (value.length < 2) {
-      return 'Le nom doit contenir au moins 2 caractères';
+    if (value != null && value.isNotEmpty) {
+      if (value.length < 2) {
+        return 'Minimum 2 caractères';
+      }
+      if (!RegExp(r'^[a-zA-ZÀ-ÿ\s-]+$').hasMatch(value)) {
+        return 'Lettres uniquement';
+      }
     }
     return null;
   }
@@ -147,11 +183,13 @@ class ProfileViewModel extends ChangeNotifier {
   }
 
   String? validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le numéro de téléphone est requis';
-    }
-    if (value.length < 8) {
-      return 'Le numéro doit contenir au moins 8 chiffres';
+    if (value != null && value.isNotEmpty) {
+      if (value.length < 8) {
+        return 'Le numéro doit contenir au moins 8 chiffres';
+      }
+      if (!RegExp(r'^[0-9\s-+()]+$').hasMatch(value)) {
+        return 'Le numéro ne doit contenir que des chiffres';
+      }
     }
     return null;
   }
@@ -194,20 +232,40 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simuler une sauvegarde API
-      await Future.delayed(const Duration(seconds: 2));
+      // Pour l'instant, on ne sauvegarde pas la photo pour éviter le crash
+      // TODO: Implémenter une solution d'upload correcte plus tard
       
-      // Mettre à jour le modèle avec les valeurs des controllers
-      _updateProfile();
+      // Sauvegarder dans Firestore via le service (sans la photo)
+      await _authService.updateProfile(
+        nom: lastNameController.text.trim(),
+        prenom: firstNameController.text.trim(),
+        phoneNumber: phoneController.text.trim(),
+        countryCode: _selectedCountryCode,
+        genre: _selectedGender,
+        photoUrl: _profileImageUrl, // Garder l'ancienne URL
+      );
+      
+      print('🔍 DEBUG: Profil sauvegardé (sans modification photo)');
       
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
+      print('🔍 DEBUG: Erreur lors de la sauvegarde: $e');
       _isLoading = false;
       notifyListeners();
-      debugPrint('Error saving profile: $e');
       return false;
+    }
+  }
+
+  // Méthode pour rafraîchir les données utilisateur
+  Future<void> refreshUserData(BuildContext context) async {
+    try {
+      // Récupérer les données fraîches depuis Firestore
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.refreshUserProfile();
+    } catch (e) {
+      // Erreur silencieuse pour ne pas bloquer l'UX
     }
   }
 
@@ -217,7 +275,6 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simuler une sauvegarde API
       await Future.delayed(const Duration(seconds: 2));
       
       _isLoading = false;
@@ -226,7 +283,6 @@ class ProfileViewModel extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('Error saving address: $e');
       return false;
     }
   }

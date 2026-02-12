@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';
 import 'security/security_settings_page.dart';
@@ -195,7 +196,16 @@ class _ProfilePageState extends State<ProfilePage> {
             if (title == 'Déconnexion') {
               _showLogoutDialog();
             } else if (title == 'Informations personnelles') {
-              Navigator.pushNamed(context, '/edit-profile');
+              // Naviguer vers EditProfilePage avec les données utilisateur
+              final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProfilePage(
+                    user: authProvider.user,
+                  ),
+                ),
+              );
             } else if (title == 'Adresses') {
               Navigator.push(
                 context,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 class ProfileImageWidget extends StatelessWidget {
   final File? profileImage;
+  final String? profileImageUrl;
   final VoidCallback onPickImage;
   final VoidCallback onTakePhoto;
   final bool isDesktop;
@@ -11,6 +12,7 @@ class ProfileImageWidget extends StatelessWidget {
   const ProfileImageWidget({
     super.key,
     this.profileImage,
+    this.profileImageUrl,
     required this.onPickImage,
     required this.onTakePhoto,
     required this.isDesktop,
@@ -19,6 +21,9 @@ class ProfileImageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('🔍 ProfileImageWidget: profileImage = $profileImage');
+    print('🔍 ProfileImageWidget: profileImageUrl = $profileImageUrl');
+    
     return Center(
       child: Column(
         children: [
@@ -27,10 +32,8 @@ class ProfileImageWidget extends StatelessWidget {
               CircleAvatar(
                 radius: isDesktop ? 80 : isTablet ? 70 : 60,
                 backgroundColor: Colors.deepPurple[100],
-                backgroundImage: profileImage != null
-                    ? FileImage(profileImage!) as ImageProvider
-                    : null,
-                child: profileImage == null
+                backgroundImage: _getImageProvider(),
+                child: _shouldShowDefaultIcon()
                     ? Icon(
                         Icons.person,
                         size: isDesktop ? 80 : isTablet ? 70 : 60,
@@ -53,14 +56,14 @@ class ProfileImageWidget extends StatelessWidget {
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.camera_alt,
                       color: Colors.white,
-                      size: isDesktop ? 20 : isTablet ? 18 : 16,
+                      size: 20,
                     ),
                   ),
                 ),
@@ -69,16 +72,36 @@ class ProfileImageWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Photo de profil',
+            'Changer la photo',
             style: TextStyle(
-              fontSize: isDesktop ? 16 : isTablet ? 14 : 12,
-              color: Colors.grey[600],
+              fontSize: isDesktop ? 16 : 14,
+              color: Colors.deepPurple,
               fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
     );
+  }
+
+  // Méthode helper pour déterminer l'image à afficher
+  ImageProvider? _getImageProvider() {
+    // Priorité 1: Image locale (nouvelle photo sélectionnée)
+    if (profileImage != null) {
+      return FileImage(profileImage!) as ImageProvider;
+    }
+    // Priorité 2: URL de l'image (photo existante)
+    if (profileImageUrl != null && profileImageUrl!.isNotEmpty) {
+      return NetworkImage(profileImageUrl!);
+    }
+    // Pas d'image
+    return null;
+  }
+
+  // Méthode helper pour déterminer si on affiche l'icône par défaut
+  bool _shouldShowDefaultIcon() {
+    return profileImage == null && 
+           (profileImageUrl == null || profileImageUrl!.isEmpty);
   }
 
   void _showImagePickerBottomSheet(BuildContext context) {
