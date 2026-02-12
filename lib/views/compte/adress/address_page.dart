@@ -113,21 +113,16 @@ class _AddressPageState extends State<AddressPage> {
         await Future.delayed(const Duration(milliseconds: 300));
       }
       
+      // Créer la notification d'adresse par défaut
+      await FirebaseAuthService().createNotification(
+        userId: FirebaseAuthService().currentUser?.uid ?? '',
+        title: 'Adresse par défaut',
+        body: 'Votre adresse par défaut a été mise à jour',
+        type: 'address',
+      );
+      
       // Recharger les adresses pour mettre à jour l'UI
       await _loadAddresses();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Adresse définie par défaut avec succès!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,19 +148,6 @@ class _AddressPageState extends State<AddressPage> {
       
       // Recharger les adresses pour mettre à jour l'UI
       await _loadAddresses();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Adresse supprimée avec succès!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

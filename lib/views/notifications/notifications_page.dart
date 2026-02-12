@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -8,80 +9,87 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  List<Map<String, dynamic>> notifications = [
-    {
-      'id': 1,
-      'title': 'Commande livrée',
-      'message': 'Votre commande #12345 a été livrée avec succès',
-      'time': 'Il y a 2 heures',
-      'icon': Icons.check_circle,
-      'color': Colors.green,
-      'isRead': false,
-    },
-    {
-      'id': 2,
-      'title': 'Promotion spéciale',
-      'message': 'Profitez de -20% sur tous les produits électroniques',
-      'time': 'Il y a 5 heures',
-      'icon': Icons.local_offer,
-      'color': Colors.orange,
-      'isRead': false,
-    },
-    {
-      'id': 3,
-      'title': 'Nouveau produit',
-      'message': 'Découvrez les nouveaux arrivages dans votre catégorie préférée',
-      'time': 'Hier',
-      'icon': Icons.new_releases,
-      'color': Colors.blue,
-      'isRead': false,
-    },
-    {
-      'id': 4,
-      'title': 'Paiement confirmé',
-      'message': 'Votre paiement de 167,47 € a été confirmé',
-      'time': 'Hier',
-      'icon': Icons.payment,
-      'color': Colors.purple,
-      'isRead': true,
-    },
-    {
-      'id': 5,
-      'title': 'Mise à jour de livraison',
-      'message': 'Votre commande est en route',
-      'time': 'Il y a 2 jours',
-      'icon': Icons.local_shipping,
-      'color': Colors.indigo,
-      'isRead': true,
-    },
-    {
-      'id': 6,
-      'title': 'Avis reçu',
-      'message': 'Un client a laissé un avis sur votre produit',
-      'time': 'Il y a 3 jours',
-      'icon': Icons.star,
-      'color': Colors.amber,
-      'isRead': true,
-    },
-    {
-      'id': 7,
-      'title': 'Rappel de panier',
-      'message': 'Vous avez des articles dans votre panier',
-      'time': 'Il y a 4 jours',
-      'icon': Icons.shopping_cart,
-      'color': Colors.red,
-      'isRead': true,
-    },
-    {
-      'id': 8,
-      'title': 'Mise à jour de l\'app',
-      'message': 'Nouvelles fonctionnalités disponibles',
-      'time': 'Il y a 1 semaine',
-      'icon': Icons.system_update,
-      'color': Colors.grey,
-      'isRead': true,
-    },
-  ];
+  List<Map<String, dynamic>> notifications = [];
+  bool isLoading = true;
+  final FirebaseAuthService _authService = FirebaseAuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> userNotifications = await _authService.getUserNotifications();
+      setState(() {
+        notifications = userNotifications;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Convertir Timestamp en texte lisible
+  String _formatTime(dynamic timestamp) {
+    if (timestamp is String) return timestamp;
+    
+    try {
+      DateTime dateTime = (timestamp as dynamic).toDate();
+      DateTime now = DateTime.now();
+      Duration difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 60) {
+        return 'Il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+      } else if (difference.inHours < 24) {
+        return 'Il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
+      } else if (difference.inDays < 7) {
+        return 'Il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
+      } else {
+        return 'Le ${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
+      }
+    } catch (e) {
+      return 'Il y a quelque temps';
+    }
+  }
+
+  // Obtenir l'icône et la couleur selon le type de notification
+  Map<String, dynamic> _getNotificationIconAndColor(String type) {
+    switch (type) {
+      case 'profile':
+        return {
+          'icon': Icons.person,
+          'color': Colors.blue,
+        };
+      case 'address':
+        return {
+          'icon': Icons.location_on,
+          'color': Colors.green,
+        };
+      case 'order':
+        return {
+          'icon': Icons.shopping_cart,
+          'color': Colors.orange,
+        };
+      case 'product':
+        return {
+          'icon': Icons.local_offer,
+          'color': Colors.purple,
+        };
+      default:
+        return {
+          'icon': Icons.notifications,
+          'color': Colors.grey,
+        };
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +124,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
               // Liste des notifications
               Expanded(
-                child: notifications.isEmpty
-                    ? _buildEmptyState(isMobile, isTablet)
-                    : _buildNotificationsList(isMobile, isTablet, isDesktop),
+                child: isLoading
+                    ? _buildLoadingState(isMobile, isTablet)
+                    : notifications.isEmpty
+                        ? _buildEmptyState(isMobile, isTablet)
+                        : _buildNotificationsList(isMobile, isTablet, isDesktop),
               ),
             ],
           ),
@@ -241,7 +251,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 12 : 16,
+              horizontal: isTablet ? 16 : 20,
               vertical: 12,
             ),
             shape: RoundedRectangleBorder(
@@ -253,31 +263,61 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  Widget _buildLoadingState(bool isMobile, bool isTablet) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+            strokeWidth: 3,
+          ),
+          SizedBox(height: isMobile ? 16 : (isTablet ? 20 : 24)),
+          Text(
+            'Chargement des notifications...',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState(bool isMobile, bool isTablet) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.notifications_off_outlined,
-            size: isMobile ? 60 : (isTablet ? 80 : 100),
-            color: Colors.grey[400],
+          Container(
+            width: isMobile ? 80 : (isTablet ? 100 : 120),
+            height: isMobile ? 80 : (isTablet ? 100 : 120),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_off,
+              size: isMobile ? 40 : (isTablet ? 50 : 60),
+              color: Colors.deepPurple,
+            ),
           ),
-          SizedBox(height: isMobile ? 16 : (isTablet ? 20 : 24)),
+          SizedBox(height: isMobile ? 24 : (isTablet ? 32 : 40)),
           Text(
             'Aucune notification',
             style: TextStyle(
-              fontSize: isMobile ? 18 : (isTablet ? 22 : 26),
               color: Colors.grey[600],
-              fontWeight: FontWeight.w600,
+              fontSize: isMobile ? 16 : (isTablet ? 18 : 20),
+              fontWeight: FontWeight.w500,
             ),
           ),
           SizedBox(height: isMobile ? 8 : (isTablet ? 12 : 16)),
           Text(
-            'Vous n\'avez aucune nouvelle notification',
+            'Vous n\'avez pas de notifications pour le moment',
             style: TextStyle(
-              fontSize: isMobile ? 14 : (isTablet ? 16 : 18),
               color: Colors.grey[500],
+              fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
             ),
             textAlign: TextAlign.center,
           ),
@@ -288,212 +328,202 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Widget _buildNotificationsList(bool isMobile, bool isTablet, bool isDesktop) {
     return ListView.builder(
+      padding: EdgeInsets.zero,
       itemCount: notifications.length,
       itemBuilder: (context, index) {
-        return _dismissibleNotificationCard(index, isMobile, isTablet, isDesktop);
-      },
-    );
-  }
-
-  Widget _dismissibleNotificationCard(
-      int index,
-      bool isMobile,
-      bool isTablet,
-      bool isDesktop,
-      ) {
-    final notification = notifications[index];
-    final isUnread = !notification['isRead'] as bool;
-
-    // Responsive spacing
-    final cardMarginBottom = isMobile ? 12.0 : (isTablet ? 16.0 : 18.0);
-    final iconSize = isMobile ? 40 : (isTablet ? 48 : 56);
-    final iconInnerSize = isMobile ? 20 : (isTablet ? 24 : 28);
-    final titleFontSize = isMobile ? 15 : (isTablet ? 17 : 18);
-    final messageFontSize = isMobile ? 13 : (isTablet ? 15 : 16);
-    final timeFontSize = isMobile ? 11 : (isTablet ? 13 : 14);
-    final cardPadding = isMobile ? 12.0 : (isTablet ? 18.0 : 20.0);
-    final iconSpacing = isMobile ? 10.0 : (isTablet ? 14.0 : 16.0);
-
-    return Dismissible(
-      key: Key(notification['id'].toString()),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: EdgeInsets.only(right: cardPadding),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.delete,
-              color: Colors.white,
-              size: isMobile ? 24 : (isTablet ? 28 : 32),
-            ),
-            SizedBox(height: isMobile ? 2 : 4),
-            Text(
-              'Supprimer',
-              style: TextStyle(
+        final notification = notifications[index];
+        final isRead = notification['isRead'] ?? true;
+        final type = notification['type'] ?? 'default';
+        final iconData = _getNotificationIconAndColor(type);
+        
+        return GestureDetector(
+          onTap: () async {
+            // Marquer la notification comme lue si elle ne l'est pas déjà
+            if (!isRead) {
+              try {
+                await _authService.markNotificationAsRead(
+                  _authService.currentUser?.uid ?? '',
+                  notification['id'] ?? '',
+                );
+                
+                // Mettre à jour l'UI localement
+                setState(() {
+                  notification['isRead'] = true;
+                });
+              } catch (e) {
+                print('❌ Erreur lors du marquage de la notification: $e');
+              }
+            }
+          },
+          child: Dismissible(
+            key: Key(notification['id'] ?? index.toString()),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: EdgeInsets.only(right: isMobile ? 20 : (isTablet ? 25 : 30)),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.delete,
                 color: Colors.white,
-                fontSize: isMobile ? 10 : (isTablet ? 12 : 14),
-                fontWeight: FontWeight.w500,
+                size: isMobile ? 24 : (isTablet ? 28 : 32),
               ),
             ),
-          ],
-        ),
-      ),
-      onDismissed: (direction) {
-        _deleteNotification(index);
-      },
-      child: Container(
-        margin: EdgeInsets.only(bottom: cardMarginBottom),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-          border: isUnread
-              ? Border.all(
-            color: Colors.deepPurple.withOpacity(0.3),
-            width: 2,
-          )
-              : null,
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(cardPadding),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Icône de notification
-              Container(
-                width: iconSize.toDouble(),
-                height: iconSize.toDouble(),
-                decoration: BoxDecoration(
-                  color: (notification['color'] as Color).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  notification['icon'] as IconData,
-                  color: notification['color'] as Color,
-                  size: iconInnerSize.toDouble(),
+            onDismissed: (direction) async {
+              // Supprimer la notification de Firestore
+              await _authService.deleteNotification(
+                _authService.currentUser?.uid ?? '',
+                notification['id'] ?? '',
+              );
+              
+              // Mettre à jour l'UI
+              setState(() {
+                notifications.removeAt(index);
+              });
+            },
+            child: Container(
+              margin: EdgeInsets.only(
+                bottom: isMobile ? 12 : (isTablet ? 16 : 20),
+              ),
+              decoration: BoxDecoration(
+                color: isRead ? Colors.white : Colors.deepPurple.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isRead ? Colors.grey.shade300 : Colors.deepPurple.withOpacity(0.2),
+                  width: 1,
                 ),
               ),
-
-              SizedBox(width: iconSpacing),
-
-              // Contenu de la notification
-              Expanded(
-                child: Column(
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 16 : (isTablet ? 20 : 24)),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Titre + Indicateur de non-lu
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            notification['title'] as String,
-                            style: TextStyle(
-                              fontWeight: isUnread
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              fontSize: titleFontSize.toDouble(),
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        if (isUnread)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              left: isMobile ? 4 : 8,
-                              top: isMobile ? 2 : 4,
-                            ),
-                            child: Container(
-                              width: isMobile ? 6 : (isTablet ? 8 : 10),
-                              height: isMobile ? 6 : (isTablet ? 8 : 10),
-                              decoration: const BoxDecoration(
-                                color: Colors.deepPurple,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    SizedBox(height: isMobile ? 4 : (isTablet ? 6 : 8)),
-
-                    // Message
-                    Text(
-                      notification['message'] as String,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: messageFontSize.toDouble(),
-                        height: 1.4,
+                    // Icône
+                    Container(
+                      width: isMobile ? 40 : (isTablet ? 48 : 56),
+                      height: isMobile ? 40 : (isTablet ? 48 : 56),
+                      decoration: BoxDecoration(
+                        color: iconData['color'].withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: Icon(
+                        iconData['icon'],
+                        size: isMobile ? 20 : (isTablet ? 24 : 28),
+                        color: iconData['color'],
+                      ),
                     ),
 
-                    SizedBox(height: isMobile ? 6 : (isTablet ? 10 : 12)),
+                    SizedBox(width: isMobile ? 12 : (isTablet ? 16 : 20)),
 
-                    // Heure
-                    Text(
-                      notification['time'] as String,
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: timeFontSize.toDouble(),
+                    // Contenu
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Titre
+                          Text(
+                            notification['title'] ?? 'Notification',
+                            style: TextStyle(
+                              fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
+                              fontWeight: FontWeight.bold,
+                              color: isRead ? Colors.grey[700] : Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          SizedBox(height: isMobile ? 4 : (isTablet ? 6 : 8)),
+
+                          // Message
+                          Text(
+                            notification['body'] ?? '',
+                            style: TextStyle(
+                              fontSize: isMobile ? 12 : (isTablet ? 13 : 14),
+                              color: isRead ? Colors.grey[600] : Colors.grey[700],
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          SizedBox(height: isMobile ? 6 : (isTablet ? 8 : 10)),
+
+                          // Temps
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: isMobile ? 12 : (isTablet ? 13 : 14),
+                                color: Colors.grey[500],
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                _formatTime(notification['createdAt']),
+                                style: TextStyle(
+                                  fontSize: isMobile ? 11 : (isTablet ? 12 : 13),
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                              const Spacer(),
+                              if (!isRead)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Colors.deepPurple,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  void _deleteNotification(int index) {
-    setState(() {
-      notifications.removeAt(index);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Notification supprimée'),
-        duration: const Duration(seconds: 2),
-        action: SnackBarAction(
-          label: 'Annuler',
-          onPressed: () {
-            // TODO: Implémenter la fonctionnalité d'annulation
-          },
-        ),
-      ),
-    );
-  }
-
-  void _markAllAsRead() {
-    setState(() {
+  void _markAllAsRead() async {
+    try {
+      String userId = _authService.currentUser?.uid ?? '';
+      
+      // Marquer toutes les notifications comme lues dans Firestore
       for (var notification in notifications) {
-        notification['isRead'] = true;
+        if (!(notification['isRead'] ?? true)) {
+          await _authService.markNotificationAsRead(userId, notification['id'] ?? '');
+        }
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Toutes les notifications marquées comme lues'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+      
+      // Mettre à jour l'UI localement
+      setState(() {
+        for (var notification in notifications) {
+          notification['isRead'] = true;
+        }
+      });
+    } catch (e) {
+      // Afficher un message d'erreur
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du marquage: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _clearAllNotifications() {
@@ -502,6 +532,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
       builder: (BuildContext context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+        final isTablet = screenWidth >= 600 && screenWidth < 1200;
+        
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
           shape: RoundedRectangleBorder(
@@ -515,9 +549,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFFEF4444),
-                  const Color(0xFFF87171),
-                  const Color(0xFFFCA5A5),
+                  const Color(0xFFDC2626), // Rouge foncé
+                  const Color(0xFFEF4444), // Rouge principal
+                  const Color(0xFFF87171), // Rouge clair
                 ],
               ),
             ),
@@ -539,13 +573,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ),
                     ),
                     child: const Icon(
-                      Icons.delete_sweep,
+                      Icons.delete_sweep_rounded,
                       color: Colors.white,
                       size: 32,
                     ),
                   ),
                 ),
-
+                
                 // Contenu blanc
                 Container(
                   width: double.infinity,
@@ -561,17 +595,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Supprimer les notifications',
+                        'Supprimer tout',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFDC2626),
+                          color: Color(0xFFDC2626), // Rouge foncé
                           letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Êtes-vous sûr de vouloir\nsupprimer toutes les notifications?',
+                        'Êtes-vous sûr de vouloir supprimer\ntoutes vos notifications?',
                         style: TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
@@ -580,12 +614,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-
+                      
                       // Boutons modernes
                       Row(
                         children: [
                           Expanded(
-                            child: SizedBox(
+                            child: Container(
                               height: 48,
                               child: OutlinedButton(
                                 onPressed: () {
@@ -593,7 +627,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 },
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
-                                    color: Color(0xFFEF4444),
+                                    color: Color(0xFFDC2626), // Rouge foncé
                                     width: 1.5,
                                   ),
                                   shape: RoundedRectangleBorder(
@@ -604,7 +638,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 child: const Text(
                                   'Annuler',
                                   style: TextStyle(
-                                    color: Color(0xFFEF4444),
+                                    color: Color(0xFFDC2626), // Rouge foncé
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -614,39 +648,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: SizedBox(
+                            child: Container(
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  setState(() {
-                                    notifications.clear();
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Toutes les notifications ont été supprimées',
-                                      ),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
+                                onPressed: () async {
+                                  Navigator.of(context).pop(); // Fermer le dialogue
+                                  
+                                  try {
+                                    // Supprimer toutes les notifications de Firestore
+                                    await _authService.deleteAllNotifications(
+                                      _authService.currentUser?.uid ?? '',
+                                    );
+                                    
+                                    // Mettre à jour l'UI
+                                    setState(() {
+                                      notifications.clear();
+                                    });
+                                  } catch (e) {
+                                    // Afficher un message d'erreur
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Erreur lors de la suppression: $e'),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 3),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEF4444),
+                                  backgroundColor: const Color(0xFFDC2626), // Rouge foncé
                                   foregroundColor: Colors.white,
-                                  shadowColor: const Color(0xFFEF4444)
-                                      .withOpacity(0.3),
+                                  shadowColor: const Color(0xFFDC2626).withOpacity(0.3),
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                child: const Text(
-                                  'Supprimer',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.3,
+                                child: const FittedBox(
+                                  child: Text(
+                                    'Supprimer',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),

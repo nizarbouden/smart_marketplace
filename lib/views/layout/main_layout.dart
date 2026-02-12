@@ -6,6 +6,7 @@ import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
 import '../payment/checkout_page.dart';
 import '../../services/selection_service.dart';
+import '../../services/firebase_auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class MainLayout extends StatefulWidget {
@@ -15,19 +16,21 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
+class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
   int _totalCartItems = 5; // Initialiser avec 5 articles au démarrage
   int _selectedCartItems = 0;
   double _selectedTotal = 0.0;
   bool _showNotifications = false;
   bool _showCartOverlay = false;
+  int _unreadNotificationsCount = 0; // Compteur de notifications non lues
   
   // Service de sélection partagé
   final SelectionService _selectionService = SelectionService();
   
-  // Instance Firebase Auth
+  // Instance Firebase Auth et Service
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuthService _authService = FirebaseAuthService();
   
   // Vérifier si l'utilisateur est connecté
   bool _isUserConnected() {
@@ -210,6 +213,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     
+    // Ajouter l'observer pour détecter quand l'app revient au premier plan
+    WidgetsBinding.instance.addObserver(this);
+    
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -217,6 +223,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    
+    // Charger le nombre de notifications non lues
+    _loadUnreadNotificationsCount();
     
     // Écouter les changements de sélection du service partagé
     _selectionService.addListener(_onSelectionChanged);
@@ -226,7 +235,45 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   void dispose() {
     _animationController.dispose();
     _selectionService.removeListener(_onSelectionChanged);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Quand l'app revient au premier plan, rafraîchir le compteur de notifications
+    if (state == AppLifecycleState.resumed && !_showNotifications) {
+      _refreshNotificationCount();
+    }
+  }
+
+  // Charger le nombre de notifications non lues
+  Future<void> _loadUnreadNotificationsCount() async {
+    try {
+      List<Map<String, dynamic>> notifications = await _authService.getUserNotifications();
+      int unreadCount = 0;
+      
+      for (var notification in notifications) {
+        if (!(notification['isRead'] ?? true)) {
+          unreadCount++;
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _unreadNotificationsCount = unreadCount;
+        });
+      }
+    } catch (e) {
+      print('❌ Erreur lors du chargement du compteur de notifications: $e');
+    }
+  }
+
+  // Rafraîchir le compteur de notifications
+  void _refreshNotificationCount() {
+    _loadUnreadNotificationsCount();
   }
 
   void _onSelectionChanged() {
@@ -246,17 +293,22 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onItemTapped(int index) {
-    // Vérifier si l'utilisateur est connecté pour les pages protégées
-    if (index == 0) {
-      // Home page - toujours accessible
+    if (index == 0 || index == 1) {
+      // Accueil et Panier - toujours accessibles
       setState(() {
         _currentIndex = index;
+        // Rafraîchir le compteur de notifications quand on revient à l'accueil
+        if (index == 0) {
+          _refreshNotificationCount();
+        }
       });
     } else {
       // Pages protégées - vérifier la connexion
       if (_isUserConnected()) {
         setState(() {
           _currentIndex = index;
+          // Rafraîchir le compteur de notifications quand on change d'onglet
+          _refreshNotificationCount();
         });
       } else {
         _showLoginRequiredMessage();
@@ -269,6 +321,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     if (_isUserConnected()) {
       setState(() {
         _showNotifications = !_showNotifications;
+        // Si on ouvre les notifications, réinitialiser le compteur
+        if (_showNotifications) {
+          _unreadNotificationsCount = 0;
+        } else {
+          // Si on ferme les notifications, rafraîchir le compteur
+          _refreshNotificationCount();
+        }
       });
     } else {
       _showLoginRequiredMessage();
@@ -345,19 +404,36 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                             icon: Icon(
                               _showNotifications ? Icons.close : Icons.notifications,
                               color: Colors.black,
+                              size: 28, // Augmenté de 24 à 28
                             ),
                             onPressed: _toggleNotifications,
                           ),
-                          if (!_showNotifications)
+                          if (!_showNotifications && _unreadNotificationsCount > 0)
                             Positioned(
-                              right: 8,
-                              top: 8,
+                              right: 2,  // Déplacé plus à droite
+                              top: 2,   // Déplacé plus en haut
                               child: Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(
                                   color: Colors.red,
-                                  shape: BoxShape.circle,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 24,
+                                  minHeight: 24,
+                                ),
+                                child: Text(
+                                  _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ),

@@ -510,6 +510,97 @@ class FirebaseAuthService {
     }
   }
 
+  // CRÉER UNE NOTIFICATION
+  Future<void> createNotification({
+    required String userId,
+    required String title,
+    required String body,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      String notificationId = _firestore.collection('users').doc(userId).collection('notifications').doc().id;
+      
+      Map<String, dynamic> notificationData = {
+        'id': notificationId,
+        'title': title,
+        'body': body,
+        'type': type,
+        'isRead': false,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+        'data': data ?? {},
+      };
+
+      await _firestore.collection('users').doc(userId).collection('notifications').doc(notificationId).set(notificationData);
+    } catch (e) {
+      print('❌ Erreur lors de la création de la notification: $e');
+    }
+  }
+
+  // RÉCUPÉRER TOUTES LES NOTIFICATIONS
+  Future<List<Map<String, dynamic>>> getUserNotifications() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        QuerySnapshot notifications = await _firestore.collection('users').doc(user.uid).collection('notifications').get();
+        
+        List<Map<String, dynamic>> notificationList = [];
+        for (DocumentSnapshot doc in notifications.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          notificationList.add(data);
+        }
+        
+        // Trier par date de création (plus récent en premier)
+        notificationList.sort((a, b) {
+          Timestamp aTime = a['createdAt'] as Timestamp;
+          Timestamp bTime = b['createdAt'] as Timestamp;
+          return bTime.compareTo(aTime);
+        });
+        
+        return notificationList;
+      }
+      return [];
+    } catch (e) {
+      print('❌ Erreur lors de la récupération des notifications: $e');
+      return [];
+    }
+  }
+
+  // MARQUER UNE NOTIFICATION COMME LUE
+  Future<void> markNotificationAsRead(String userId, String notificationId) async {
+    try {
+      await _firestore.collection('users').doc(userId).collection('notifications').doc(notificationId).update({
+        'isRead': true,
+      });
+    } catch (e) {
+      print('❌ Erreur lors du marquage de la notification comme lue: $e');
+    }
+  }
+
+  // SUPPRIMER TOUTES LES NOTIFICATIONS
+  Future<void> deleteAllNotifications(String userId) async {
+    try {
+      QuerySnapshot notifications = await _firestore.collection('users').doc(userId).collection('notifications').get();
+      
+      for (DocumentSnapshot doc in notifications.docs) {
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      print('❌ Erreur lors de la suppression de toutes les notifications: $e');
+      throw 'Erreur lors de la suppression de toutes les notifications';
+    }
+  }
+
+  // SUPPRIMER UNE NOTIFICATION SPÉCIFIQUE
+  Future<void> deleteNotification(String userId, String notificationId) async {
+    try {
+      await _firestore.collection('users').doc(userId).collection('notifications').doc(notificationId).delete();
+    } catch (e) {
+      print('❌ Erreur lors de la suppression de la notification: $e');
+      throw 'Erreur lors de la suppression de la notification';
+    }
+  }
+
   // Nettoyer le cache Firestore pour résoudre le crash SQLiteBlobTooBigException
   Future<void> clearFirestoreCache() async {
     try {

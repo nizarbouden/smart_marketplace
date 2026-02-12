@@ -7,6 +7,7 @@ import 'package:smart_marketplace/widgets/phone_field_widget.dart';
 import 'package:smart_marketplace/widgets/gender_field_widget.dart';
 import 'package:smart_marketplace/widgets/profile_image_widget.dart';
 import 'package:smart_marketplace/models/user_model.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   final UserModel? user;
@@ -214,6 +215,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
           // Valider le formulaire avant de sauvegarder
           if (_formKey.currentState?.validate() ?? false) {
             await viewModel.saveProfile();
+            
+            // Créer la notification de mise à jour du profil
+            await FirebaseAuthService().createNotification(
+              userId: FirebaseAuthService().currentUser?.uid ?? '',
+              title: 'Profil mis à jour',
+              body: 'Vos informations ont été enregistrées avec succès',
+              type: 'profile',
+            );
             
             // Rafraîchir les données utilisateur
             await viewModel.refreshUserData(context);
