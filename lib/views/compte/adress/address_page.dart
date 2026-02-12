@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
 import 'add_address_page.dart';
 import 'edit_address_page.dart';
 
@@ -12,37 +13,130 @@ class AddressPage extends StatefulWidget {
 }
 
 class _AddressPageState extends State<AddressPage> {
-  // Liste des adresses (exemple)
-  List<Map<String, dynamic>> addresses = [
-    {
-      'id': 1,
-      'contactName': 'Nizar Bouden',
-      'phone': '93489229',
-      'countryCode': '+216',
-      'countryName': 'Tunisia',
-      'countryFlag': '🇹🇳',
-      'street': 'Rue Taher Sfar Dar Chaabennabeul',
-      'complement': 'Appartement 3',
-      'province': 'Nabeul',
-      'city': 'Nabeul',
-      'postalCode': '8011',
-      'isDefault': true,
-    },
-    {
-      'id': 2,
-      'contactName': 'Nizar Bouden',
-      'phone': '93489229',
-      'countryCode': '+216',
-      'countryName': 'Tunisia',
-      'countryFlag': '🇹🇳',
-      'street': 'Avenue Habib Bourguiba',
-      'complement': 'Bureau 2',
-      'province': 'Tunis',
-      'city': 'Tunis',
-      'postalCode': '1000',
-      'isDefault': false,
-    },
-  ];
+  List<Map<String, dynamic>> addresses = [];
+  bool isLoading = true;
+  String? _previousDefaultAddressId;
+  final FirebaseAuthService _authService = FirebaseAuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> userAddresses = await _authService.getUserAddresses();
+      
+      // Sauvegarder l'ID de l'adresse par défaut actuelle pour l'animation
+      String? currentDefaultId;
+      for (var address in userAddresses) {
+        if (address['isDefault'] == true) {
+          currentDefaultId = address['id'];
+          break;
+        }
+      }
+      
+      setState(() {
+        addresses = userAddresses;
+        _previousDefaultAddressId = currentDefaultId;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement des adresses: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _setDefaultAddress(String addressId) async {
+    try {
+      await _authService.setDefaultAddress(
+        FirebaseAuthService().currentUser?.uid ?? '',
+        addressId,
+      );
+      
+      // Recharger les adresses pour mettre à jour l'UI
+      await _loadAddresses();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Adresse définie par défaut avec succès!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAddress(String addressId) async {
+    try {
+      await _authService.deleteAddress(
+        FirebaseAuthService().currentUser?.uid ?? '',
+        addressId,
+      );
+      
+      // Recharger les adresses pour mettre à jour l'UI
+      await _loadAddresses();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Adresse supprimée avec succès!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,9 +191,11 @@ class _AddressPageState extends State<AddressPage> {
           SizedBox(height: isMobile ? 24 : isTablet ? 32 : 40),
 
           // Liste des adresses
-          addresses.isEmpty
-              ? _buildEmptyState(isMobile, isTablet, isDesktop)
-              : _buildAddressesList(context, isMobile, isTablet, isDesktop),
+          isLoading
+              ? _buildLoadingState(isMobile, isTablet, isDesktop)
+              : addresses.isEmpty
+                  ? _buildEmptyState(isMobile, isTablet, isDesktop)
+                  : _buildAddressesList(context, isMobile, isTablet, isDesktop),
 
           SizedBox(height: isMobile ? 80 : isTablet ? 100 : 120),
         ],
@@ -109,6 +205,31 @@ class _AddressPageState extends State<AddressPage> {
 
   Widget _buildSecurityIndicator(bool isMobile, bool isTablet, bool isDesktop) {
     return const SizedBox.shrink();
+  }
+
+  Widget _buildLoadingState(bool isMobile, bool isTablet, bool isDesktop) {
+    return Container(
+      height: 200,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+              strokeWidth: 3,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Chargement des adresses...',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildAddressesList(BuildContext context, bool isMobile, bool isTablet, bool isDesktop) {
@@ -141,15 +262,28 @@ class _AddressPageState extends State<AddressPage> {
       bool isTablet,
       bool isDesktop,
       ) {
-    return Container(
-      margin: EdgeInsets.only(bottom: isMobile ? 16 : isTablet ? 20 : 24),
+    final isDefault = address['isDefault'] == true;
+    final isNewDefault = isDefault && address['id'] != _previousDefaultAddressId;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      margin: EdgeInsets.only(
+        bottom: isMobile ? 16 : isTablet ? 20 : 24,
+        top: isNewDefault && index == 0 ? 8 : 0,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: isDefault
+            ? Border.all(color: Colors.deepPurple, width: 2)
+            : Border.all(color: Colors.grey.shade300, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: isDefault 
+                ? Colors.deepPurple.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: isDefault ? 15 : 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -157,6 +291,58 @@ class _AddressPageState extends State<AddressPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header avec badge "Par défaut" si applicable
+          if (isDefault)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+                vertical: isMobile ? 8 : isTablet ? 10 : 12,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.star,
+                    color: Colors.deepPurple,
+                    size: isMobile ? 16 : isTablet ? 18 : 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Adresse par défaut',
+                    style: TextStyle(
+                      color: Colors.deepPurple,
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 12 : isTablet ? 13 : 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (isNewDefault)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Nouveau!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           // Header avec nom et téléphone
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
@@ -233,13 +419,10 @@ class _AddressPageState extends State<AddressPage> {
               children: [
                 // Checkbox Par défaut
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      // Déselectionner tous les autres
-                      for (int i = 0; i < addresses.length; i++) {
-                        addresses[i]['isDefault'] = i == index;
-                      }
-                    });
+                  onTap: () async {
+                    if (!isDefault) {
+                      await _setDefaultAddress(address['id'] as String);
+                    }
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -247,13 +430,13 @@ class _AddressPageState extends State<AddressPage> {
                     height: isMobile ? 24 : 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: address['isDefault'] == true ? Colors.deepPurple : Colors.transparent,
+                      color: isDefault ? Colors.deepPurple : Colors.transparent,
                       border: Border.all(
-                        color: address['isDefault'] == true ? Colors.deepPurple : Colors.grey[300]!,
+                        color: isDefault ? Colors.deepPurple : Colors.grey[300]!,
                         width: 2,
                       ),
                     ),
-                    child: address['isDefault'] == true
+                    child: isDefault
                         ? Icon(
                       Icons.check,
                       color: Colors.white,
@@ -299,7 +482,10 @@ class _AddressPageState extends State<AddressPage> {
                               addressData: addresses[index],
                             ),
                           ),
-                        );
+                        ).then((_) {
+                          // Recharger les adresses quand on revient de EditAddressPage
+                          _loadAddresses();
+                        });
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -367,7 +553,10 @@ class _AddressPageState extends State<AddressPage> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddAddressPage()),
-          );
+          ).then((_) {
+            // Recharger les adresses quand on revient de AddAddressPage
+            _loadAddresses();
+          });
         },
           text: 'Ajouter une nouvelle adresse',
           fontSize: isDesktop ? 18 : isTablet ? 16 : 15,
@@ -502,20 +691,8 @@ class _AddressPageState extends State<AddressPage> {
                                 height: 48,
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    setState(() {
-                                      addresses.removeAt(index);
-                                    });
                                     Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text('Adresse supprimée'),
-                                        backgroundColor: Colors.red,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                    );
+                                    _deleteAddress(addresses[index]['id'] as String);
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFFEF4444),

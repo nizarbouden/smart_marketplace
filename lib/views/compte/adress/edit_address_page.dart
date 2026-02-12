@@ -4,6 +4,7 @@ import 'package:smart_marketplace/models/countries.dart';
 import 'package:smart_marketplace/widgets/address_form_widget.dart';
 import 'package:smart_marketplace/widgets/default_address_toggle_widget.dart';
 import 'package:smart_marketplace/widgets/save_address_button_widget.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
 
 class EditAddressPage extends StatefulWidget {
   final Map<String, dynamic> addressData; // Données de l'adresse à modifier
@@ -297,25 +298,58 @@ class _EditAddressPageState extends State<EditAddressPage> {
         _isLoading = true;
       });
 
-      // Simuler une requête de mise à jour
-      await Future.delayed(const Duration(seconds: 2));
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Adresse mise à jour avec succès!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+      try {
+        // Mettre à jour l'adresse dans Firestore
+        await FirebaseAuthService().updateAddress(
+          userId: FirebaseAuthService().currentUser?.uid ?? '',
+          addressId: widget.addressData['id'] as String,
+          contactName: _contactNameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          countryCode: _selectedCountryCode,
+          countryName: _selectedCountryName,
+          countryFlag: _selectedCountryFlag,
+          street: _streetController.text.trim(),
+          complement: _complementController.text.trim(),
+          province: _provinceController.text.trim(),
+          city: _cityController.text.trim(),
+          postalCode: _postalCodeController.text.trim(),
+          isDefault: _isDefault,
         );
-        Navigator.of(context).pop();
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Adresse mise à jour avec succès!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
       }
     }
   }

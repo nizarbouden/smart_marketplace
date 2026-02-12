@@ -328,6 +328,188 @@ class FirebaseAuthService {
     }
   }
 
+  // AJOUTER UNE ADRESSE
+  Future<String> addAddress({
+    required String contactName,
+    required String phone,
+    required String countryCode,
+    required String countryName,
+    required String countryFlag,
+    required String street,
+    required String complement,
+    required String province,
+    required String city,
+    required String postalCode,
+    required bool isDefault,
+  }) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        // Créer un ID unique pour l'adresse
+        String addressId = _firestore.collection('users').doc(user.uid).collection('addresses').doc().id;
+        
+        Map<String, dynamic> addressData = {
+          'id': addressId,
+          'contactName': contactName,
+          'phone': phone,
+          'countryCode': countryCode,
+          'countryName': countryName,
+          'countryFlag': countryFlag,
+          'street': street,
+          'complement': complement,
+          'province': province,
+          'city': city,
+          'postalCode': postalCode,
+          'isDefault': isDefault,
+          'createdAt': Timestamp.fromDate(DateTime.now()),
+        };
+
+        await _firestore.collection('users').doc(user.uid).collection('addresses').doc(addressId).set(addressData);
+        
+        // Si c'est l'adresse par défaut, mettre à jour les autres adresses
+        if (isDefault) {
+          await _updateOtherAddressesAsNonDefault(user.uid, addressId);
+        }
+        
+        return addressId;
+      }
+      throw 'Utilisateur non connecté';
+    } catch (e) {
+      print('❌ Erreur lors de l\'ajout de l\'adresse: $e');
+      throw 'Erreur lors de l\'ajout de l\'adresse';
+    }
+  }
+
+  // Mettre à jour les autres adresses comme non par défaut
+  Future<void> _updateOtherAddressesAsNonDefault(String userId, String defaultAddressId) async {
+    try {
+      QuerySnapshot addresses = await _firestore.collection('users').doc(userId).collection('addresses').get();
+      
+      for (DocumentSnapshot doc in addresses.docs) {
+        if (doc.id != defaultAddressId) {
+          await _firestore.collection('users').doc(userId).collection('addresses').doc(doc.id).update({
+            'isDefault': false,
+          });
+        }
+      }
+    } catch (e) {
+      print('⚠️ Erreur lors de la mise à jour des adresses par défaut: $e');
+    }
+  }
+
+  // RÉCUPÉRER TOUTES LES ADRESSES
+  Future<List<Map<String, dynamic>>> getUserAddresses() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        QuerySnapshot addresses = await _firestore.collection('users').doc(user.uid).collection('addresses').get();
+        
+        List<Map<String, dynamic>> addressList = [];
+        for (DocumentSnapshot doc in addresses.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          addressList.add(data);
+        }
+        
+        // Trier les adresses : par défaut en premier, puis par date de création
+        addressList.sort((a, b) {
+          // Si une adresse est par défaut et l'autre non, la par défaut vient en premier
+          if (a['isDefault'] == true && b['isDefault'] != true) return -1;
+          if (a['isDefault'] != true && b['isDefault'] == true) return 1;
+          
+          // Sinon, trier par date de création (plus récent en premier)
+          Timestamp aTime = a['createdAt'] as Timestamp;
+          Timestamp bTime = b['createdAt'] as Timestamp;
+          return bTime.compareTo(aTime);
+        });
+        
+        return addressList;
+      }
+      return [];
+    } catch (e) {
+      print('❌ Erreur lors de la récupération des adresses: $e');
+      return [];
+    }
+  }
+
+  // DÉFINIR UNE ADRESSE PAR DÉFAUT
+  Future<void> setDefaultAddress(String userId, String addressId) async {
+    try {
+      // Récupérer toutes les adresses de l'utilisateur
+      QuerySnapshot addresses = await _firestore.collection('users').doc(userId).collection('addresses').get();
+      
+      // Mettre toutes les adresses à non par défaut
+      for (DocumentSnapshot doc in addresses.docs) {
+        await _firestore.collection('users').doc(userId).collection('addresses').doc(doc.id).update({
+          'isDefault': false,
+        });
+      }
+      
+      // Mettre l'adresse sélectionnée à par défaut
+      await _firestore.collection('users').doc(userId).collection('addresses').doc(addressId).update({
+        'isDefault': true,
+      });
+      
+    } catch (e) {
+      print('❌ Erreur lors de la définition de l\'adresse par défaut: $e');
+      throw 'Erreur lors de la définition de l\'adresse par défaut';
+    }
+  }
+
+  // MODIFIER UNE ADRESSE
+  Future<void> updateAddress({
+    required String userId,
+    required String addressId,
+    required String contactName,
+    required String phone,
+    required String countryCode,
+    required String countryName,
+    required String countryFlag,
+    required String street,
+    required String complement,
+    required String province,
+    required String city,
+    required String postalCode,
+    required bool isDefault,
+  }) async {
+    try {
+      Map<String, dynamic> updateData = {
+        'contactName': contactName,
+        'phone': phone,
+        'countryCode': countryCode,
+        'countryName': countryName,
+        'countryFlag': countryFlag,
+        'street': street,
+        'complement': complement,
+        'province': province,
+        'city': city,
+        'postalCode': postalCode,
+        'isDefault': isDefault,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      };
+
+      await _firestore.collection('users').doc(userId).collection('addresses').doc(addressId).update(updateData);
+      
+      // Si c'est l'adresse par défaut, mettre à jour les autres adresses
+      if (isDefault) {
+        await _updateOtherAddressesAsNonDefault(userId, addressId);
+      }
+      
+    } catch (e) {
+      print('❌ Erreur lors de la modification de l\'adresse: $e');
+      throw 'Erreur lors de la modification de l\'adresse';
+    }
+  }
+
+  // SUPPRIMER UNE ADRESSE
+  Future<void> deleteAddress(String userId, String addressId) async {
+    try {
+      await _firestore.collection('users').doc(userId).collection('addresses').doc(addressId).delete();
+    } catch (e) {
+      print('❌ Erreur lors de la suppression de l\'adresse: $e');
+      throw 'Erreur lors de la suppression de l\'adresse';
+    }
+  }
+
   // Nettoyer le cache Firestore pour résoudre le crash SQLiteBlobTooBigException
   Future<void> clearFirestoreCache() async {
     try {
