@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../services/firebase_auth_service.dart';
 import 'change_password/change_password_page.dart';
 
@@ -16,6 +20,10 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   bool _loginNotifications = true;
   bool _sessionTimeout = true;
   String _sessionTimeoutValue = '30 minutes';
+  
+  // Firebase Auth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuthService _authService = FirebaseAuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -529,13 +537,240 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     );
   }
 
-  void _downloadData() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Téléchargement de vos données en cours...'),
-        backgroundColor: Colors.blue,
+  void _downloadData() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Utilisateur non connecté'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Afficher un dialogue de confirmation
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Télécharger vos données'),
+        content: const Text(
+          'Voulez-vous télécharger toutes vos informations personnelles ?\n\n'
+          'Ceci inclut :\n'
+          '• Votre profil\n'
+          '• Vos adresses\n'
+          '• Vos préférences\n'
+          '• L\'historique des notifications',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Télécharger'),
+          ),
+        ],
       ),
     );
+
+    if (confirmed != true) return;
+
+    // Afficher un message de chargement
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Préparation du téléchargement...'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      // Récupérer les données complètes de l'utilisateur
+      final userData = await _getUserCompleteData(user.uid);
+      
+      // Créer le fichier JSON avec toutes les données
+      final exportData = {
+        'export_info': {
+          'date': DateTime.now().toIso8601String(),
+          'version': '1.0.0',
+          'user_id': user.uid,
+          'app_name': 'Winzy Marketplace',
+        },
+        'profile': {
+          'email': user.email,
+          'display_name': user.displayName,
+          'photo_url': user.photoURL,
+          'email_verified': user.emailVerified,
+          'creation_time': user.metadata.creationTime?.toIso8601String(),
+          'last_sign_in': user.metadata.lastSignInTime?.toIso8601String(),
+        },
+        'addresses': userData['addresses'] ?? [],
+        'preferences': userData['preferences'] ?? {},
+        'notifications_count': userData['notifications_count'] ?? 0,
+      };
+
+      // Convertir en JSON avec formatage lisible
+      final jsonString = jsonEncode(exportData);
+      
+      // Créer un contenu plus lisible avec en-tête
+      final readableContent = '''========================================
+     MES DONNÉES PERSONNELLES - WINZY MARKETPLACE
+========================================
+
+Date d'export: ${DateTime.now().toString().split('.')[0]}
+Version: 1.0.0
+Application: Winzy Marketplace
+
+Ce fichier contient toutes vos informations personnelles
+exportées depuis votre compte Winzy Marketplace.
+
+========================================
+        DONNÉES AU FORMAT JSON
+========================================
+
+$jsonString
+
+========================================
+           INSTRUCTIONS
+========================================
+
+1. Ce fichier peut être ouvert avec n'importe quel éditeur de texte
+2. Vous pouvez copier-coller les données JSON dans un validateur en ligne
+3. Pour importer vos données dans une autre application, utilisez la section JSON ci-dessus
+4. Conservez ce fichier dans un endroit sécurisé
+
+Pour plus d'informations, contactez le support Winzy Marketplace.
+========================================''';
+      
+      final bytes = utf8.encode(readableContent);
+      
+      // Créer et sauvegarder le fichier selon la plateforme
+      Directory directory;
+      if (Platform.isAndroid) {
+        // Pour Android, utiliser directement le dossier Downloads public
+        directory = Directory('/storage/emulated/0/Download');
+        // Créer le dossier s'il n'existe pas
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+      } else if (Platform.isIOS) {
+        // Pour iOS, utiliser le répertoire Documents
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        // Pour Desktop/Web, utiliser le répertoire Documents
+        directory = await getApplicationDocumentsDirectory();
+      }
+      
+      final fileName = 'winzy_donnees_personnelles_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final file = File('${directory.path}/$fileName');
+      
+      // Débogage : afficher le chemin exact
+      print('🔍 DEBUG: Répertoire de sauvegarde: ${directory.path}');
+      print('🔍 DEBUG: Chemin complet du fichier: ${file.path}');
+      print('🔍 DEBUG: Le répertoire existe? ${await directory.exists()}');
+      
+      await file.writeAsBytes(bytes);
+      
+      // Vérifier si le fichier a bien été créé
+      final fileExists = await file.exists();
+      print('🔍 DEBUG: Fichier créé avec succès? $fileExists');
+      
+      if (!fileExists) {
+        throw Exception('Impossible de créer le fichier dans: ${file.path}');
+      }
+      
+      // Afficher un message de succès avec le chemin du fichier
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Données exportées avec succès !\nFichier: ${file.path}'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: 'Partager',
+              textColor: Colors.white,
+              onPressed: () async {
+                // Partager le contenu du fichier directement (plus fiable que l'ouverture)
+                try {
+                  await Share.share(
+                    readableContent,
+                    subject: 'Mes données personnelles Winzy',
+                    sharePositionOrigin: null,
+                  );
+                } catch (e) {
+                  print('Erreur partage: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Erreur lors du partage: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Afficher un message d'erreur
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur lors du téléchargement: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  // Méthode pour récupérer toutes les données de l'utilisateur
+  Future<Map<String, dynamic>> _getUserCompleteData(String userId) async {
+    try {
+      // Récupérer les adresses
+      final addresses = await _authService.getUserAddresses();
+      
+      // Récupérer le nombre de notifications
+      final notifications = await _authService.getUserNotifications();
+      
+      // Récupérer les préférences (si disponible)
+      final preferences = {
+        'theme': 'light', // À adapter selon tes préférences
+        'language': 'fr',
+        'notifications_enabled': true,
+      };
+
+      return {
+        'addresses': addresses.map((addr) => {
+          'id': addr['id'],
+          'title': addr['title'],
+          'street': addr['street'],
+          'city': addr['city'],
+          'postal_code': addr['postalCode'],
+          'country': addr['country'],
+          'is_default': addr['isDefault'],
+        }).toList(),
+        'preferences': preferences,
+        'notifications_count': notifications.length,
+      };
+    } catch (e) {
+      print('Erreur lors de la récupération des données: $e');
+      return {
+        'addresses': <Map<String, dynamic>>[],
+        'preferences': {},
+        'notifications_count': 0,
+      };
+    }
   }
 
   void _showDeleteAccountDialog() {

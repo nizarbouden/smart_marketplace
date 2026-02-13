@@ -49,7 +49,11 @@ dependencies:
   
   # URL launcher
   url_launcher: ^6.3.2
-
+  
+  # File handling
+  universal_io: ^2.2.2
+  path_provider: ^2.1.1
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:
