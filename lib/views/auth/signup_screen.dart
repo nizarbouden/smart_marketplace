@@ -18,10 +18,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String _confirmPassword = '';
   bool _isLoading = false;
   bool _agreeToTerms = false;
+  List<String> _passwordErrors = [];
 
-  // Méthodes de validation
-  bool _hasMinLength(String password) => password.length >= 6;
-  bool _isPasswordValid(String password) => _hasMinLength(password);
+  // Méthodes de validation (mêmes critères que change_password_page)
+  bool _hasMinLength(String password) => password.length >= 8;
+  bool _hasUpperCase(String password) => password.contains(RegExp(r'[A-Z]'));
+  bool _hasLowerCase(String password) => password.contains(RegExp(r'[a-z]'));
+  bool _isPasswordValid(String password) => _hasMinLength(password) && _hasUpperCase(password) && _hasLowerCase(password);
+
+  // Obtenir la liste des erreurs de validation
+  List<String> _getPasswordErrors(String password) {
+    List<String> errors = [];
+    
+    if (password.length < 8) {
+      errors.add('Au moins 8 caractères');
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      errors.add('Au moins une lettre majuscule');
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      errors.add('Au moins une lettre minuscule');
+    }
+    
+    return errors;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,19 +168,72 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
                             ),
                           ),
-                          onChanged: (value) => _password = value,
+                          onChanged: (value) {
+                            _password = value;
+                            setState(() {
+                              _passwordErrors = _getPasswordErrors(value);
+                            });
+                          },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Veuillez entrer votre mot de passe';
                             }
                             
                             if (!_isPasswordValid(value)) {
-                              return '';
+                              return 'Le mot de passe ne respecte pas les conditions requises';
                             }
                             
                             return null;
                           },
                         ),
+                        
+                        // Messages d'erreur pour le mot de passe
+                        if (_passwordErrors.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Le mot de passe doit contenir:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                ..._passwordErrors.map((error) => Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.error_outline,
+                                        size: 14,
+                                        color: Colors.red[600],
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          error,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.red[600],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 20),
 
                         // Confirm Password
@@ -175,140 +248,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                                color: const Color(0xFF8700FF),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
-                            ),
-                          ),
-                          onChanged: (value) => _confirmPassword = value,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez confirmer votre mot de passe';
-                            }
-                            if (value != _password) {
-                              return 'Les mots de passe ne correspondent pas';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(color: Colors.black),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            hintText: 'Email',
-                            prefixIcon: const Icon(Icons.email, color: Color(0xFF8700FF)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
-                            ),
-                          ),
-                          onChanged: (value) => _email = value,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre email';
-                            }
-                            final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
-                            if (!emailRegex.hasMatch(value)) {
-                              return 'Veuillez entrer un email valide';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Password
-                        TextFormField(
-                          obscureText: !_isPasswordVisible,
-                          style: const TextStyle(color: Colors.black),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            hintText: 'Mot de passe',
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF8700FF)),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                                color: const Color(0xFF8700FF),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _password = value;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre mot de passe';
-                            }
-                            
-                            if (!_isPasswordValid(value)) {
-                              return '';
-                            }
-                            
-                            return null;
-                          },
-                        ),
-                        
-                        const SizedBox(height: 20),
-
-                        // Confirm Password
-                        TextFormField(
-                          obscureText: !_isConfirmPasswordVisible,
-                          style: const TextStyle(color: Colors.black),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            hintText: 'Confirmer le mot de passe',
-                            prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF8700FF)),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isConfirmPasswordVisible
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
                                 color: const Color(0xFF8700FF),
                               ),
                               onPressed: () {

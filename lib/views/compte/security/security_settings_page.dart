@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../services/firebase_auth_service.dart';
+import 'change_password/change_password_page.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
   const SecuritySettingsPage({super.key});
@@ -99,7 +102,13 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 title: 'Changer le mot de passe',
                 subtitle: 'Mettez à jour votre mot de passe',
                 icon: Icons.password,
-                onTap: _showChangePasswordDialog,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ChangePasswordPage(),
+                    ),
+                  );
+                },
                 isDesktop: isDesktop,
                 isTablet: isTablet,
                 isMobile: isMobile,
@@ -332,57 +341,60 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   }) {
     return Column(
       children: [
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : isTablet ? 20 : 24,
-            vertical: isMobile ? 12 : isTablet ? 14 : 16,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
-                decoration: BoxDecoration(
-                  color: isDanger 
-                    ? Colors.red.withOpacity(0.1) 
-                    : Colors.deepPurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+        GestureDetector(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+              vertical: isMobile ? 12 : isTablet ? 14 : 16,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                  decoration: BoxDecoration(
+                    color: isDanger 
+                      ? Colors.red.withOpacity(0.1) 
+                      : Colors.deepPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isDanger ? Colors.red : Colors.deepPurple,
+                    size: isDesktop ? 20 : isTablet ? 18 : 16,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: isDanger ? Colors.red : Colors.deepPurple,
+                SizedBox(width: isMobile ? 12 : 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+                          fontWeight: FontWeight.w600,
+                          color: isDanger ? Colors.red : Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: isMobile ? 2 : 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[400],
                   size: isDesktop ? 20 : isTablet ? 18 : 16,
                 ),
-              ),
-              SizedBox(width: isMobile ? 12 : 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDanger ? Colors.red : Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: isMobile ? 2 : 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: isDesktop ? 20 : isTablet ? 18 : 16,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         Divider(
@@ -499,22 +511,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       ),
     );
     Navigator.of(context).pop();
-  }
-
-  void _showChangePasswordDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Changer le mot de passe'),
-        content: const Text('Fonctionnalité de changement de mot de passe à implémenter.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showActiveSessions() {

@@ -46,6 +46,9 @@ dependencies:
   # Additional dependencies for Firebase
   google_sign_in: ^6.2.1
   flutter_facebook_auth: ^6.0.4
+  
+  # URL launcher
+  url_launcher: ^6.3.2
 
 
 dev_dependencies:
