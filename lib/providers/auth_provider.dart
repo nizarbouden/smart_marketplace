@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/firebase_auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuthService _authService = FirebaseAuthService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   
   UserModel? _user;
   bool _isLoading = false;
@@ -29,6 +31,7 @@ class AuthProvider with ChangeNotifier {
 
   // Constructeur - écouter les changements d'état
   AuthProvider() {
+    _checkAndForceSignOut();
     _authService.authStateChanges.listen((User? firebaseUser) {
       if (firebaseUser != null) {
         _loadUserData();
@@ -37,6 +40,63 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  // Vérifier et forcer la déconnexion au démarrage si nécessaire
+  Future<void> _checkAndForceSignOut() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool rememberMe = prefs.getBool('rememberMe') ?? false;
+      
+      // Si "se souvenir de moi" n'est pas coché et qu'il y a un utilisateur Firebase connecté
+      if (!rememberMe && _auth.currentUser != null) {
+        print('🔄 AuthProvider: "Se souvenir de moi" non coché, déconnexion forcée au démarrage');
+        await _auth.signOut();
+        await prefs.remove('rememberMe');
+        await prefs.remove('lastEmail');
+      }
+    } catch (e) {
+      print('❌ AuthProvider: Erreur lors de la vérification au démarrage: $e');
+    }
+  }
+
+  // Vérifier l'état de connexion au démarrage
+  Future<void> checkConnectionState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool rememberMe = prefs.getBool('rememberMe') ?? false;
+      
+      // Si "se souvenir de moi" n'est pas coché et qu'il y a un utilisateur Firebase connecté
+      if (!rememberMe && _auth.currentUser != null) {
+        print('🔄 AuthProvider: Déconnexion automatique - "Se souvenir de moi" non coché');
+        await _auth.signOut();
+        await prefs.remove('rememberMe');
+        await prefs.remove('lastEmail');
+        _user = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('❌ AuthProvider: Erreur lors de la vérification de l\'état de connexion: $e');
+    }
+  }
+
+  // Charger les préférences au démarrage
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool rememberMe = prefs.getBool('rememberMe') ?? false;
+      String? lastEmail = prefs.getString('lastEmail');
+      
+      print('🔄 AuthProvider: Préférences chargées - rememberMe: $rememberMe, lastEmail: $lastEmail');
+      
+      // Si "se souvenir de moi" est activé et qu'il y a un email sauvegardé
+      if (rememberMe && lastEmail != null) {
+        // Ne pas se reconnecter automatiquement, juste pré-remplir le formulaire
+        print('✅ AuthProvider: Préférences "se souvenir de moi" trouvées pour $lastEmail');
+      }
+    } catch (e) {
+      print('❌ AuthProvider: Erreur lors du chargement des préférences: $e');
+    }
   }
 
   // Charger les données utilisateur
@@ -52,6 +112,13 @@ class AuthProvider with ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // Rafraîchir explicitement les données utilisateur
+  Future<void> refreshUserProfile() async {
+    print('🔄 AuthProvider: Rafraîchissement des données utilisateur...');
+    await _loadUserData();
+    print('✅ AuthProvider: Données rafraîchies');
   }
 
   // Inscription avec email/mot de passe
@@ -93,9 +160,10 @@ class AuthProvider with ChangeNotifier {
   Future<bool> signIn({
     required String email,
     required String password,
+    bool rememberMe = false,
   }) async {
     try {
-      print('🔄 AuthProvider: Début de la connexion pour $email');
+      print('🔄 AuthProvider: Début de la connexion pour $email (rememberMe: $rememberMe)');
       _setLoading(true);
       _clearError();
       
@@ -103,9 +171,26 @@ class AuthProvider with ChangeNotifier {
       _user = await _authService.signInWithEmailAndPassword(email, password);
       print('🔄 AuthProvider: UserModel reçu: ${_user?.email}');
       
+      // Sauvegarder la préférence "se souvenir de moi"
+      final prefs = await SharedPreferences.getInstance();
+      if (rememberMe) {
+        await prefs.setBool('rememberMe', true);
+        await prefs.setString('lastEmail', email);
+        print('✅ AuthProvider: Préférence rememberMe sauvegardée');
+      } else {
+        await prefs.remove('rememberMe');
+        await prefs.remove('lastEmail');
+        print('✅ AuthProvider: Préférence rememberMe supprimée');
+      }
+      
       notifyListeners();
       print('✅ AuthProvider: Connexion réussie, retour true');
       return true;
+    } on EmailNotVerifiedException catch (e) {
+      print('🔄 AuthProvider: EmailNotVerifiedException capturée: ${e.toString()}');
+      _setError(e.toString());
+      notifyListeners();
+      return false;
     } catch (e) {
       print('❌ AuthProvider: Erreur lors de la connexion: $e');
       _setError(e.toString());
@@ -154,30 +239,28 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Rafraîchir les données utilisateur
-  Future<void> refreshUserProfile() async {
-    try {
-      _setLoading(true);
-      _user = await _authService.getUserProfile();
-      _clearError();
-      notifyListeners();
-    } catch (e) {
-      _setError(e.toString());
-      notifyListeners();
-    } finally {
-      _setLoading(false);
-    }
-  }
-
   // Déconnexion
-  Future<void> signOut() async {
+  Future<void> signOut({bool forceSignOut = false}) async {
     try {
       _setLoading(true);
       _clearError();
       
-      await _authService.signOut();
-      _user = null;
+      // Vérifier si "se souvenir de moi" était activé
+      final prefs = await SharedPreferences.getInstance();
+      bool rememberMe = prefs.getBool('rememberMe') ?? false;
       
+      if (!rememberMe || forceSignOut) {
+        // Si "se souvenir de moi" n'était pas coché, forcer la déconnexion Firebase
+        await _authService.signOut();
+        await prefs.remove('rememberMe');
+        await prefs.remove('lastEmail');
+        print('✅ AuthProvider: Déconnexion forcée et préférences effacées');
+      } else {
+        await _authService.signOut();
+        print('✅ AuthProvider: Déconnexion normale (rememberMe activé)');
+      }
+      
+      _user = null;
       notifyListeners();
     } catch (e) {
       _setError(e.toString());
@@ -320,15 +403,24 @@ class AuthProvider with ChangeNotifier {
     _errorMessage = error;
     notifyListeners();
     
-    // Effacer automatiquement l'erreur après 5 secondes
-    Future.delayed(const Duration(seconds: 5), () {
-      _clearError();
-    });
+    // Ne pas effacer automatiquement les erreurs de vérification email
+    bool isEmailVerificationError = error.contains('vérifier votre email');
+    if (!isEmailVerificationError) {
+      // Effacer automatiquement l'erreur après 5 secondes seulement pour les autres erreurs
+      Future.delayed(const Duration(seconds: 5), () {
+        _clearError();
+      });
+    }
   }
 
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // Méthode publique pour effacer l'erreur
+  void clearError() {
+    _clearError();
   }
 
   // Vérifier si l'email est valide

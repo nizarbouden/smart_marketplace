@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../services/firebase_auth_service.dart';
 import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';
@@ -17,6 +18,46 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final FirebaseAuthService _authService = FirebaseAuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Synchroniser l'email au démarrage de la page
+    _syncEmailIfNeeded();
+  }
+
+  Future<void> _syncEmailIfNeeded() async {
+    try {
+      String? authEmail = _authService.getCurrentEmail();
+      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+      
+      if (authEmail != null && authEmail != authProvider.user?.email) {
+        print('🔄 ProfilePage: Synchronisation email - Auth: $authEmail, Provider: ${authProvider.user?.email}');
+        await _authService.syncEmailFromAuth();
+        
+        // Forcer le rafraîchissement de l'AuthProvider si nécessaire
+        if (mounted) {
+          // Vous pourriez avoir besoin de recharger les données utilisateur ici
+          print('✅ ProfilePage: Email synchronisé');
+        }
+      }
+    } catch (e) {
+      print('❌ ProfilePage: Erreur synchronisation email: $e');
+    }
+  }
+
+  String _getCorrectEmail() {
+    // Priorité : Firebase Auth > AuthProvider > fallback
+    String? authEmail = _authService.getCurrentEmail();
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    
+    String correctEmail = authEmail ?? authProvider.user?.email ?? 'email@example.com';
+    
+    print('📧 ProfilePage Email - Auth: $authEmail, Provider: ${authProvider.user?.email}, Final: $correctEmail');
+    
+    return correctEmail;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +126,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   SizedBox(height: isDesktop ? 8 : isTablet ? 6 : 4),
                   Text(
-                    authProvider.user?.email ?? 'email@example.com',
+                    _getCorrectEmail(),
                     style: TextStyle(
                       fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
                       color: Colors.grey[600],

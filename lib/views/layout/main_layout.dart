@@ -293,8 +293,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   void _onItemTapped(int index) {
-    if (index == 0 || index == 1) {
-      // Accueil et Panier - toujours accessibles
+    if (index == 0 ) {
+      // Accueil toujours accessibles
       setState(() {
         _currentIndex = index;
         // Rafraîchir le compteur de notifications quand on revient à l'accueil

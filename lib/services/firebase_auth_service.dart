@@ -4,6 +4,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
+// Exception personnalisée pour la vérification email
+class EmailNotVerifiedException implements Exception {
+  final String message;
+  EmailNotVerifiedException(this.message);
+  
+  @override
+  String toString() => message;
+}
+
 class FirebaseAuthService {
   static final FirebaseAuthService _instance = FirebaseAuthService._internal();
   factory FirebaseAuthService() => _instance;
@@ -44,6 +53,11 @@ class FirebaseAuthService {
       print('✅ Utilisateur Firebase créé: ${user?.uid}');
 
       if (user != null) {
+        // Envoyer l'email de vérification AVANT de créer le profil
+        await user.sendEmailVerification();
+        print('📧 Email de vérification envoyé à: $email');
+        
+        // Créer le profil mais marqué comme non vérifié
         UserModel userModel = UserModel(
           uid: user.uid,
           email: user.email ?? '',
@@ -54,22 +68,98 @@ class FirebaseAuthService {
           countryCode: countryCode,
           createdAt: DateTime.now(),
           lastLoginAt: DateTime.now(),
-          isActive: true,
+          isActive: false, // Inactif tant que non vérifié
         );
 
-        print('💾 Écriture du profil dans Firestore...');
+        print('💾 Écriture du profil dans Firestore (non vérifié)...');
         await _firestore.collection('users').doc(user.uid).set(userModel.toMap());
-        print('✅ Profil créé avec succès dans Firestore');
+        print('✅ Profil créé avec succès dans Firestore (en attente de vérification)');
         
-        return userModel;
+        // Lancer une exception personnalisée pour rediriger vers la connexion
+        throw 'Inscription réussie ! Veuillez vérifier votre email avant de vous connecter. Un email de vérification a été envoyé à $email.';
       }
       return null;
     } on FirebaseAuthException catch (e) {
       print('❌ Erreur Firebase Auth: ${e.code} - ${e.message}');
       throw _getErrorMessage(e);
     } catch (e) {
+      // Si c'est notre message personnalisé, le relancer directement
+      if (e.toString().contains('Inscription réussie')) {
+        rethrow;
+      }
       print('❌ Erreur générale lors de l\'inscription: $e');
       throw 'Une erreur est survenue lors de l\'inscription';
+    }
+  }
+
+  // VÉRIFIER SI L'EMAIL A ÉTÉ VÉRIFIÉ ET ACTIVER LE COMPTE
+  Future<UserModel?> checkEmailVerificationAndActivate() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        print('🔍 Vérification du statut de l\'email pour: ${user.email}');
+        
+        // Recharger l'utilisateur pour obtenir le statut de vérification actualisé
+        await user.reload();
+        user = _auth.currentUser;
+        
+        if (user != null && user.emailVerified) {
+          print('✅ Email vérifié ! Activation du compte...');
+          
+          // Mettre à jour le profil dans Firestore pour activer le compte
+          await _firestore.collection('users').doc(user.uid).update({
+            'isActive': true,
+            'emailVerified': true,
+            'verifiedAt': Timestamp.fromDate(DateTime.now()),
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+          
+          print('✅ Compte activé avec succès');
+          
+          // Récupérer le profil mis à jour
+          DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            return UserModel(
+              uid: user.uid,
+              email: user.email ?? data['email'] ?? '',
+              nom: data['nom'] ?? 'Utilisateur',
+              prenom: data['prenom'] ?? '',
+              genre: data['genre'],
+              phoneNumber: data['phoneNumber'] ?? '',
+              countryCode: data['countryCode'],
+              photoUrl: data['photoUrl'],
+              createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              lastLoginAt: DateTime.now(),
+              isActive: true,
+              isEmailVerified: true,
+            );
+          }
+        } else {
+          print('⏳ Email non encore vérifié');
+          return null;
+        }
+      }
+      return null;
+    } catch (e) {
+      print('❌ Erreur lors de la vérification de l\'email: $e');
+      throw 'Erreur lors de la vérification de l\'email';
+    }
+  }
+
+  // RENVOYER L'EMAIL DE VÉRIFICATION
+  Future<void> resendEmailVerification() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null && !user.emailVerified) {
+        await user.sendEmailVerification();
+        print('📧 Email de vérification renvoyé à: ${user.email}');
+      } else {
+        throw 'Aucun utilisateur connecté ou email déjà vérifié';
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'envoi de l\'email de vérification: $e');
+      throw 'Erreur lors de l\'envoi de l\'email de vérification';
     }
   }
 
@@ -92,6 +182,17 @@ class FirebaseAuthService {
       print('✅ Utilisateur Firebase authentifié: ${user?.uid}');
 
       if (user != null) {
+        // Vérifier si l'email est vérifié
+        if (!user.emailVerified) {
+          print('❌ Email non vérifié pour: ${user.email}');
+          await _auth.signOut(); // Déconnecter l'utilisateur
+          
+          // Créer une exception personnalisée pour le message de vérification email
+          throw EmailNotVerifiedException(
+            'Veuillez vérifier votre email avant de vous connecter. Consultez votre boîte de réception et cliquez sur le lien de vérification.'
+          );
+        }
+
         try {
           // Récupérer les données utilisateur depuis Firestore
           print('🔍 Vérification de l\'utilisateur dans Firestore...');
@@ -102,34 +203,29 @@ class FirebaseAuthService {
             // Mettre à jour la dernière connexion
             await _firestore.collection('users').doc(user.uid).update({
               'lastLoginAt': Timestamp.fromDate(DateTime.now()),
+              'email': user.email, // Synchroniser l'email depuis Firebase Auth
             });
             
-            // Utiliser UserModel.fromMap avec gestion d'erreur
-            try {
-              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-              return UserModel.fromMap(data);
-            } catch (mapError) {
-              print('⚠️ Erreur UserModel.fromMap, création manuelle: $mapError');
-              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-              return UserModel(
-                uid: user.uid,
-                email: data['email'] ?? user.email ?? '',
-                nom: data['nom'] ?? 'Utilisateur',
-                prenom: data['prenom'] ?? '',
-                genre: data['genre'],
-                phoneNumber: data['phoneNumber'] ?? '',
-                countryCode: data['countryCode'],
-                createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-                lastLoginAt: DateTime.now(),
-                isActive: data['isActive'] ?? true,
-              );
-            }
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            return UserModel(
+              uid: user.uid,
+              email: user.email ?? data['email'] ?? '', // Priorité à Firebase Auth
+              nom: data['nom'] ?? 'Utilisateur',
+              prenom: data['prenom'] ?? '',
+              genre: data['genre'],
+              phoneNumber: data['phoneNumber'] ?? '',
+              countryCode: data['countryCode'],
+              createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              lastLoginAt: DateTime.now(),
+              isActive: data['isActive'] ?? true,
+              isEmailVerified: true, // L'email est vérifié à ce stade
+            );
           } else {
             print('🆕 Utilisateur non trouvé dans Firestore, création du profil...');
             // Créer un profil utilisateur par défaut s'il n'existe pas
             UserModel userModel = UserModel(
               uid: user.uid,
-              email: user.email ?? '',
+              email: user.email ?? '', // Email depuis Firebase Auth
               nom: 'Utilisateur',
               prenom: '',
               genre: null,
@@ -138,6 +234,7 @@ class FirebaseAuthService {
               createdAt: DateTime.now(),
               lastLoginAt: DateTime.now(),
               isActive: true,
+              isEmailVerified: true,
             );
 
             print('💾 Écriture du profil dans Firestore...');
@@ -160,6 +257,7 @@ class FirebaseAuthService {
             createdAt: DateTime.now(),
             lastLoginAt: DateTime.now(),
             isActive: true,
+            isEmailVerified: true,
           );
         }
       }
@@ -288,6 +386,31 @@ class FirebaseAuthService {
     }
   }
 
+  // SYNCHRONISER L'EMAIL DEPUIS FIREBASE AUTH
+  Future<void> syncEmailFromAuth() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null && user.email != null) {
+        print('🔄 Synchronisation de l\'email depuis Firebase Auth: ${user.email}');
+        
+        // Mettre à jour l'email dans Firestore
+        await _firestore.collection('users').doc(user.uid).update({
+          'email': user.email,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+        
+        print('✅ Email synchronisé avec succès');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de la synchronisation de l\'email: $e');
+    }
+  }
+
+  // RÉCUPÉRER L'EMAIL ACTUEL DEPUIS FIREBASE AUTH
+  String? getCurrentEmail() {
+    return _auth.currentUser?.email;
+  }
+
   // DÉCONNEXION
   Future<void> signOut() async {
     try {
@@ -310,6 +433,8 @@ class FirebaseAuthService {
     try {
       User? user = _auth.currentUser;
       if (user != null) {
+        print('🔧 Mise à jour du profil pour: ${user.uid}');
+        
         Map<String, dynamic> updateData = {};
         
         if (nom != null) updateData['nom'] = nom;
@@ -319,12 +444,52 @@ class FirebaseAuthService {
         if (countryCode != null) updateData['countryCode'] = countryCode;
         if (photoUrl != null) updateData['photoUrl'] = photoUrl;
         
+        // NE PAS synchroniser l'email - il ne doit pas être modifiable ici
+        // L'email est géré uniquement par Firebase Auth
+        
         updateData['updatedAt'] = Timestamp.fromDate(DateTime.now());
 
-        await _firestore.collection('users').doc(user.uid).update(updateData);
+        print('📝 Données à mettre à jour: $updateData');
+        
+        // Vérifier si le document existe
+        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
+        
+        if (doc.exists) {
+          // Mettre à jour le document existant
+          await _firestore.collection('users').doc(user.uid).update(updateData);
+          print('✅ Profil mis à jour avec succès');
+        } else {
+          // Créer le document s'il n'existe pas
+          print('📄 Document non trouvé, création du profil utilisateur...');
+          
+          Map<String, dynamic> newUserData = {
+            'uid': user.uid,
+            'email': user.email, // Email depuis Firebase Auth uniquement
+            'nom': nom ?? 'Utilisateur',
+            'prenom': prenom ?? '',
+            'genre': genre,
+            'phoneNumber': phoneNumber ?? '',
+            'countryCode': countryCode ?? '+216',
+            'photoUrl': photoUrl,
+            'createdAt': Timestamp.fromDate(DateTime.now()),
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+            'isActive': true,
+            'isGoogleUser': false,
+            'favoris': [],
+            'commandes': [],
+            'preferences': {},
+            'points': 0,
+          };
+          
+          await _firestore.collection('users').doc(user.uid).set(newUserData);
+          print('✅ Profil utilisateur créé avec succès');
+        }
+      } else {
+        throw 'Aucun utilisateur connecté';
       }
     } catch (e) {
-      throw 'Erreur lors de la mise à jour du profil';
+      print('❌ Erreur détaillée lors de la mise à jour du profil: $e');
+      throw 'Erreur lors de la mise à jour du profil: $e';
     }
   }
 
@@ -622,7 +787,7 @@ class FirebaseAuthService {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return UserModel(
             uid: user.uid,
-            email: data['email'] ?? user.email ?? '',
+            email: user.email ?? data['email'] ?? '', // Priorité à Firebase Auth
             nom: data['nom'] ?? 'Utilisateur',
             prenom: data['prenom'] ?? '',
             genre: data['genre'],
@@ -741,21 +906,25 @@ class FirebaseAuthService {
   String _getErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'weak-password':
-        return 'Le mot de passe est trop faible (minimum 8 caractères)';
+        return 'Le mot de passe est trop faible (minimum 6 caractères)';
       case 'email-already-in-use':
-        return 'Cette adresse email est déjà utilisée';
+        return 'Cet email est déjà utilisé par un autre compte';
+      case 'invalid-email':
+        return 'L\'adresse email n\'est pas valide';
       case 'user-not-found':
-        return 'Aucun utilisateur trouvé avec cette adresse email';
+        return 'Aucun utilisateur trouvé avec cet email';
       case 'wrong-password':
         return 'Mot de passe incorrect';
-      case 'invalid-email':
-        return 'Adresse email invalide';
       case 'user-disabled':
         return 'Ce compte a été désactivé';
       case 'too-many-requests':
         return 'Trop de tentatives de connexion. Veuillez réessayer plus tard';
       case 'operation-not-allowed':
-        return 'Cette méthode de connexion n\'est pas autorisée';
+        return 'Cette opération n\'est pas autorisée';
+      case 'network-request-failed':
+        return 'Erreur réseau. Vérifiez votre connexion internet';
+      case 'email-not-verified':
+        return 'Veuillez vérifier votre email avant de vous connecter. Consultez votre boîte de réception et cliquez sur le lien de vérification.';
       default:
         return 'Une erreur est survenue: ${e.message}';
     }

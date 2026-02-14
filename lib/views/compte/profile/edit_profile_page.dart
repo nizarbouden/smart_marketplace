@@ -26,29 +26,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
     
+    // S'assurer que l'email vient de Firebase Auth en priorité
+    String authEmail = FirebaseAuthService().getCurrentEmail() ?? '';
+    String userEmail = widget.user?.email ?? authEmail;
+    
+    print('📧 Email dans EditProfilePage - Auth: $authEmail, User: $widget.user?.email, Final: $userEmail');
+    
     viewModel = ProfileViewModel(
       firstName: widget.user?.prenom ?? '',
       lastName: widget.user?.nom ?? '',
-      email: widget.user?.email ?? '',
+      email: userEmail, // Utiliser l'email synchronisé
       phone: widget.user?.phoneNumber ?? '',
       countryCode: widget.user?.countryCode ?? '+216',
       genre: widget.user?.genre,
       photoUrl: widget.user?.photoUrl,
     );
+    
+    // Synchroniser l'email si nécessaire
+    if (authEmail.isNotEmpty && authEmail != widget.user?.email) {
+      _syncEmail();
+    }
+  }
+
+  Future<void> _syncEmail() async {
+    try {
+      await FirebaseAuthService().syncEmailFromAuth();
+      print('✅ Email synchronisé dans EditProfilePage');
+    } catch (e) {
+      print('❌ Erreur de synchronisation email: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 1200;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
-
     return ChangeNotifierProvider.value(
       value: viewModel,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: _buildAppBar(context),
-        body: _buildBody(context, isDesktop, isTablet),
+        body: _buildBody(context),
       ),
     );
   }
@@ -73,7 +89,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet) {
+  Widget _buildBody(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 1200;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
       child: Form(
@@ -94,7 +114,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             SizedBox(height: isDesktop ? 45 : isTablet ? 37 : 31),
             
             // Champs du formulaire
-            _buildFormFields(context, viewModel, isDesktop, isTablet),
+            _buildFormFields(context, isDesktop, isTablet),
             
             SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
             
@@ -106,7 +126,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildFormFields(BuildContext context, ProfileViewModel viewModel, bool isDesktop, bool isTablet) {
+  Widget _buildFormFields(BuildContext context, bool isDesktop, bool isTablet) {
     return Column(
       children: [
         // Nom et Prénom
@@ -147,33 +167,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
           isTablet: isTablet,
           prefixIcon: Icons.email,
           keyboardType: TextInputType.emailAddress,
-          enabled: widget.user?.isGoogleUser != true, // Désactiver uniquement pour les comptes Google
-          readOnly: widget.user?.isGoogleUser == true, // Lecture seule uniquement pour les comptes Google
+          enabled: false, // TOUJOURS désactivé pour la sécurité
+          readOnly: true, // TOUJOURS en lecture seule pour la sécurité
         ),
         
-        // Message d'information pour les comptes Google
-        if (widget.user?.isGoogleUser == true)
-          Container(
-            margin: EdgeInsets.only(top: 8),
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info, color: Colors.orange, size: 16),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Email non modifiable (compte Google)',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+        // Message d'information pour tous les utilisateurs
+        Container(
+          margin: EdgeInsets.only(top: 8),
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue),
           ),
+          child: Row(
+            children: [
+              Icon(Icons.info, color: Colors.blue, size: 16),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Email non modifiable pour des raisons de sécurité',
+                  style: TextStyle(color: Colors.blue, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
         
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
         
@@ -217,37 +236,60 @@ class _EditProfilePageState extends State<EditProfilePage> {
         onPressed: viewModel.isLoading ? null : () async {
           // Valider le formulaire avant de sauvegarder
           if (_formKey.currentState?.validate() ?? false) {
-            await viewModel.saveProfile();
+            bool success = await viewModel.saveProfile(context);
             
-            // Créer la notification de mise à jour du profil
-            await FirebaseAuthService().createNotification(
-              userId: FirebaseAuthService().currentUser?.uid ?? '',
-              title: 'Profil mis à jour',
-              body: 'Vos informations ont été enregistrées avec succès',
-              type: 'profile',
-            );
-            
-            // Rafraîchir les données utilisateur
-            await viewModel.refreshUserData(context);
-            
-            // Rediriger vers la page profil après 1 seconde
-            Future.delayed(const Duration(seconds: 1), () {
-              Navigator.of(context).pop(); // Retour à la page profil
-            });
+            if (success) {
+              // Créer la notification de mise à jour du profil
+              try {
+                await FirebaseAuthService().createNotification(
+                  userId: FirebaseAuthService().currentUser?.uid ?? '',
+                  title: 'Profil mis à jour',
+                  body: 'Vos informations ont été enregistrées avec succès',
+                  type: 'profile',
+                );
+              } catch (e) {
+                print('⚠️ Erreur notification: $e');
+              }
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Profil mis à jour avec succès!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                
+                // Rediriger vers la page profil après 1 seconde
+                Future.delayed(const Duration(seconds: 1), () {
+                  if (mounted) {
+                    Navigator.of(context).pop(); // Retour à la page profil
+                  }
+                });
+              }
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Erreur lors de la mise à jour du profil'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
           }
         },
-        icon: viewModel.isLoading
-            ? SizedBox(
-                width: isDesktop ? 24 : isTablet ? 20 : 16,
-                height: isDesktop ? 24 : isTablet ? 20 : 16,
+        icon: viewModel.isLoading 
+            ? const SizedBox(
+                width: 20,
+                height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Icon(Icons.save),
+            : const Icon(Icons.save),
         label: Text(
-          viewModel.isLoading ? 'Enregistrement...' : 'Enregistrer les modifications',
+          viewModel.isLoading ? 'Sauvegarde...' : 'Sauvegarder',
           style: TextStyle(
             fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
             fontWeight: FontWeight.w600,
@@ -256,10 +298,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.deepPurple,
           foregroundColor: Colors.white,
+          elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          elevation: 2,
         ),
       ),
     );

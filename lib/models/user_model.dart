@@ -14,6 +14,7 @@ class UserModel {
   final DateTime? lastLoginAt;
   final bool isActive;
   final bool isGoogleUser;
+  final bool isEmailVerified;
   final List<String>? addresses;
   final List<String>? favoris; // Liste des produits favoris
   final List<String>? commandes; // Liste des IDs de commandes
@@ -34,6 +35,7 @@ class UserModel {
     this.lastLoginAt,
     this.isActive = true,
     this.isGoogleUser = false,
+    this.isEmailVerified = false,
     this.addresses,
     this.favoris,
     this.commandes,
@@ -57,10 +59,11 @@ class UserModel {
       lastLoginAt: (map['lastLoginAt'] as Timestamp?)?.toDate(),
       isActive: map['isActive'] ?? true,
       isGoogleUser: map['isGoogleUser'] ?? false,
-      addresses: List<String>.from(map['addresses'] ?? []),
-      favoris: List<String>.from(map['favoris'] ?? []),
-      commandes: List<String>.from(map['commandes'] ?? []),
-      preferences: Map<String, dynamic>.from(map['preferences'] ?? {}),
+      isEmailVerified: map['isEmailVerified'] ?? map['emailVerified'] ?? false,
+      addresses: map['addresses'] != null ? List<String>.from(map['addresses']) : null,
+      favoris: map['favoris'] != null ? List<String>.from(map['favoris']) : null,
+      commandes: map['commandes'] != null ? List<String>.from(map['commandes']) : null,
+      preferences: map['preferences'],
       points: map['points'] ?? 0,
     );
   }
@@ -81,6 +84,7 @@ class UserModel {
       'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
       'isActive': isActive,
       'isGoogleUser': isGoogleUser,
+      'isEmailVerified': isEmailVerified,
       'addresses': addresses ?? [],
       'favoris': favoris ?? [],
       'commandes': commandes ?? [],
@@ -104,6 +108,7 @@ class UserModel {
     DateTime? lastLoginAt,
     bool? isActive,
     bool? isGoogleUser,
+    bool? isEmailVerified,
     List<String>? addresses,
     List<String>? favoris,
     List<String>? commandes,
@@ -124,6 +129,7 @@ class UserModel {
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       isActive: isActive ?? this.isActive,
       isGoogleUser: isGoogleUser ?? this.isGoogleUser,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       addresses: addresses ?? this.addresses,
       favoris: favoris ?? this.favoris,
       commandes: commandes ?? this.commandes,

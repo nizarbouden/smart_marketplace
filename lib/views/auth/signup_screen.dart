@@ -520,6 +520,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         const SnackBar(
           content: Text('Veuillez accepter les conditions générales d\'utilisation'),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 3), // Ajout de durée
         ),
       );
       return;
@@ -531,21 +532,98 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _isLoading = true;
     });
 
-    bool success = await authProvider.signUp(
-      email: _email.trim(),
-      password: _password,
-    );
+    try {
+      bool success = await authProvider.signUp(
+        email: _email.trim(),
+        password: _password,
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    if (success) {
-      print('✅ SignUpScreen: Compte créé avec succès, navigation vers /home');
-      Navigator.pushReplacementNamed(context, '/home');
-      print('✅ SignUpScreen: Navigation vers /home effectuée');
-    } else {
-      print('❌ SignUpScreen: Échec de la création du compte');
+      if (success) {
+        print('✅ SignUpScreen: Compte créé avec succès, navigation vers /login');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Compte créé avec succès ! Connectez-vous maintenant.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4), // Augmenté à 4 secondes
+          ),
+        );
+        // Rediriger vers la page de connexion au lieu de home
+        Navigator.pushReplacementNamed(context, '/login');
+        print('✅ SignUpScreen: Navigation vers /login effectuée');
+      } else {
+        print('❌ SignUpScreen: Échec de la création du compte');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Vérifier si c'est le message de vérification email
+      if (e.toString().contains('Inscription réussie')) {
+        print('✅ SignUpScreen: Inscription réussie, affichage du message et redirection vers login');
+        
+        // Afficher un dialogue explicatif
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.email, color: Colors.blue, size: 24),
+                  SizedBox(width: 10),
+                  Text('Inscription réussie !'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Un email de vérification a été envoyé à :'),
+                  SizedBox(height: 8),
+                  Text(
+                    _email.trim(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text('Veuillez vérifier votre boîte de réception et cliquer sur le lien de vérification avant de vous connecter.'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Fermer le dialogue
+                    Navigator.pushReplacementNamed(context, '/login'); // Rediriger vers login
+                  },
+                  child: Text('OK, j\'ai compris'),
+                ),
+              ],
+            );
+          },
+        );
+      } else {
+        // Gérer les autres erreurs
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5), // Augmenté à 5 secondes
+            action: SnackBarAction(
+              label: 'OK',
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 

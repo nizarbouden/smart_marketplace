@@ -34,10 +34,10 @@ class ProfileViewModel extends ChangeNotifier {
     String? genre,
     String? photoUrl,
   }) 
-      : firstNameController = TextEditingController(text: firstName.isEmpty ? 'Jean' : firstName),
-        lastNameController = TextEditingController(text: lastName.isEmpty ? 'Dupont' : lastName),
-        emailController = TextEditingController(text: email.isEmpty ? 'jean.dupont@email.com' : email),
-        phoneController = TextEditingController(text: phone.isEmpty ? '' : phone), // Laisser vide si pas de numéro
+      : firstNameController = TextEditingController(text: firstName),
+        lastNameController = TextEditingController(text: lastName),
+        emailController = TextEditingController(text: email), // Utiliser l'email réel passé en paramètre
+        phoneController = TextEditingController(text: phone), // Laisser vide si pas de numéro
         streetController = TextEditingController(text: '123 Rue de la République'),
         cityController = TextEditingController(text: 'Tunis'),
         postalCodeController = TextEditingController(text: '1000'),
@@ -227,13 +227,15 @@ class ProfileViewModel extends ChangeNotifier {
   }
 
   // Méthode de sauvegarde
-  Future<bool> saveProfile() async {
+  Future<bool> saveProfile(BuildContext context) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       // Pour l'instant, on ne sauvegarde pas la photo pour éviter le crash
       // TODO: Implémenter une solution d'upload correcte plus tard
+      
+      print('🔧 Début de la sauvegarde du profil...');
       
       // Sauvegarder dans Firestore via le service (sans la photo)
       await _authService.updateProfile(
@@ -246,6 +248,13 @@ class ProfileViewModel extends ChangeNotifier {
       );
       
       print('🔍 DEBUG: Profil sauvegardé (sans modification photo)');
+      
+      // Rafraîchir les données dans l'AuthProvider
+      if (context.mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.refreshUserProfile();
+        print('✅ AuthProvider rafraîchi après sauvegarde');
+      }
       
       _isLoading = false;
       notifyListeners();

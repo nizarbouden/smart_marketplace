@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/firebase_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +19,38 @@ class _LoginScreenState extends State<LoginScreen> {
   String _email = '';
   String _password = '';
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndForceSignOut();
+    _loadPreferences();
+  }
+
+  // Vérifier et forcer la déconnexion si "Se souvenir de moi" n'est pas coché
+  Future<void> _checkAndForceSignOut() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.checkConnectionState();
+  }
+
+  // Charger les préférences au démarrage
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      bool rememberMe = prefs.getBool('rememberMe') ?? false;
+      String? lastEmail = prefs.getString('lastEmail');
+      
+      if (rememberMe && lastEmail != null) {
+        setState(() {
+          _rememberMe = true;
+          _email = lastEmail;
+        });
+        print('✅ LoginScreen: Préférences chargées - email: $lastEmail, rememberMe: $rememberMe');
+      }
+    } catch (e) {
+      print('❌ LoginScreen: Erreur lors du chargement des préférences: $e');
+    }
+  }
 
   // Méthodes de validation
   bool _hasMinLength(String password) => password.length >= 8;
@@ -396,22 +430,81 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     print('🔄 LoginScreen: Appel de authProvider.signIn');
-    bool success = await authProvider.signIn(
-      email: _email.trim(),
-      password: _password,
-    );
-    print('🔄 LoginScreen: Résultat de signIn: $success');
+    try {
+      bool success = await authProvider.signIn(
+        email: _email.trim(),
+        password: _password,
+        rememberMe: _rememberMe,
+      );
+      print('🔄 LoginScreen: Résultat de signIn: $success (rememberMe: $_rememberMe)');
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    if (success) {
-      print('✅ LoginScreen: Connexion réussie, navigation vers /home');
-      Navigator.pushReplacementNamed(context, '/home');
-      print('✅ LoginScreen: Navigation vers /home effectuée');
-    } else {
-      print('❌ LoginScreen: Connexion échouée');
+      if (success) {
+        print('✅ LoginScreen: Connexion réussie, navigation vers /home');
+        Navigator.pushReplacementNamed(context, '/home');
+        print('✅ LoginScreen: Navigation vers /home effectuée');
+      } else {
+        print('❌ LoginScreen: Connexion échouée');
+      }
+    } on EmailNotVerifiedException catch (e) {
+      // Gérer spécifiquement l'exception de vérification email
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 15), // Très long pour la vérification email
+          action: SnackBarAction(
+            label: 'J\'ai vérifié',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+      
+      print('❌ LoginScreen: Erreur de vérification email affichée: ${e.toString()}');
+    } catch (e) {
+      // Vérifier si c'est une erreur de vérification email même sans l'exception
+      setState(() {
+        _isLoading = false;
+      });
+
+      String errorMessage = e.toString();
+      bool isEmailVerificationError = errorMessage.contains('vérifier votre email');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: isEmailVerificationError 
+              ? Duration(seconds: 15) // Long pour la vérification email
+              : Duration(seconds: 5), // Durée normale pour autres erreurs
+          action: isEmailVerificationError 
+              ? SnackBarAction(
+                  label: 'J\'ai vérifié',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  },
+                )
+              : SnackBarAction(
+                  label: 'OK',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  },
+                ),
+        ),
+      );
+      
+      print('❌ LoginScreen: Erreur affichée: $errorMessage');
     }
   }
 
