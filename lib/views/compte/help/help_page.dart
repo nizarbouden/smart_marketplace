@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_marketplace/services/faq_service.dart';
 
 class HelpPage extends StatefulWidget {
   const HelpPage({super.key});
@@ -9,79 +10,17 @@ class HelpPage extends StatefulWidget {
 
 class _HelpPageState extends State<HelpPage> {
   final TextEditingController _searchController = TextEditingController();
+  final FAQService _faqService = FAQService();
   List<Map<String, dynamic>> _filteredArticles = [];
-  
-  final List<Map<String, dynamic>> _helpArticles = [
-    {
-      'id': 1,
-      'category': 'Commandes',
-      'title': 'Comment suivre ma commande ?',
-      'content': 'Vous pouvez suivre votre commande depuis la section "Historique" de votre profil. Vous y trouverez le statut en temps réel de toutes vos commandes.',
-      'icon': Icons.local_shipping,
-      'color': Colors.blue,
-    },
-    {
-      'id': 2,
-      'category': 'Commandes',
-      'title': 'Comment annuler une commande ?',
-      'content': 'Pour annuler une commande, allez dans l\'historique des commandes, sélectionnez la commande concernée et cliquez sur "Annuler". Vous avez 30 minutes après la validation pour annuler.',
-      'icon': Icons.cancel,
-      'color': Colors.orange,
-    },
-    {
-      'id': 3,
-      'category': 'Paiement',
-      'title': 'Quels sont les moyens de paiement acceptés ?',
-      'content': 'Nous acceptons les cartes bancaires, les portefeuilles électroniques et le paiement à la livraison. Toutes les transactions sont sécurisées.',
-      'icon': Icons.payment,
-      'color': Colors.green,
-    },
-    {
-      'id': 4,
-      'category': 'Compte',
-      'title': 'Comment modifier mes informations personnelles ?',
-      'content': 'Allez dans votre profil, puis "Informations personnelles" pour modifier votre nom, email et numéro de téléphone.',
-      'icon': Icons.person,
-      'color': Colors.purple,
-    },
-    {
-      'id': 5,
-      'category': 'Livraison',
-      'title': 'Quels sont les délais de livraison ?',
-      'content': 'Les délais de livraison varient selon votre localisation : Grand Tunis : 24-48h, Autres gouvernorats : 2-5 jours ouvrés.',
-      'icon': Icons.delivery_dining,
-      'color': Colors.red,
-    },
-    {
-      'id': 6,
-      'category': 'Retours',
-      'title': 'Comment retourner un produit ?',
-      'content': 'Vous avez 14 jours pour retourner un produit. Contactez notre service client via le chat ou par email pour initier un retour.',
-      'icon': Icons.assignment_return,
-      'color': Colors.teal,
-    },
-    {
-      'id': 7,
-      'category': 'Sécurité',
-      'title': 'Comment sécuriser mon compte ?',
-      'content': 'Activez l\'authentification à deux facteurs et utilisez un mot de passe robuste. Évitez de partager vos identifiants.',
-      'icon': Icons.security,
-      'color': Colors.indigo,
-    },
-    {
-      'id': 8,
-      'category': 'Application',
-      'title': 'Comment mettre à jour l\'application ?',
-      'content': 'Vérifiez régulièrement le Play Store ou App Store pour les mises à jour. Activez les mises à jour automatiques pour ne rien manquer.',
-      'icon': Icons.system_update,
-      'color': Colors.cyan,
-    },
-  ];
+  List<Map<String, dynamic>> _allArticles = [];
+  List<String> _categories = [];
+  String _selectedCategory = 'Tous';
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredArticles = _helpArticles;
+    _loadFAQs();
     _searchController.addListener(_filterArticles);
   }
 
@@ -89,6 +28,93 @@ class _HelpPageState extends State<HelpPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFAQs() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('🔥 Début du chargement des FAQs...');
+      final faqs = await _faqService.getAllFAQs();
+      final categories = await _faqService.getCategories();
+      
+      print('📋 FAQs récupérées: ${faqs.length}');
+      print('📂 Catégories récupérées: $categories');
+      
+      for (var faq in faqs) {
+        print('📄 FAQ: ${faq['title']} - ${faq['category']}');
+      }
+
+      setState(() {
+        _allArticles = faqs;
+        _filteredArticles = faqs;
+        _categories = ['Tous', ...categories];
+        _isLoading = false;
+      });
+      
+      print('✅ FAQs chargées avec succès!');
+    } catch (e) {
+      print('❌ Erreur lors du chargement des FAQs: $e');
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement des FAQs: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Color _getColorFromString(String colorString) {
+    if (colorString.startsWith('#')) {
+      return Color(int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
+    }
+
+    switch (colorString.toLowerCase()) {
+      case 'blue': return Colors.blue;
+      case 'orange': return Colors.orange;
+      case 'green': return Colors.green;
+      case 'purple': return Colors.purple;
+      case 'red': return Colors.red;
+      case 'teal': return Colors.teal;
+      case 'indigo': return Colors.indigo;
+      case 'cyan': return Colors.cyan;
+      default: return Colors.grey;
+    }
+  }
+
+  IconData _getIconFromString(String iconName) {
+    switch (iconName) {
+      case 'local_shipping': return Icons.local_shipping;
+      case 'cancel': return Icons.cancel;
+      case 'payment': return Icons.payment;
+      case 'person': return Icons.person;
+      case 'delivery_dining': return Icons.delivery_dining;
+      case 'assignment_return': return Icons.assignment_return;
+      case 'security': return Icons.security;
+      case 'system_update': return Icons.system_update;
+      default: return Icons.help_outline;
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'commandes': return Colors.blue;
+      case 'paiement': return Colors.green;
+      case 'compte': return Colors.purple;
+      case 'livraison': return Colors.red;
+      case 'retours': return Colors.teal;
+      case 'sécurité': return Colors.indigo;
+      case 'application': return Colors.cyan;
+      default: return Colors.deepPurple;
+    }
   }
 
   @override
@@ -101,7 +127,9 @@ class _HelpPageState extends State<HelpPage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-      body: _buildBody(context, isDesktop, isTablet, isMobile),
+      body: _isLoading
+          ? _buildLoadingWidget()
+          : _buildBody(context, isDesktop, isTablet, isMobile),
       floatingActionButton: _buildFloatingActionButton(isDesktop, isTablet, isMobile),
     );
   }
@@ -127,6 +155,14 @@ class _HelpPageState extends State<HelpPage> {
         ),
       ),
       centerTitle: false,
+    );
+  }
+
+  Widget _buildLoadingWidget() {
+    return const Center(
+      child: CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+      ),
     );
   }
 
@@ -177,14 +213,10 @@ class _HelpPageState extends State<HelpPage> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: [
-                _buildCategoryChip('Tous', Colors.deepPurple, true),
-                _buildCategoryChip('Commandes', Colors.blue, false),
-                _buildCategoryChip('Paiement', Colors.green, false),
-                _buildCategoryChip('Compte', Colors.purple, false),
-                _buildCategoryChip('Livraison', Colors.red, false),
-                _buildCategoryChip('Retours', Colors.teal, false),
-              ],
+              children: _categories.map((category) {
+                final color = category == 'Tous' ? Colors.deepPurple : _getCategoryColor(category);
+                return _buildCategoryChip(category, color, category == _selectedCategory);
+              }).toList(),
             ),
           ),
         ),
@@ -193,14 +225,20 @@ class _HelpPageState extends State<HelpPage> {
 
         // Articles d'aide
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : isTablet ? 20 : 24),
-            itemCount: _filteredArticles.length,
-            itemBuilder: (context, index) {
-              final article = _filteredArticles[index];
-              return _buildArticleCard(article, isDesktop, isTablet, isMobile);
-            },
-          ),
+          child: _filteredArticles.isEmpty
+              ? _buildEmptyState(context, isDesktop, isTablet, isMobile)
+              : ListView.builder(
+                  padding: EdgeInsets.only(
+                    left: isMobile ? 16 : isTablet ? 20 : 24,
+                    right: isMobile ? 16 : isTablet ? 20 : 24,
+                    bottom: isMobile ? 80 : isTablet ? 90 : 100, // Espace pour le bouton flottant
+                  ),
+                  itemCount: _filteredArticles.length,
+                  itemBuilder: (context, index) {
+                    final article = _filteredArticles[index];
+                    return _buildArticleCard(article, isDesktop, isTablet, isMobile);
+                  },
+                ),
         ),
       ],
     );
@@ -220,7 +258,10 @@ class _HelpPageState extends State<HelpPage> {
         ),
         selected: isSelected,
         onSelected: (selected) {
-          // TODO: Filtrer par catégorie
+          setState(() {
+            _selectedCategory = label;
+            _filterArticles();
+          });
         },
         backgroundColor: isSelected ? color : color.withOpacity(0.1),
         side: BorderSide(
@@ -232,6 +273,9 @@ class _HelpPageState extends State<HelpPage> {
   }
 
   Widget _buildArticleCard(Map<String, dynamic> article, bool isDesktop, bool isTablet, bool isMobile) {
+    final icon = _getIconFromString(article['icon'] ?? 'help_outline');
+    final color = _getColorFromString(article['color'] ?? 'blue');
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 12 : isTablet ? 16 : 20),
       decoration: BoxDecoration(
@@ -249,17 +293,17 @@ class _HelpPageState extends State<HelpPage> {
         leading: Container(
           padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
           decoration: BoxDecoration(
-            color: (article['color'] as Color).withOpacity(0.1),
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            article['icon'] as IconData,
-            color: article['color'] as Color,
+            icon,
+            color: color,
             size: isDesktop ? 24 : isTablet ? 22 : 20,
           ),
         ),
         title: Text(
-          article['title'] as String,
+          article['title'] ?? 'Question',
           style: TextStyle(
             fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
             fontWeight: FontWeight.w600,
@@ -267,10 +311,10 @@ class _HelpPageState extends State<HelpPage> {
           ),
         ),
         subtitle: Text(
-          article['category'] as String,
+          article['category'] ?? 'Catégorie',
           style: TextStyle(
             fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-            color: article['color'] as Color,
+            color: color,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -282,7 +326,7 @@ class _HelpPageState extends State<HelpPage> {
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
             child: Text(
-              article['content'] as String,
+              article['content'] ?? 'Contenu non disponible',
               style: TextStyle(
                 fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
                 color: Colors.grey[700],
@@ -291,6 +335,46 @@ class _HelpPageState extends State<HelpPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isMobile ? 16 : isTablet ? 20 : 24,
+        right: isMobile ? 16 : isTablet ? 20 : 24,
+        bottom: isMobile ? 80 : isTablet ? 90 : 100, // Espace pour le bouton flottant
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: isDesktop ? 80 : isTablet ? 64 : 48,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
+            Text(
+              'Aucune aide trouvée',
+              style: TextStyle(
+                fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: isMobile ? 8 : isTablet ? 10 : 12),
+            Text(
+              'Essayez de modifier votre recherche ou de changer de catégorie',
+              style: TextStyle(
+                fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -317,18 +401,31 @@ class _HelpPageState extends State<HelpPage> {
 
   void _filterArticles() {
     final query = _searchController.text.toLowerCase();
+    print('🔍 Filtrage - Recherche: "$query", Catégorie: "$_selectedCategory"');
+    
     setState(() {
-      if (query.isEmpty) {
-        _filteredArticles = _helpArticles;
+      if (query.isEmpty && _selectedCategory == 'Tous') {
+        _filteredArticles = _allArticles;
+        print('📋 Affichage de toutes les FAQs: ${_filteredArticles.length}');
       } else {
-        _filteredArticles = _helpArticles.where((article) {
-          final title = (article['title'] as String).toLowerCase();
-          final content = (article['content'] as String).toLowerCase();
-          final category = (article['category'] as String).toLowerCase();
-          return title.contains(query) || 
-                 content.contains(query) || 
-                 category.contains(query);
+        _filteredArticles = _allArticles.where((article) {
+          final title = (article['title'] as String? ?? '').toLowerCase();
+          final content = (article['content'] as String? ?? '').toLowerCase();
+          final category = (article['category'] as String? ?? '').toLowerCase();
+          
+          final matchesSearch = query.isEmpty || 
+                              title.contains(query) || 
+                              content.contains(query) || 
+                              category.contains(query);
+          
+          final matchesCategory = _selectedCategory == 'Tous' || 
+                                 category == _selectedCategory.toLowerCase();
+          
+          print('📄 "${article['title']}" - Search: $matchesSearch, Category: $matchesCategory');
+          
+          return matchesSearch && matchesCategory;
         }).toList();
+        print('📋 FAQs filtrées: ${_filteredArticles.length}');
       }
     });
   }
@@ -379,7 +476,7 @@ class _HelpPageState extends State<HelpPage> {
             ),
             _buildContactOption(
               'Téléphone',
-              'Appelez-nous au 71 234 567',
+              'Appelez-nous au +216 70 000 000',
               Icons.phone,
               Colors.blue,
               () {
@@ -394,7 +491,7 @@ class _HelpPageState extends State<HelpPage> {
             ),
             _buildContactOption(
               'Email',
-              'Envoyez-nous un email',
+              'Envoyez-nous un email à support@winzy.com',
               Icons.email,
               Colors.orange,
               () {
