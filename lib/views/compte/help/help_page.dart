@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:smart_marketplace/services/faq_service.dart';
 
 class HelpPage extends StatefulWidget {
@@ -36,16 +38,8 @@ class _HelpPageState extends State<HelpPage> {
     });
 
     try {
-      print('🔥 Début du chargement des FAQs...');
       final faqs = await _faqService.getAllFAQs();
       final categories = await _faqService.getCategories();
-      
-      print('📋 FAQs récupérées: ${faqs.length}');
-      print('📂 Catégories récupérées: $categories');
-      
-      for (var faq in faqs) {
-        print('📄 FAQ: ${faq['title']} - ${faq['category']}');
-      }
 
       setState(() {
         _allArticles = faqs;
@@ -53,10 +47,7 @@ class _HelpPageState extends State<HelpPage> {
         _categories = ['Tous', ...categories];
         _isLoading = false;
       });
-      
-      print('✅ FAQs chargées avec succès!');
     } catch (e) {
-      print('❌ Erreur lors du chargement des FAQs: $e');
       setState(() {
         _isLoading = false;
       });
@@ -401,31 +392,21 @@ class _HelpPageState extends State<HelpPage> {
 
   void _filterArticles() {
     final query = _searchController.text.toLowerCase();
-    print('🔍 Filtrage - Recherche: "$query", Catégorie: "$_selectedCategory"');
     
     setState(() {
       if (query.isEmpty && _selectedCategory == 'Tous') {
         _filteredArticles = _allArticles;
-        print('📋 Affichage de toutes les FAQs: ${_filteredArticles.length}');
       } else {
         _filteredArticles = _allArticles.where((article) {
           final title = (article['title'] as String? ?? '').toLowerCase();
           final content = (article['content'] as String? ?? '').toLowerCase();
           final category = (article['category'] as String? ?? '').toLowerCase();
           
-          final matchesSearch = query.isEmpty || 
-                              title.contains(query) || 
-                              content.contains(query) || 
-                              category.contains(query);
-          
-          final matchesCategory = _selectedCategory == 'Tous' || 
-                                 category == _selectedCategory.toLowerCase();
-          
-          print('📄 "${article['title']}" - Search: $matchesSearch, Category: $matchesCategory');
+          final matchesSearch = query.isEmpty || title.contains(query) || content.contains(query);
+          final matchesCategory = _selectedCategory == 'Tous' || category == _selectedCategory.toLowerCase();
           
           return matchesSearch && matchesCategory;
         }).toList();
-        print('📋 FAQs filtrées: ${_filteredArticles.length}');
       }
     });
   }
@@ -479,14 +460,32 @@ class _HelpPageState extends State<HelpPage> {
               'Appelez-nous au +216 70 000 000',
               Icons.phone,
               Colors.blue,
-              () {
+              () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Appel en cours...'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                
+                try {
+                  final Uri phoneUri = Uri.parse('tel:21693489229');
+                  print('🔄 Lancement de l\'appel avec le format: tel:0021670000000');
+                  
+                  if (await canLaunchUrl(phoneUri)) {
+                    await launchUrl(phoneUri);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Application téléphonique non disponible sur cet appareil'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  print('❌ Erreur lors du lancement de l\'appel: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
             ),
             _buildContactOption(
@@ -494,14 +493,35 @@ class _HelpPageState extends State<HelpPage> {
               'Envoyez-nous un email à support@winzy.com',
               Icons.email,
               Colors.orange,
-              () {
+              () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ouverture du client email...'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
+                
+                try {
+                  // Essayer avec launchUrl et des paramètres spécifiques
+                  final Uri emailUri = Uri(
+                    scheme: 'mailto',
+                    path: 'support@winzy.com',
+                    query: 'subject=Support Winzy&body=Bonjour,',
+                  );
+                  
+                  print('🔄 Test du format email: $emailUri');
+                  
+                  // Essayer avec mode inAppBrowserView
+                  bool launched = await launchUrl(
+                    emailUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  
+                  if (launched) {
+                  } else {
+                    // Fallback: copier l'email dans le presse-papiers
+                    await _copyEmailToClipboard();
+                  }
+                } catch (e) {
+                  print('❌ Erreur lors du lancement de l\'email: $e');
+                  // Fallback: copier l'email dans le presse-papiers
+                  await _copyEmailToClipboard();
+                }
               },
             ),
             const SizedBox(height: 20),
@@ -553,5 +573,34 @@ class _HelpPageState extends State<HelpPage> {
       ),
       onTap: onTap,
     );
+  }
+
+  // Méthode fallback pour copier l'email dans le presse-papiers
+  Future<void> _copyEmailToClipboard() async {
+    try {
+      await Clipboard.setData(const ClipboardData(text: 'support@winzy.com'));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Email copié dans le presse-papiers !'),
+          backgroundColor: Colors.blue,
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      print('❌ Erreur lors de la copie dans le presse-papiers: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email: support@winzy.com'),
+          backgroundColor: Colors.grey,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
   }
 }
