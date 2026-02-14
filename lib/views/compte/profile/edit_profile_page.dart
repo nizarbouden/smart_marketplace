@@ -147,30 +147,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
           isTablet: isTablet,
           prefixIcon: Icons.email,
           keyboardType: TextInputType.emailAddress,
-          enabled: false, // Forcer la désactivation pour les tests
-          readOnly: true, // Forcer la lecture seule pour les tests
+          enabled: widget.user?.isGoogleUser != true, // Désactiver uniquement pour les comptes Google
+          readOnly: widget.user?.isGoogleUser == true, // Lecture seule uniquement pour les comptes Google
         ),
         
-        // Debug pour vérifier le type d'utilisateur
-        Container(
-          margin: EdgeInsets.only(top: 8),
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.orange),
+        // Message d'information pour les comptes Google
+        if (widget.user?.isGoogleUser == true)
+          Container(
+            margin: EdgeInsets.only(top: 8),
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info, color: Colors.orange, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Email non modifiable (compte Google)',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(Icons.info, color: Colors.orange, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'Email non modifiable (compte Google)',
-                style: TextStyle(color: Colors.orange, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
         
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
         

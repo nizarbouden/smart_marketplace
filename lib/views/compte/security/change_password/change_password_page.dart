@@ -634,10 +634,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       obscureText: !_showCurrentPassword,
                       decoration: InputDecoration(
                         hintText: 'Entrez votre mot de passe actuel',
-                        prefixIcon: const Icon(Icons.lock),
+                        prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showCurrentPassword ? Icons.visibility : Icons.visibility_off,
+                            _showCurrentPassword ? Icons.visibility : Icons.visibility_off, color: Colors.deepPurple
                           ),
                           onPressed: () {
                             setState(() {
@@ -672,10 +672,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       obscureText: !_showNewPassword,
                       decoration: InputDecoration(
                         hintText: 'Entrez votre nouveau mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(Icons.lock_outline, color: Colors.deepPurple),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showNewPassword ? Icons.visibility : Icons.visibility_off,
+                            _showNewPassword ? Icons.visibility : Icons.visibility_off, color: Colors.deepPurple
                           ),
                           onPressed: () {
                             setState(() {
@@ -763,10 +763,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       obscureText: !_showConfirmPassword,
                       decoration: InputDecoration(
                         hintText: 'Confirmez votre nouveau mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(Icons.lock_outline, color: Colors.deepPurple),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                            _showConfirmPassword ? Icons.visibility : Icons.visibility_off, color: Colors.deepPurple
                           ),
                           onPressed: () {
                             setState(() {
