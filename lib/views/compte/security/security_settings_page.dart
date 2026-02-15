@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../services/firebase_auth_service.dart';
+import '../../../services/auto_logout_service.dart'; // Importer le service
+import '../../../widgets/auto_logout_warning_dialog.dart'; // Importer le dialog
 import 'change_password/change_password_page.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
@@ -20,10 +22,118 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   bool _loginNotifications = true;
   bool _sessionTimeout = true;
   String _sessionTimeoutValue = '30 minutes';
-  
+
   // Firebase Auth
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
+  final AutoLogoutService _autoLogoutService = AutoLogoutService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+    _setupAutoLogout();
+  }
+
+  // Charger les paramètres depuis SharedPreferences
+  Future<void> _loadSettings() async {
+    await _autoLogoutService.init();
+
+    final settings = await _autoLogoutService.loadAutoLogoutSettings();
+
+    setState(() {
+      _sessionTimeout = settings['enabled'] ?? false;
+      _sessionTimeoutValue = settings['duration'] ?? '30 minutes';
+    });
+
+    // Si auto-logout est activé, démarrer la surveillance
+    if (_sessionTimeout) {
+      _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+    }
+  }
+
+  // Configuration de la déconnexion automatique
+  void _setupAutoLogout() {
+    // Callback si l'utilisateur doit être déconnecté
+    _autoLogoutService.setOnLogoutCallback(() {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        // Naviguer vers la page de connexion
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+              (route) => false,
+        );
+      }
+    });
+
+    // Callback pour afficher l'avertissement
+    _autoLogoutService.setOnWarningCallback((remainingSeconds) {
+      if (mounted) {
+        _showAutoLogoutWarning(remainingSeconds);
+      }
+    });
+  }
+
+  // Afficher l'avertissement de déconnexion
+  void _showAutoLogoutWarning(int remainingSeconds) {
+    if (Navigator.of(context).canPop()) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AutoLogoutWarningDialog(
+          remainingSeconds: remainingSeconds,
+          onStayLoggedIn: () {
+            // Réinitialiser le timer
+            _autoLogoutService.recordActivity();
+            print('✅ Utiliser reste connecté, timer réinitialisé');
+          },
+          onLogout: () {
+            // Forcer la déconnexion
+            _autoLogoutService.stopAutoLogout();
+            _auth.signOut();
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/login',
+                  (route) => false,
+            );
+          },
+        ),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+      // App revenue au premier plan
+        if (_sessionTimeout) {
+          _autoLogoutService.recordActivity();
+          print('📱 App en avant-plan, activité enregistrée');
+        }
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.inactive:
+      // L'app passe en arrière-plan
+        print('📱 App en arrière-plan');
+        break;
+      case AppLifecycleState.hidden:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoLogoutService.stopAutoLogout();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +248,53 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 title: 'Déconnexion automatique',
                 subtitle: 'Déconnexion après inactivité',
                 value: _sessionTimeout,
-                onChanged: (value) => setState(() => _sessionTimeout = value),
+                onChanged: (value) async {
+                  setState(() => _sessionTimeout = value);
+
+                  if (value) {
+                    // Activer la déconnexion automatique
+                    print('🟢 Déconnexion automatique ACTIVÉE');
+                    _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+
+                    // Sauvegarder les paramètres
+                    await _autoLogoutService.saveAutoLogoutSettings(
+                      enabled: true,
+                      duration: _sessionTimeoutValue,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('✅ Déconnexion automatique activée ($_sessionTimeoutValue)'),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  } else {
+                    // Désactiver la déconnexion automatique
+                    print('🔴 Déconnexion automatique DÉSACTIVÉE');
+                    _autoLogoutService.stopAutoLogout();
+
+                    // Sauvegarder les paramètres
+                    await _autoLogoutService.saveAutoLogoutSettings(
+                      enabled: false,
+                      duration: _sessionTimeoutValue,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('❌ Déconnexion automatique désactivée'),
+                          backgroundColor: Colors.orange,
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  }
+                },
                 isDesktop: isDesktop,
                 isTablet: isTablet,
                 isMobile: isMobile,
@@ -148,8 +304,30 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                   title: 'Délai d\'inactivité',
                   subtitle: 'Temps avant déconnexion automatique',
                   value: _sessionTimeoutValue,
-                  items: ['15 minutes', '30 minutes', '1 heure', '2 heures'],
-                  onChanged: (value) => setState(() => _sessionTimeoutValue = value),
+                  items: ['5 secondes', '15 minutes', '30 minutes', '1 heure', '2 heures'],
+                  onChanged: (value) async {
+                    setState(() => _sessionTimeoutValue = value);
+
+                    // Redémarrer le timer avec la nouvelle durée
+                    _autoLogoutService.startAutoLogout(value);
+
+                    // Sauvegarder les paramètres
+                    await _autoLogoutService.saveAutoLogoutSettings(
+                      enabled: true,
+                      duration: value,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('✅ Délai d\'inactivité changé à $value'),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
                   isDesktop: isDesktop,
                   isTablet: isTablet,
                   isMobile: isMobile,
@@ -361,9 +539,9 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 Container(
                   padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
                   decoration: BoxDecoration(
-                    color: isDanger 
-                      ? Colors.red.withOpacity(0.1) 
-                      : Colors.deepPurple.withOpacity(0.1),
+                    color: isDanger
+                        ? Colors.red.withOpacity(0.1)
+                        : Colors.deepPurple.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -507,10 +685,21 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     );
   }
 
-  void _saveSettings() {
+  void _saveSettings() async {
+    // Sauvegarder les paramètres de session timeout
+    if (_sessionTimeout) {
+      await _autoLogoutService.saveAutoLogoutSettings(
+        enabled: true,
+        duration: _sessionTimeoutValue,
+      );
+
+      // Démarrer le timer
+      _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Paramètres de sécurité enregistrés!'),
+        content: const Text('✅ Paramètres de sécurité enregistrés!'),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -556,11 +745,11 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         title: const Text('Télécharger vos données'),
         content: const Text(
           'Voulez-vous télécharger toutes vos informations personnelles ?\n\n'
-          'Ceci inclut :\n'
-          '• Votre profil\n'
-          '• Vos adresses\n'
-          '• Vos préférences\n'
-          '• L\'historique des notifications',
+              'Ceci inclut :\n'
+              '• Votre profil\n'
+              '• Vos adresses\n'
+              '• Vos préférences\n'
+              '• L\'historique des notifications',
         ),
         actions: [
           TextButton(
@@ -581,7 +770,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
     if (confirmed != true) return;
 
-    // Afficher un message de chargement
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Préparation du téléchargement...'),
@@ -591,10 +779,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     );
 
     try {
-      // Récupérer les données complètes de l'utilisateur
       final userData = await _getUserCompleteData(user.uid);
-      
-      // Créer le fichier JSON avec toutes les données
+
       final exportData = {
         'export_info': {
           'date': DateTime.now().toIso8601String(),
@@ -615,10 +801,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         'notifications_count': userData['notifications_count'] ?? 0,
       };
 
-      // Convertir en JSON avec formatage lisible
       final jsonString = jsonEncode(exportData);
-      
-      // Créer un contenu plus lisible avec en-tête
+
       final readableContent = '''========================================
      MES DONNÉES PERSONNELLES - WINZY MARKETPLACE
 ========================================
@@ -647,45 +831,36 @@ $jsonString
 
 Pour plus d'informations, contactez le support Winzy Marketplace.
 ========================================''';
-      
+
       final bytes = utf8.encode(readableContent);
-      
-      // Créer et sauvegarder le fichier selon la plateforme
+
       Directory directory;
       if (Platform.isAndroid) {
-        // Pour Android, utiliser directement le dossier Downloads public
         directory = Directory('/storage/emulated/0/Download');
-        // Créer le dossier s'il n'existe pas
         if (!await directory.exists()) {
           await directory.create(recursive: true);
         }
       } else if (Platform.isIOS) {
-        // Pour iOS, utiliser le répertoire Documents
         directory = await getApplicationDocumentsDirectory();
       } else {
-        // Pour Desktop/Web, utiliser le répertoire Documents
         directory = await getApplicationDocumentsDirectory();
       }
-      
+
       final fileName = 'winzy_donnees_personnelles_${DateTime.now().millisecondsSinceEpoch}.txt';
       final file = File('${directory.path}/$fileName');
-      
-      // Débogage : afficher le chemin exact
+
       print('🔍 DEBUG: Répertoire de sauvegarde: ${directory.path}');
       print('🔍 DEBUG: Chemin complet du fichier: ${file.path}');
-      print('🔍 DEBUG: Le répertoire existe? ${await directory.exists()}');
-      
+
       await file.writeAsBytes(bytes);
-      
-      // Vérifier si le fichier a bien été créé
+
       final fileExists = await file.exists();
       print('🔍 DEBUG: Fichier créé avec succès? $fileExists');
-      
+
       if (!fileExists) {
         throw Exception('Impossible de créer le fichier dans: ${file.path}');
       }
-      
-      // Afficher un message de succès avec le chemin du fichier
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -697,7 +872,6 @@ Pour plus d'informations, contactez le support Winzy Marketplace.
               label: 'Partager',
               textColor: Colors.white,
               onPressed: () async {
-                // Partager le contenu du fichier directement (plus fiable que l'ouverture)
                 try {
                   await Share.share(
                     readableContent,
@@ -720,7 +894,6 @@ Pour plus d'informations, contactez le support Winzy Marketplace.
         );
       }
     } catch (e) {
-      // Afficher un message d'erreur
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -734,18 +907,13 @@ Pour plus d'informations, contactez le support Winzy Marketplace.
     }
   }
 
-  // Méthode pour récupérer toutes les données de l'utilisateur
   Future<Map<String, dynamic>> _getUserCompleteData(String userId) async {
     try {
-      // Récupérer les adresses
       final addresses = await _authService.getUserAddresses();
-      
-      // Récupérer le nombre de notifications
       final notifications = await _authService.getUserNotifications();
-      
-      // Récupérer les préférences (si disponible)
+
       final preferences = {
-        'theme': 'light', // À adapter selon tes préférences
+        'theme': 'light',
         'language': 'fr',
         'notifications_enabled': true,
       };
