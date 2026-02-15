@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
-import '../../services/auto_logout_service.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../services/auto_logout_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
 import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
@@ -28,36 +28,22 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    print('📱 ProfilePage: initState()');
     _syncEmailIfNeeded();
-
-    // ✅ NOUVEAU: Ajouter des listeners au lieu de configurer les callbacks
     _setupListeners();
   }
 
-  // ✅ NOUVEAU: Utiliser les listeners
   void _setupListeners() {
-    print('👂 ProfilePage: Ajout des listeners');
-
-    // ✅ Listener pour l'avertissement
     _autoLogoutService.addWarningListener((event) {
-      print('📌 ProfilePage: Warning listener APPELÉ! ${event.remainingSeconds}s');
       if (mounted) {
-        print('✅ ProfilePage: mounted=true, affichage dialog');
         _showAutoLogoutWarning(event.remainingSeconds);
-      } else {
-        print('❌ ProfilePage: mounted=false!');
       }
     });
 
-    // ✅ Listener pour la déconnexion
     _autoLogoutService.addLogoutListener((event) {
-      print('📌 ProfilePage: Logout listener APPELÉ!');
       if (mounted) {
-        print('✅ ProfilePage: mounted=true, déconnexion');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
+            content: Text('⏱️ Session expired due to inactivity'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 5),
           ),
@@ -69,32 +55,24 @@ class _ProfilePageState extends State<ProfilePage> {
           '/login',
               (route) => false,
         );
-      } else {
-        print('❌ ProfilePage: mounted=false!');
       }
     });
   }
 
   void _showAutoLogoutWarning(int remainingSeconds) {
-    print('🔔 ProfilePage: _showAutoLogoutWarning() appelée avec ${remainingSeconds}s');
-
     if (_dialogShown) {
-      print('⚠️  Dialog déjà affiché, ignoré');
       return;
     }
 
     _dialogShown = true;
-    print('📢 ProfilePage: Affichage du dialog');
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        print('📢 ProfilePage: Builder du dialog appelé');
         return AutoLogoutWarningDialog(
           remainingSeconds: remainingSeconds,
           onStayLoggedIn: () {
-            print('✅ ProfilePage: User a cliqué "Rester connecté"');
             _dialogShown = false;
 
             if (mounted && Navigator.of(dialogContext).canPop()) {
@@ -104,7 +82,6 @@ class _ProfilePageState extends State<ProfilePage> {
             _autoLogoutService.recordActivity();
           },
           onLogout: () {
-            print('❌ ProfilePage: User a cliqué "Se déconnecter"');
             _dialogShown = false;
 
             if (mounted && Navigator.of(dialogContext).canPop()) {
@@ -124,7 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     ).then((_) {
-      print('🔌 ProfilePage: Dialog fermé');
       _dialogShown = false;
     });
   }
@@ -135,15 +111,10 @@ class _ProfilePageState extends State<ProfilePage> {
       final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
 
       if (authEmail != null && authEmail != authProvider.user?.email) {
-        print('🔄 ProfilePage: Synchronisation email');
         await _authService.syncEmailFromAuth();
-
-        if (mounted) {
-          print('✅ ProfilePage: Email synchronisé');
-        }
       }
     } catch (e) {
-      print('❌ ProfilePage: Erreur sync email: $e');
+      print('❌ Error syncing email: $e');
     }
   }
 
@@ -151,16 +122,11 @@ class _ProfilePageState extends State<ProfilePage> {
     String? authEmail = _authService.getCurrentEmail();
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
 
-    String correctEmail = authEmail ?? authProvider.user?.email ?? 'email@example.com';
-
-    return correctEmail;
+    return authEmail ?? authProvider.user?.email ?? 'email@example.com';
   }
 
   @override
   void dispose() {
-    print('🔌 ProfilePage: dispose()');
-    // ✅ IMPORTANT: Supprimer les listeners quand on quitte
-    // Les listeners resteront actifs s'il y a d'autres pages qui les utilisent
     super.dispose();
   }
 
@@ -219,7 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
 
                   Text(
-                    authProvider.fullName ?? 'Utilisateur',
+                    authProvider.fullName ?? 'User',
                     style: TextStyle(
                       fontSize: isDesktop ? 28 : isTablet ? 24 : 20,
                       fontWeight: FontWeight.bold,
@@ -239,8 +205,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _statItem('Commandes', '${authProvider.orders.length}', isDesktop, isTablet),
-                      _statItem('Favoris', '${authProvider.favorites.length}', isDesktop, isTablet),
+                      _statItem('Orders', '${authProvider.orders.length}', isDesktop, isTablet),
+                      _statItem('Favorites', '${authProvider.favorites.length}', isDesktop, isTablet),
                       _statItem('Points', '${authProvider.points}', isDesktop, isTablet),
                     ],
                   ),
@@ -265,13 +231,13 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Column(
                 children: [
-                  _menuTile('Informations personnelles', Icons.person, isDesktop, isTablet),
-                  _menuTile('Adresses', Icons.location_on, isDesktop, isTablet),
-                  _menuTile('Moyens de paiement', Icons.credit_card, isDesktop, isTablet),
-                  _menuTile('Paramètres de notifications', Icons.notifications, isDesktop, isTablet),
-                  _menuTile('Sécurité', Icons.security, isDesktop, isTablet),
-                  _menuTile('Aide', Icons.help, isDesktop, isTablet),
-                  _menuTile('Déconnexion', Icons.logout, isDesktop, isTablet, isLast: true),
+                  _menuTile('Personal Info', Icons.person, isDesktop, isTablet),
+                  _menuTile('Addresses', Icons.location_on, isDesktop, isTablet),
+                  _menuTile('Payment Methods', Icons.credit_card, isDesktop, isTablet),
+                  _menuTile('Notification Settings', Icons.notifications, isDesktop, isTablet),
+                  _menuTile('Security', Icons.security, isDesktop, isTablet),
+                  _menuTile('Help', Icons.help, isDesktop, isTablet),
+                  _menuTile('Logout', Icons.logout, isDesktop, isTablet, isLast: true),
                 ],
               ),
             ),
@@ -333,9 +299,9 @@ class _ProfilePageState extends State<ProfilePage> {
             vertical: isDesktop ? 4 : isTablet ? 2 : 0,
           ),
           onTap: () {
-            if (title == 'Déconnexion') {
+            if (title == 'Logout') {
               _showLogoutDialog();
-            } else if (title == 'Informations personnelles') {
+            } else if (title == 'Personal Info') {
               final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
               Navigator.push(
                 context,
@@ -345,27 +311,27 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               );
-            } else if (title == 'Adresses') {
+            } else if (title == 'Addresses') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddressPage()),
               );
-            } else if (title == 'Paramètres de notifications') {
+            } else if (title == 'Notification Settings') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const NotificationSettingsPage()),
               );
-            } else if (title == 'Sécurité') {
+            } else if (title == 'Security') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SecuritySettingsPage()),
               );
-            } else if (title == 'Aide') {
+            } else if (title == 'Help') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const HelpPage()),
               );
-            } else if (title == 'Moyens de paiement') {
+            } else if (title == 'Payment Methods') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const PaymentMethodsPage()),
@@ -386,7 +352,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showLogoutDialog() {
-    print('🔴 ProfilePage: Affichage du dialog de déconnexion');
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -449,7 +414,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Déconnexion',
+                        'Logout',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -459,7 +424,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Êtes-vous sûr de vouloir\nvous déconnecter?',
+                        'Are you sure you want to\nlogout?',
                         style: TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
@@ -489,7 +454,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   backgroundColor: Colors.transparent,
                                 ),
                                 child: const Text(
-                                  'Annuler',
+                                  'Cancel',
                                   style: TextStyle(
                                     color: Color(0xFF6366F1),
                                     fontSize: 15,
@@ -506,18 +471,13 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: ElevatedButton(
                                 onPressed: () async {
                                   try {
-                                    print('🔴 ProfilePage: Logout button - Arrêt du service');
                                     _autoLogoutService.stopAutoLogout();
-
-                                    print('🔴 ProfilePage: Logout button - SignOut Firebase');
                                     await FirebaseAuth.instance.signOut();
-                                    print('✅ ProfilePage: Déconnexion réussie');
 
-                                    print('🔴 ProfilePage: Logout button - Navigation /login');
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   } catch (e) {
-                                    print('⚠️ ProfilePage: Erreur logout: $e');
+                                    print('❌ Error logging out: $e');
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   }
@@ -533,7 +493,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 child: const FittedBox(
                                   child: Text(
-                                    'Se déconnecter',
+                                    'Logout',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,

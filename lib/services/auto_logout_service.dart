@@ -15,7 +15,6 @@ class AutoLogoutService {
   bool _warningShown = false;
   bool _isInitialized = false;
 
-  // ✅ NOUVEAU: Utiliser des listeners au lieu de callbacks
   final List<Function(LogoutEvent)> _logoutListeners = [];
   final List<Function(WarningEvent)> _warningListeners = [];
 
@@ -27,22 +26,18 @@ class AutoLogoutService {
 
   Future<void> init() async {
     if (_isInitialized) {
-      print('ℹ️  AutoLogoutService déjà initialisé');
       return;
     }
 
     _prefs = await SharedPreferences.getInstance();
     _isInitialized = true;
-    print('✅ AutoLogoutService initialisé avec succès');
 
     final settings = await loadAutoLogoutSettings();
     if (settings['enabled'] == true) {
-      print('🚀 Auto-logout activé au démarrage: ${settings['duration']}');
       startAutoLogout(settings['duration'] as String);
     }
   }
 
-  // ✅ ANCIEN système (pour compatibilité)
   Function? _onLogoutCallback;
   Function(int)? _onWarningCallback;
 
@@ -54,30 +49,23 @@ class AutoLogoutService {
     _onWarningCallback = callback;
   }
 
-  // ✅ NOUVEAU: Système de listeners
   void addLogoutListener(Function(LogoutEvent) listener) {
     _logoutListeners.add(listener);
-    print('✅ AutoLogoutService: Logout listener ajouté (total: ${_logoutListeners.length})');
   }
 
   void removeLogoutListener(Function(LogoutEvent) listener) {
     _logoutListeners.remove(listener);
-    print('✅ AutoLogoutService: Logout listener supprimé (total: ${_logoutListeners.length})');
   }
 
   void addWarningListener(Function(WarningEvent) listener) {
     _warningListeners.add(listener);
-    print('✅ AutoLogoutService: Warning listener ajouté (total: ${_warningListeners.length})');
   }
 
   void removeWarningListener(Function(WarningEvent) listener) {
     _warningListeners.remove(listener);
-    print('✅ AutoLogoutService: Warning listener supprimé (total: ${_warningListeners.length})');
   }
 
-  // ✅ Notifier tous les listeners
   void _notifyWarning(int remainingSeconds) {
-    print('📢 AutoLogoutService: Notifying ${_warningListeners.length} warning listeners');
     for (var listener in _warningListeners) {
       try {
         listener(WarningEvent(remainingSeconds: remainingSeconds));
@@ -86,7 +74,6 @@ class AutoLogoutService {
       }
     }
 
-    // ✅ Compatibilité avec ancien système
     if (_onWarningCallback != null) {
       try {
         _onWarningCallback!(remainingSeconds);
@@ -97,7 +84,6 @@ class AutoLogoutService {
   }
 
   void _notifyLogout() {
-    print('📢 AutoLogoutService: Notifying ${_logoutListeners.length} logout listeners');
     for (var listener in _logoutListeners) {
       try {
         listener(LogoutEvent());
@@ -106,7 +92,6 @@ class AutoLogoutService {
       }
     }
 
-    // ✅ Compatibilité avec ancien système
     if (_onLogoutCallback != null) {
       try {
         _onLogoutCallback!();
@@ -135,26 +120,19 @@ class AutoLogoutService {
 
   void startAutoLogout(String durationString) {
     if (!_isInitialized) {
-      print('❌ AutoLogoutService non initialisé');
+      print('❌ AutoLogoutService not initialized');
       return;
     }
 
-    // ✅ Arrêter le timer précédent
     stopAutoLogout();
-    print('🛑 Ancien timer arrêté');
 
     final totalSeconds = _getDurationInSeconds(durationString);
-
     late int warningThresholdSeconds;
 
     if (durationString == '5 secondes') {
       warningThresholdSeconds = 5;
-      print('⏱️  Auto-logout démarré: 15 secondes total (TEST) 🧪');
-      print('⚠️  Avertissement à: 5 secondes (10s d\'affichage)');
     } else {
       warningThresholdSeconds = (totalSeconds * 0.8).toInt();
-      print('⏱️  Auto-logout démarré: ${totalSeconds ~/ 60} minutes');
-      print('⚠️  Avertissement à: ${warningThresholdSeconds ~/ 60} minutes');
     }
 
     _lastActivityTime = DateTime.now();
@@ -163,31 +141,21 @@ class AutoLogoutService {
     _inactivityTimer = Timer.periodic(Duration(milliseconds: 100), (timer) {
       _checkInactivity(totalSeconds, warningThresholdSeconds);
     });
-
-    print('✅ Nouveau timer créé et démarré');
   }
 
   void _checkInactivity(int totalSeconds, int warningThresholdSeconds) {
     final now = DateTime.now();
     final elapsedSeconds = now.difference(_lastActivityTime).inSeconds;
 
-    if (elapsedSeconds % 1 == 0 && elapsedSeconds > 0) {
-      print('⏲️  Inactivité: ${elapsedSeconds}s / ${totalSeconds}s');
-    }
-
     if (elapsedSeconds >= warningThresholdSeconds &&
         elapsedSeconds < totalSeconds &&
         !_warningShown) {
       _warningShown = true;
       final remainingSeconds = totalSeconds - elapsedSeconds;
-      print('⚠️  AVERTISSEMENT! Déconnexion dans ${remainingSeconds}s');
-
-      // ✅ Notifier les listeners
       _notifyWarning(remainingSeconds);
     }
 
     if (elapsedSeconds >= totalSeconds) {
-      print('❌ DÉCONNEXION! Temps d\'inactivité dépassé');
       _performLogout();
     }
   }
@@ -196,32 +164,27 @@ class AutoLogoutService {
     if (_inactivityTimer != null) {
       _inactivityTimer!.cancel();
       _inactivityTimer = null;
-      print('🛑 Auto-logout arrêté');
     }
     _warningShown = false;
   }
 
   void recordActivity() {
     if (!_isInitialized) {
-      print('⚠️  AutoLogoutService non initialisé');
+      print('⚠️ AutoLogoutService not initialized');
       return;
     }
 
     _lastActivityTime = DateTime.now();
     _warningShown = false;
-    print('✏️  Activité enregistrée, timer réinitialisé');
   }
 
   Future<void> _performLogout() async {
     stopAutoLogout();
     try {
       await _auth.signOut();
-      print('✅ Déconnexion effectuée');
-
-      // ✅ Notifier les listeners
       _notifyLogout();
     } catch (e) {
-      print('❌ Erreur lors de la déconnexion: $e');
+      print('❌ Error during logout: $e');
     }
   }
 
@@ -230,40 +193,47 @@ class AutoLogoutService {
     required String duration,
   }) async {
     if (!_isInitialized) {
-      print('❌ AutoLogoutService non initialisé');
+      print('❌ AutoLogoutService not initialized');
       return;
     }
 
-    await _prefs.setBool('auto_logout_enabled', enabled);
-    await _prefs.setString('auto_logout_duration', duration);
-    print('💾 Paramètres auto-logout sauvegardés: enabled=$enabled, duration=$duration');
+    try {
+      await _prefs.setBool('auto_logout_enabled', enabled);
+      await _prefs.setString('auto_logout_duration', duration);
 
-    if (enabled) {
-      print('🔄 Redémarrage du timer avec la nouvelle durée');
-      startAutoLogout(duration);
-    } else {
-      print('🛑 Arrêt du timer');
-      stopAutoLogout();
+      if (enabled) {
+        startAutoLogout(duration);
+      } else {
+        stopAutoLogout();
+      }
+    } catch (e) {
+      print('❌ Error saving auto-logout settings: $e');
     }
   }
 
   Future<Map<String, dynamic>> loadAutoLogoutSettings() async {
     if (!_isInitialized) {
-      print('⚠️  AutoLogoutService non initialisé');
       return {
         'enabled': false,
         'duration': '30 minutes',
       };
     }
 
-    final enabled = _prefs.getBool('auto_logout_enabled') ?? false;
-    final duration = _prefs.getString('auto_logout_duration') ?? '30 minutes';
+    try {
+      final enabled = _prefs.getBool('auto_logout_enabled') ?? false;
+      final duration = _prefs.getString('auto_logout_duration') ?? '30 minutes';
 
-    print('📂 Paramètres chargés: enabled=$enabled, duration=$duration');
-    return {
-      'enabled': enabled,
-      'duration': duration,
-    };
+      return {
+        'enabled': enabled,
+        'duration': duration,
+      };
+    } catch (e) {
+      print('❌ Error loading auto-logout settings: $e');
+      return {
+        'enabled': false,
+        'duration': '30 minutes',
+      };
+    }
   }
 
   bool isAutoLogoutEnabled() {
@@ -292,7 +262,6 @@ class AutoLogoutService {
   }
 }
 
-// ✅ Classes pour les événements
 class LogoutEvent {
   LogoutEvent();
 }

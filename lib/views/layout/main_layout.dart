@@ -5,10 +5,9 @@ import '../compte/profile_page.dart';
 import '../home/home_page.dart';
 import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
-import '../payment/checkout_page.dart';
 import '../../services/selection_service.dart';
 import '../../services/firebase_auth_service.dart';
-import '../../widgets/auto_logout_warning_dialog.dart'; // ✅ Import correct
+import '../../widgets/auto_logout_warning_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class MainLayout extends StatefulWidget {
@@ -27,13 +26,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   bool _showCartOverlay = false;
   int _unreadNotificationsCount = 0;
 
-  // Services
   final SelectionService _selectionService = SelectionService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
   final AutoLogoutService _autoLogoutService = AutoLogoutService();
 
-  // ✅ Variable pour tracker si le dialog est déjà affiché
   bool _dialogShown = false;
 
   bool _isUserConnected() {
@@ -41,13 +38,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     return user != null;
   }
 
-  // ✅ Afficher le dialog d'avertissement avec gestion correcte
   void _showAutoLogoutWarning(int remainingSeconds) {
+    if (_dialogShown) {
+      return;
+    }
 
-    // ✅ Marquer le dialog comme affiché
     _dialogShown = true;
 
-    // ✅ Afficher le dialog SANS vérifier canPop()
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -56,29 +53,22 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         onStayLoggedIn: () {
           _dialogShown = false;
 
-          // ✅ Fermer le dialog
           if (mounted && Navigator.of(dialogContext).canPop()) {
             Navigator.of(dialogContext).pop();
           }
 
-          // ✅ Réinitialiser le timer
           _autoLogoutService.recordActivity();
         },
         onLogout: () {
           _dialogShown = false;
 
-          // ✅ Fermer le dialog
           if (mounted && Navigator.of(dialogContext).canPop()) {
             Navigator.of(dialogContext).pop();
           }
 
-          // ✅ Arrêter le service
           _autoLogoutService.stopAutoLogout();
-
-          // ✅ Déconnecter
           _auth.signOut();
 
-          // ✅ Rediriger vers login
           if (mounted) {
             Navigator.of(context).pushNamedAndRemoveUntil(
               '/login',
@@ -155,7 +145,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Connexion requise',
+                        'Login Required',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -165,7 +155,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Vous devez être connecté pour accéder\nà cette fonctionnalité.',
+                        'You must be logged in to access\nthis feature.',
                         style: TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
@@ -195,7 +185,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                   backgroundColor: Colors.transparent,
                                 ),
                                 child: const Text(
-                                  'Plus tard',
+                                  'Later',
                                   style: TextStyle(
                                     color: Color(0xFF6366F1),
                                     fontSize: 15,
@@ -225,7 +215,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                 ),
                                 child: const FittedBox(
                                   child: Text(
-                                    'Se connecter',
+                                    'Login',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
@@ -277,11 +267,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
     _selectionService.addListener(_onSelectionChanged);
 
-    // ✅ Initialiser l'auto-logout
     _initializeAutoLogout();
   }
 
-  // ✅ Initialiser l'auto-logout au démarrage de MainLayout
   Future<void> _initializeAutoLogout() async {
     try {
       final currentUser = _auth.currentUser;
@@ -298,17 +286,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         _setupAutoLogoutCallbacks();
       }
     } catch (e) {
-      print('❌ MainLayout: Erreur lors de l\'initialisation: $e');
+      print('❌ Error initializing auto-logout: $e');
     }
   }
 
-  // ✅ Configurer les callbacks de déconnexion
   void _setupAutoLogoutCallbacks() {
     _autoLogoutService.setOnLogoutCallback(() {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
+            content: Text('⏱️ Session expired due to inactivity'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 5),
           ),
@@ -324,7 +311,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
     _autoLogoutService.setOnWarningCallback((remainingSeconds) {
       if (mounted) {
-        // ✅ Appeler directement sans vérifier canPop()
         _showAutoLogoutWarning(remainingSeconds);
       }
     });
@@ -365,7 +351,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         });
       }
     } catch (e) {
-      print('❌ Erreur lors du chargement du compteur de notifications: $e');
+      print('❌ Error loading notifications count: $e');
     }
   }
 
@@ -614,7 +600,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Résumé du panier',
+                'Cart Summary',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -646,7 +632,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Articles sélectionnés',
+                        'Selected Items',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -668,7 +654,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         const Expanded(
                           child: Center(
                             child: Text(
-                              'Aucun article sélectionné',
+                              'No items selected',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -689,8 +675,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         ),
                         child: Column(
                           children: [
-                            _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
-                            _summaryRow('Livraison', '5.99 €'),
+                            _summaryRow('Subtotal', '${_selectedTotal.toStringAsFixed(2)} €'),
+                            _summaryRow('Shipping', '5.99 €'),
                             _summaryRow(
                               'Total',
                               '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
@@ -713,8 +699,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   Widget _selectedItemCard(int index) {
     final testItems = [
-      {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
-      {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
+      {'id': '1', 'name': 'Product A', 'price': 49.99, 'quantity': 2},
+      {'id': '2', 'name': 'Product B', 'price': 29.99, 'quantity': 1},
     ];
 
     if (index < testItems.length) {
@@ -809,7 +795,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             const SizedBox(height: 24),
 
             const Text(
-              'Votre panier est vide',
+              'Your cart is empty',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -820,7 +806,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             const SizedBox(height: 12),
 
             Text(
-              'Ajoutez des articles pour commencer vos achats',
+              'Add items to start shopping',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -836,7 +822,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 });
               },
               icon: const Icon(Icons.shopping_bag),
-              label: const Text('Commencer mes achats'),
+              label: const Text('Start Shopping'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
@@ -905,19 +891,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               _buildNavItem(
                 icon: Icons.shopping_cart_outlined,
                 activeIcon: Icons.shopping_cart,
-                label: 'Panier',
+                label: 'Cart',
                 index: 1,
               ),
               _buildNavItem(
                 icon: Icons.history_outlined,
                 activeIcon: Icons.history,
-                label: 'Historique',
+                label: 'History',
                 index: 2,
               ),
               _buildNavItem(
                 icon: Icons.person_outline,
                 activeIcon: Icons.person,
-                label: 'Compte',
+                label: 'Account',
                 index: 3,
               ),
             ],
@@ -978,7 +964,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 const SizedBox(width: 8),
 
                 const Text(
-                  'Tout',
+                  'All',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -989,7 +975,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
                 Expanded(
                   child: Text(
-                    '$_selectedCartItems article(s)',
+                    '$_selectedCartItems item(s)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -1063,7 +1049,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     minimumSize: const Size(0, 40),
                   ),
                   child: Text(
-                    'Paiement ($_selectedCartItems)',
+                    'Payment ($_selectedCartItems)',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1093,19 +1079,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     _buildNavItem(
                       icon: Icons.shopping_cart_outlined,
                       activeIcon: Icons.shopping_cart,
-                      label: 'Panier',
+                      label: 'Cart',
                       index: 1,
                     ),
                     _buildNavItem(
                       icon: Icons.history_outlined,
                       activeIcon: Icons.history,
-                      label: 'Historique',
+                      label: 'History',
                       index: 2,
                     ),
                     _buildNavItem(
                       icon: Icons.person_outline,
                       activeIcon: Icons.person,
-                      label: 'Compte',
+                      label: 'Account',
                       index: 3,
                     ),
                   ],
@@ -1163,11 +1149,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       case 0:
         return 'Smart Market';
       case 1:
-        return 'Panier ($_totalCartItems)';
+        return 'Cart ($_totalCartItems)';
       case 2:
-        return 'Historique d\'achat';
+        return 'Purchase History';
       case 3:
-        return 'Mon Profil';
+        return 'My Account';
       default:
         return 'Smart Market';
     }
