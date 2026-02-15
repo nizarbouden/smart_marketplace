@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../services/auto_logout_service.dart';
 import '../../../services/firebase_auth_service.dart';
+import '../../../services/auto_logout_service.dart';
+import '../../../services/session_management_service.dart';
 import '../../../widgets/auto_logout_warning_dialog.dart';
+import '../../../widgets/active_sessions_dialog.dart';
 import 'change_password/change_password_page.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
@@ -33,6 +35,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
   final AutoLogoutService _autoLogoutService = AutoLogoutService();
+  final SessionManagementService _sessionService = SessionManagementService();
 
   @override
   void initState() {
@@ -44,8 +47,12 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   // ✅ Initialiser le service correctement
   Future<void> _initializeService() async {
     try {
-      // ✅ Initialiser le service
+      // ✅ Initialiser les services
       await _autoLogoutService.init();
+      await _sessionService.init();
+
+      // ✅ Créer une session pour l'utilisateur actuel
+      await _sessionService.createSession();
 
       final settings = await _autoLogoutService.loadAutoLogoutSettings();
 
@@ -57,7 +64,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         });
       }
 
-      print('✅ SecuritySettingsPage: Service prêt');
+      print('✅ SecuritySettingsPage: Services prêts');
       print('   Statut: enabled=${_sessionTimeout}, duration=${_sessionTimeoutValue}');
 
       // ✅ Si auto-logout est activé, démarrer le timer
@@ -777,19 +784,13 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     Navigator.of(context).pop();
   }
 
-  void _showActiveSessions() {
+  void _showActiveSessions() async {
+    print('📱 Ouverture de la gestion des sessions actives');
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sessions actives'),
-        content: const Text('Gestion des sessions actives à implémenter.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      barrierDismissible: true,
+      builder: (context) => const ActiveSessionsDialog(),
     );
   }
 
