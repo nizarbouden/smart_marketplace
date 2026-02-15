@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../services/auto_logout_service.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../widgets/auto_logout_warning_dialog.dart';
 import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';
@@ -19,44 +21,147 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuthService _authService = FirebaseAuthService();
+  final AutoLogoutService _autoLogoutService = AutoLogoutService();
+
+  bool _dialogShown = false;
 
   @override
   void initState() {
     super.initState();
-    // Synchroniser l'email au démarrage de la page
+    print('📱 ProfilePage: initState()');
     _syncEmailIfNeeded();
+
+    // ✅ NOUVEAU: Ajouter des listeners au lieu de configurer les callbacks
+    _setupListeners();
+  }
+
+  // ✅ NOUVEAU: Utiliser les listeners
+  void _setupListeners() {
+    print('👂 ProfilePage: Ajout des listeners');
+
+    // ✅ Listener pour l'avertissement
+    _autoLogoutService.addWarningListener((event) {
+      print('📌 ProfilePage: Warning listener APPELÉ! ${event.remainingSeconds}s');
+      if (mounted) {
+        print('✅ ProfilePage: mounted=true, affichage dialog');
+        _showAutoLogoutWarning(event.remainingSeconds);
+      } else {
+        print('❌ ProfilePage: mounted=false!');
+      }
+    });
+
+    // ✅ Listener pour la déconnexion
+    _autoLogoutService.addLogoutListener((event) {
+      print('📌 ProfilePage: Logout listener APPELÉ!');
+      if (mounted) {
+        print('✅ ProfilePage: mounted=true, déconnexion');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        _autoLogoutService.stopAutoLogout();
+
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+              (route) => false,
+        );
+      } else {
+        print('❌ ProfilePage: mounted=false!');
+      }
+    });
+  }
+
+  void _showAutoLogoutWarning(int remainingSeconds) {
+    print('🔔 ProfilePage: _showAutoLogoutWarning() appelée avec ${remainingSeconds}s');
+
+    if (_dialogShown) {
+      print('⚠️  Dialog déjà affiché, ignoré');
+      return;
+    }
+
+    _dialogShown = true;
+    print('📢 ProfilePage: Affichage du dialog');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        print('📢 ProfilePage: Builder du dialog appelé');
+        return AutoLogoutWarningDialog(
+          remainingSeconds: remainingSeconds,
+          onStayLoggedIn: () {
+            print('✅ ProfilePage: User a cliqué "Rester connecté"');
+            _dialogShown = false;
+
+            if (mounted && Navigator.of(dialogContext).canPop()) {
+              Navigator.of(dialogContext).pop();
+            }
+
+            _autoLogoutService.recordActivity();
+          },
+          onLogout: () {
+            print('❌ ProfilePage: User a cliqué "Se déconnecter"');
+            _dialogShown = false;
+
+            if (mounted && Navigator.of(dialogContext).canPop()) {
+              Navigator.of(dialogContext).pop();
+            }
+
+            _autoLogoutService.stopAutoLogout();
+            FirebaseAuth.instance.signOut();
+
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login',
+                    (route) => false,
+              );
+            }
+          },
+        );
+      },
+    ).then((_) {
+      print('🔌 ProfilePage: Dialog fermé');
+      _dialogShown = false;
+    });
   }
 
   Future<void> _syncEmailIfNeeded() async {
     try {
       String? authEmail = _authService.getCurrentEmail();
       final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-      
+
       if (authEmail != null && authEmail != authProvider.user?.email) {
-        print('🔄 ProfilePage: Synchronisation email - Auth: $authEmail, Provider: ${authProvider.user?.email}');
+        print('🔄 ProfilePage: Synchronisation email');
         await _authService.syncEmailFromAuth();
-        
-        // Forcer le rafraîchissement de l'AuthProvider si nécessaire
+
         if (mounted) {
-          // Vous pourriez avoir besoin de recharger les données utilisateur ici
           print('✅ ProfilePage: Email synchronisé');
         }
       }
     } catch (e) {
-      print('❌ ProfilePage: Erreur synchronisation email: $e');
+      print('❌ ProfilePage: Erreur sync email: $e');
     }
   }
 
   String _getCorrectEmail() {
-    // Priorité : Firebase Auth > AuthProvider > fallback
     String? authEmail = _authService.getCurrentEmail();
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
-    
+
     String correctEmail = authEmail ?? authProvider.user?.email ?? 'email@example.com';
-    
-    print('📧 ProfilePage Email - Auth: $authEmail, Provider: ${authProvider.user?.email}, Final: $correctEmail');
-    
+
     return correctEmail;
+  }
+
+  @override
+  void dispose() {
+    print('🔌 ProfilePage: dispose()');
+    // ✅ IMPORTANT: Supprimer les listeners quand on quitte
+    // Les listeners resteront actifs s'il y a d'autres pages qui les utilisent
+    super.dispose();
   }
 
   @override
@@ -66,10 +171,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
-    
-    // Récupérer les données utilisateur depuis AuthProvider
+
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: SingleChildScrollView(
@@ -77,8 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           children: [
             SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
-            
-            // Profile Header
+
             Container(
               padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 20),
               decoration: BoxDecoration(
@@ -94,29 +197,27 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Column(
                 children: [
-                  // Avatar
                   Stack(
                     children: [
                       CircleAvatar(
                         radius: isDesktop ? 80 : isTablet ? 60 : 50,
                         backgroundColor: Colors.deepPurple[100],
-                        backgroundImage: authProvider.user?.photoUrl != null 
-                            ? NetworkImage(authProvider.user!.photoUrl!) 
+                        backgroundImage: authProvider.user?.photoUrl != null
+                            ? NetworkImage(authProvider.user!.photoUrl!)
                             : null,
-                        child: authProvider.user?.photoUrl == null 
+                        child: authProvider.user?.photoUrl == null
                             ? Icon(
-                                Icons.person,
-                                size: isDesktop ? 80 : isTablet ? 60 : 50,
-                                color: Colors.deepPurple,
-                              )
+                          Icons.person,
+                          size: isDesktop ? 80 : isTablet ? 60 : 50,
+                          color: Colors.deepPurple,
+                        )
                             : null,
                       ),
                     ],
                   ),
-                  
+
                   SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
-                  
-                  // Nom et email dynamiques
+
                   Text(
                     authProvider.fullName ?? 'Utilisateur',
                     style: TextStyle(
@@ -132,10 +233,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: Colors.grey[600],
                     ),
                   ),
-                  
+
                   SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
-                  
-                  // Stats dynamiques
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -147,10 +247,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
-            
+
             SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
-            
-            // Menu Options
+
             Container(
               padding: EdgeInsets.all(isDesktop ? 24 : isTablet ? 20 : 16),
               decoration: BoxDecoration(
@@ -176,7 +275,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
-            
+
             SizedBox(height: isTablet ? 30 : 20),
           ],
         ),
@@ -237,7 +336,6 @@ class _ProfilePageState extends State<ProfilePage> {
             if (title == 'Déconnexion') {
               _showLogoutDialog();
             } else if (title == 'Informations personnelles') {
-              // Naviguer vers EditProfilePage avec les données utilisateur
               final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
               Navigator.push(
                 context,
@@ -272,8 +370,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 context,
                 MaterialPageRoute(builder: (context) => const PaymentMethodsPage()),
               );
-            } else {
-              // TODO: Navigation pour autres options
             }
           },
         ),
@@ -290,6 +386,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showLogoutDialog() {
+    print('🔴 ProfilePage: Affichage du dialog de déconnexion');
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -308,16 +405,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6366F1), // Indigo moderne
-                  const Color(0xFF8B5CF6), // Violet moderne
-                  const Color(0xFFA855F7), // Violet clair
+                  const Color(0xFF6366F1),
+                  const Color(0xFF8B5CF6),
+                  const Color(0xFFA855F7),
                 ],
               ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header avec icône animée
                 Container(
                   padding: const EdgeInsets.all(28),
                   child: Container(
@@ -338,8 +434,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-                
-                // Contenu blanc
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
@@ -373,8 +468,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-                      
-                      // Boutons modernes
+
                       Row(
                         children: [
                           Expanded(
@@ -412,17 +506,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: ElevatedButton(
                                 onPressed: () async {
                                   try {
-                                    // Forcer la déconnexion réelle
+                                    print('🔴 ProfilePage: Logout button - Arrêt du service');
+                                    _autoLogoutService.stopAutoLogout();
+
+                                    print('🔴 ProfilePage: Logout button - SignOut Firebase');
                                     await FirebaseAuth.instance.signOut();
                                     print('✅ ProfilePage: Déconnexion réussie');
-                                    
-                                    // Fermer le dialogue et naviguer vers login
+
+                                    print('🔴 ProfilePage: Logout button - Navigation /login');
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   } catch (e) {
-                                    print('⚠️ ProfilePage: Erreur lors de la déconnexion: $e');
-                                    
-                                    // Même en cas d'erreur, essayer de naviguer
+                                    print('⚠️ ProfilePage: Erreur logout: $e');
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   }

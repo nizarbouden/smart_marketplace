@@ -43,13 +43,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   // ✅ Afficher le dialog d'avertissement avec gestion correcte
   void _showAutoLogoutWarning(int remainingSeconds) {
-    print('🔔 MainLayout: Affichage du dialog d\'avertissement (${remainingSeconds}s)');
-
-    // ✅ Vérifier que le dialog n'est pas déjà affiché
-    if (_dialogShown) {
-      print('⚠️  MainLayout: Dialog déjà affiché, ignoré');
-      return;
-    }
 
     // ✅ Marquer le dialog comme affiché
     _dialogShown = true;
@@ -61,7 +54,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       builder: (BuildContext dialogContext) => AutoLogoutWarningDialog(
         remainingSeconds: remainingSeconds,
         onStayLoggedIn: () {
-          print('✅ MainLayout: User a cliqué "Rester connecté"');
           _dialogShown = false;
 
           // ✅ Fermer le dialog
@@ -73,7 +65,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           _autoLogoutService.recordActivity();
         },
         onLogout: () {
-          print('❌ MainLayout: User a cliqué "Se déconnecter"');
           _dialogShown = false;
 
           // ✅ Fermer le dialog
@@ -97,7 +88,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         },
       ),
     ).then((_) {
-      print('🔌 MainLayout: Dialog fermé');
       _dialogShown = false;
     });
   }
@@ -297,19 +287,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       final currentUser = _auth.currentUser;
 
       if (currentUser != null) {
-        print('✅ MainLayout: Utilisateur connecté: ${currentUser.email}');
-
         await _autoLogoutService.init();
-        print('✅ MainLayout: Service auto-logout initialisé');
-
         final settings = await _autoLogoutService.loadAutoLogoutSettings();
         final isEnabled = settings['enabled'] ?? false;
         final duration = settings['duration'] ?? '30 minutes';
-
-        print('🔧 MainLayout: Auto-logout - Enabled: $isEnabled, Duration: $duration');
-
         if (isEnabled) {
-          print('🚀 MainLayout: Démarrage du timer: $duration');
           _autoLogoutService.startAutoLogout(duration);
         }
 
@@ -322,10 +304,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   // ✅ Configurer les callbacks de déconnexion
   void _setupAutoLogoutCallbacks() {
-    print('📌 MainLayout: Configuration des callbacks');
-
     _autoLogoutService.setOnLogoutCallback(() {
-      print('📌 MainLayout: Callback logout reçu');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -334,7 +313,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             duration: Duration(seconds: 5),
           ),
         );
-
         _autoLogoutService.stopAutoLogout();
 
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -345,7 +323,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     });
 
     _autoLogoutService.setOnWarningCallback((remainingSeconds) {
-      print('📌 MainLayout: Callback warning reçu: ${remainingSeconds}s');
       if (mounted) {
         // ✅ Appeler directement sans vérifier canPop()
         _showAutoLogoutWarning(remainingSeconds);
@@ -355,7 +332,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   @override
   void dispose() {
-    print('🔌 MainLayout: dispose() - Service continue');
     _animationController.dispose();
     _selectionService.removeListener(_onSelectionChanged);
     WidgetsBinding.instance.removeObserver(this);
@@ -367,7 +343,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.resumed && !_showNotifications) {
-      print('📱 MainLayout: App en avant-plan, activité enregistrée');
       _autoLogoutService.recordActivity();
       _refreshNotificationCount();
     }

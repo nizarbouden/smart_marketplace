@@ -26,6 +26,9 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   // ✅ Variable pour tracker si le service est prêt
   bool _isServiceReady = false;
 
+  // ✅ Variable pour tracker si le dialog est affiché
+  bool _dialogShown = false;
+
   // Firebase Auth
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
@@ -41,8 +44,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   // ✅ Initialiser le service correctement
   Future<void> _initializeService() async {
     try {
-      // Le service est déjà initialisé dans main.dart
-      // Mais on peut vérifier et charger les paramètres
+      // ✅ Initialiser le service
       await _autoLogoutService.init();
 
       final settings = await _autoLogoutService.loadAutoLogoutSettings();
@@ -58,7 +60,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       print('✅ SecuritySettingsPage: Service prêt');
       print('   Statut: enabled=${_sessionTimeout}, duration=${_sessionTimeoutValue}');
 
-      // Si auto-logout est activé, démarrer le timer
+      // ✅ Si auto-logout est activé, démarrer le timer
       if (_sessionTimeout) {
         _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
         print('🚀 SecuritySettingsPage: Auto-logout démarré');
@@ -93,35 +95,72 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
     _autoLogoutService.setOnWarningCallback((remainingSeconds) {
       print('📌 SecuritySettingsPage: Callback warning reçu: ${remainingSeconds}s');
-      if (mounted && Navigator.of(context).canPop()) {
+      if (mounted) {
+        // ✅ Appeler directement SANS vérifier canPop()
         _showAutoLogoutWarning(remainingSeconds);
       }
     });
   }
 
-  // ✅ Afficher le dialog d'avertissement
+  // ✅ Afficher le dialog d'avertissement (CORRIGÉ)
   void _showAutoLogoutWarning(int remainingSeconds) {
-    print('🔔 Affichage du dialog d\'avertissement');
+    print('🔔 SecuritySettingsPage: Affichage du dialog d\'avertissement (${remainingSeconds}s)');
+
+    // ✅ Vérifier que le dialog n'est pas déjà affiché
+    if (_dialogShown) {
+      print('⚠️  SecuritySettingsPage: Dialog déjà affiché, ignoré');
+      return;
+    }
+
+    // ✅ Marquer le dialog comme affiché
+    _dialogShown = true;
+
+    // ✅ Afficher le dialog SANS vérifier canPop()
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AutoLogoutWarningDialog(
+      builder: (BuildContext dialogContext) => AutoLogoutWarningDialog(
         remainingSeconds: remainingSeconds,
         onStayLoggedIn: () {
-          print('✅ User a cliqué "Rester connecté"');
+          print('✅ SecuritySettingsPage: User a cliqué "Rester connecté"');
+          _dialogShown = false;
+
+          // ✅ Fermer le dialog
+          if (mounted && Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+
+          // ✅ Réinitialiser le timer
           _autoLogoutService.recordActivity();
         },
         onLogout: () {
-          print('❌ User a cliqué "Se déconnecter"');
+          print('❌ SecuritySettingsPage: User a cliqué "Se déconnecter"');
+          _dialogShown = false;
+
+          // ✅ Fermer le dialog
+          if (mounted && Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+
+          // ✅ Arrêter le service
           _autoLogoutService.stopAutoLogout();
+
+          // ✅ Déconnecter
           _auth.signOut();
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/login',
-                (route) => false,
-          );
+
+          // ✅ Rediriger vers login
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/login',
+                  (route) => false,
+            );
+          }
         },
       ),
-    );
+    ).then((_) {
+      print('🔌 SecuritySettingsPage: Dialog fermé');
+      _dialogShown = false;
+    });
   }
 
   @override
@@ -274,6 +313,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
                   if (value) {
                     print('🟢 ACTIVATION auto-logout');
+                    // ✅ Redémarrer le timer avec la nouvelle durée
                     _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
 
                     await _autoLogoutService.saveAutoLogoutSettings(
@@ -293,6 +333,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                     }
                   } else {
                     print('🔴 DÉSACTIVATION auto-logout');
+                    // ✅ Arrêter le timer
                     _autoLogoutService.stopAutoLogout();
 
                     await _autoLogoutService.saveAutoLogoutSettings(
@@ -326,6 +367,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                     print('⏳ Changement durée: $value');
                     setState(() => _sessionTimeoutValue = value);
 
+                    // ✅ IMPORTANT: Redémarrer le timer avec la nouvelle durée
+                    print('🔄 Redémarrage du timer avec la nouvelle durée');
                     _autoLogoutService.startAutoLogout(value);
 
                     await _autoLogoutService.saveAutoLogoutSettings(
@@ -704,12 +747,21 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   void _saveSettings() async {
     print('💾 Sauvegarde des paramètres');
     if (_sessionTimeout) {
+      // ✅ Redémarrer le timer avec les nouveaux paramètres
+      _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+
       await _autoLogoutService.saveAutoLogoutSettings(
         enabled: true,
         duration: _sessionTimeoutValue,
       );
+    } else {
+      // ✅ Arrêter le timer
+      _autoLogoutService.stopAutoLogout();
 
-      _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+      await _autoLogoutService.saveAutoLogoutSettings(
+        enabled: false,
+        duration: _sessionTimeoutValue,
+      );
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
