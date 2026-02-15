@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/auto_logout_service.dart';
 import '../cart/cart_page.dart';
 import '../compte/profile_page.dart';
 import '../home/home_page.dart';
@@ -7,6 +8,7 @@ import '../notifications/notifications_page.dart';
 import '../payment/checkout_page.dart';
 import '../../services/selection_service.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../widgets/auto_logout_warning_dialog.dart'; // ✅ Import correct
 import 'package:firebase_auth/firebase_auth.dart';
 
 class MainLayout extends StatefulWidget {
@@ -18,27 +20,88 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
-  int _totalCartItems = 5; // Initialiser avec 5 articles au démarrage
+  int _totalCartItems = 5;
   int _selectedCartItems = 0;
   double _selectedTotal = 0.0;
   bool _showNotifications = false;
   bool _showCartOverlay = false;
-  int _unreadNotificationsCount = 0; // Compteur de notifications non lues
-  
-  // Service de sélection partagé
+  int _unreadNotificationsCount = 0;
+
+  // Services
   final SelectionService _selectionService = SelectionService();
-  
-  // Instance Firebase Auth et Service
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
-  
-  // Vérifier si l'utilisateur est connecté
+  final AutoLogoutService _autoLogoutService = AutoLogoutService();
+
+  // ✅ Variable pour tracker si le dialog est déjà affiché
+  bool _dialogShown = false;
+
   bool _isUserConnected() {
     final user = _auth.currentUser;
     return user != null;
   }
-  
-  // Afficher un message demandant la connexion
+
+  // ✅ Afficher le dialog d'avertissement avec gestion correcte
+  void _showAutoLogoutWarning(int remainingSeconds) {
+    print('🔔 MainLayout: Affichage du dialog d\'avertissement (${remainingSeconds}s)');
+
+    // ✅ Vérifier que le dialog n'est pas déjà affiché
+    if (_dialogShown) {
+      print('⚠️  MainLayout: Dialog déjà affiché, ignoré');
+      return;
+    }
+
+    // ✅ Marquer le dialog comme affiché
+    _dialogShown = true;
+
+    // ✅ Afficher le dialog SANS vérifier canPop()
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => AutoLogoutWarningDialog(
+        remainingSeconds: remainingSeconds,
+        onStayLoggedIn: () {
+          print('✅ MainLayout: User a cliqué "Rester connecté"');
+          _dialogShown = false;
+
+          // ✅ Fermer le dialog
+          if (mounted && Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+
+          // ✅ Réinitialiser le timer
+          _autoLogoutService.recordActivity();
+        },
+        onLogout: () {
+          print('❌ MainLayout: User a cliqué "Se déconnecter"');
+          _dialogShown = false;
+
+          // ✅ Fermer le dialog
+          if (mounted && Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+
+          // ✅ Arrêter le service
+          _autoLogoutService.stopAutoLogout();
+
+          // ✅ Déconnecter
+          _auth.signOut();
+
+          // ✅ Rediriger vers login
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/login',
+                  (route) => false,
+            );
+          }
+        },
+      ),
+    ).then((_) {
+      print('🔌 MainLayout: Dialog fermé');
+      _dialogShown = false;
+    });
+  }
+
   void _showLoginRequiredMessage() {
     showDialog(
       context: context,
@@ -58,16 +121,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6366F1), // Indigo moderne
-                  const Color(0xFF8B5CF6), // Violet moderne
-                  const Color(0xFFA855F7), // Violet clair
+                  const Color(0xFF6366F1),
+                  const Color(0xFF8B5CF6),
+                  const Color(0xFFA855F7),
                 ],
               ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header avec icône animée
                 Container(
                   padding: const EdgeInsets.all(28),
                   child: Container(
@@ -88,8 +150,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     ),
                   ),
                 ),
-                
-                // Contenu blanc
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
@@ -123,8 +184,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-                      
-                      // Boutons modernes
+
                       Row(
                         children: [
                           Expanded(
@@ -198,7 +258,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       },
     );
   }
-  
+
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -212,10 +272,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   @override
   void initState() {
     super.initState();
-    
-    // Ajouter l'observer pour détecter quand l'app revient au premier plan
+
     WidgetsBinding.instance.addObserver(this);
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -223,16 +282,80 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    
-    // Charger le nombre de notifications non lues
+
     _loadUnreadNotificationsCount();
-    
-    // Écouter les changements de sélection du service partagé
+
     _selectionService.addListener(_onSelectionChanged);
+
+    // ✅ Initialiser l'auto-logout
+    _initializeAutoLogout();
+  }
+
+  // ✅ Initialiser l'auto-logout au démarrage de MainLayout
+  Future<void> _initializeAutoLogout() async {
+    try {
+      final currentUser = _auth.currentUser;
+
+      if (currentUser != null) {
+        print('✅ MainLayout: Utilisateur connecté: ${currentUser.email}');
+
+        await _autoLogoutService.init();
+        print('✅ MainLayout: Service auto-logout initialisé');
+
+        final settings = await _autoLogoutService.loadAutoLogoutSettings();
+        final isEnabled = settings['enabled'] ?? false;
+        final duration = settings['duration'] ?? '30 minutes';
+
+        print('🔧 MainLayout: Auto-logout - Enabled: $isEnabled, Duration: $duration');
+
+        if (isEnabled) {
+          print('🚀 MainLayout: Démarrage du timer: $duration');
+          _autoLogoutService.startAutoLogout(duration);
+        }
+
+        _setupAutoLogoutCallbacks();
+      }
+    } catch (e) {
+      print('❌ MainLayout: Erreur lors de l\'initialisation: $e');
+    }
+  }
+
+  // ✅ Configurer les callbacks de déconnexion
+  void _setupAutoLogoutCallbacks() {
+    print('📌 MainLayout: Configuration des callbacks');
+
+    _autoLogoutService.setOnLogoutCallback(() {
+      print('📌 MainLayout: Callback logout reçu');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        _autoLogoutService.stopAutoLogout();
+
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+              (route) => false,
+        );
+      }
+    });
+
+    _autoLogoutService.setOnWarningCallback((remainingSeconds) {
+      print('📌 MainLayout: Callback warning reçu: ${remainingSeconds}s');
+      if (mounted) {
+        // ✅ Appeler directement sans vérifier canPop()
+        _showAutoLogoutWarning(remainingSeconds);
+      }
+    });
   }
 
   @override
   void dispose() {
+    print('🔌 MainLayout: dispose() - Service continue');
     _animationController.dispose();
     _selectionService.removeListener(_onSelectionChanged);
     WidgetsBinding.instance.removeObserver(this);
@@ -242,25 +365,25 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
-    // Quand l'app revient au premier plan, rafraîchir le compteur de notifications
+
     if (state == AppLifecycleState.resumed && !_showNotifications) {
+      print('📱 MainLayout: App en avant-plan, activité enregistrée');
+      _autoLogoutService.recordActivity();
       _refreshNotificationCount();
     }
   }
 
-  // Charger le nombre de notifications non lues
   Future<void> _loadUnreadNotificationsCount() async {
     try {
       List<Map<String, dynamic>> notifications = await _authService.getUserNotifications();
       int unreadCount = 0;
-      
+
       for (var notification in notifications) {
         if (!(notification['isRead'] ?? true)) {
           unreadCount++;
         }
       }
-      
+
       if (mounted) {
         setState(() {
           _unreadNotificationsCount = unreadCount;
@@ -271,7 +394,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     }
   }
 
-  // Rafraîchir le compteur de notifications
   void _refreshNotificationCount() {
     _loadUnreadNotificationsCount();
   }
@@ -282,9 +404,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     }
   }
 
-  // Méthode pour calculer les vrais totaux du panier
   Map<String, dynamic> _calculateRealTotals() {
-    // Utiliser les données de sélection réelles plutôt que le service global
     if (_selectedCartItems > 0) {
       return {'count': _selectedCartItems, 'total': _selectedTotal};
     } else {
@@ -293,21 +413,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   void _onItemTapped(int index) {
-    if (index == 0 ) {
-      // Accueil toujours accessibles
+    if (index == 0) {
       setState(() {
         _currentIndex = index;
-        // Rafraîchir le compteur de notifications quand on revient à l'accueil
         if (index == 0) {
           _refreshNotificationCount();
         }
       });
     } else {
-      // Pages protégées - vérifier la connexion
       if (_isUserConnected()) {
         setState(() {
           _currentIndex = index;
-          // Rafraîchir le compteur de notifications quand on change d'onglet
           _refreshNotificationCount();
         });
       } else {
@@ -317,15 +433,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   void _toggleNotifications() {
-    // Vérifier si l'utilisateur est connecté avant d'accéder aux notifications
     if (_isUserConnected()) {
       setState(() {
         _showNotifications = !_showNotifications;
-        // Si on ouvre les notifications, réinitialiser le compteur
         if (_showNotifications) {
           _unreadNotificationsCount = 0;
         } else {
-          // Si on ferme les notifications, rafraîchir le compteur
           _refreshNotificationCount();
         }
       });
@@ -337,8 +450,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   void _updateCartItemCount(int totalCount) {
     setState(() {
       _totalCartItems = totalCount;
-      
-      // Si le nombre d'articles devient 0, réinitialiser les sélections
+
       if (_totalCartItems == 0) {
         _selectedCartItems = 0;
         _selectedTotal = 0.0;
@@ -368,7 +480,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         children: [
           Column(
             children: [
-              // Header fixe
               SafeArea(
                 child: Container(
                   height: 60,
@@ -382,116 +493,112 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       ),
                     ],
                   ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Text(
-                        _getAppBarTitle(),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Text(
+                          _getAppBarTitle(),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              _showNotifications ? Icons.close : Icons.notifications,
-                              color: Colors.black,
-                              size: 28, // Augmenté de 24 à 28
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Stack(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _showNotifications ? Icons.close : Icons.notifications,
+                                color: Colors.black,
+                                size: 28,
+                              ),
+                              onPressed: _toggleNotifications,
                             ),
-                            onPressed: _toggleNotifications,
-                          ),
-                          if (!_showNotifications && _unreadNotificationsCount > 0)
-                            Positioned(
-                              right: 2,  // Déplacé plus à droite
-                              top: 2,   // Déplacé plus en haut
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
+                            if (!_showNotifications && _unreadNotificationsCount > 0)
+                              Positioned(
+                                right: 2,
+                                top: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                   ),
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 24,
-                                  minHeight: 24,
-                                ),
-                                child: Text(
-                                  _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 24,
+                                    minHeight: 24,
                                   ),
-                                  textAlign: TextAlign.center,
+                                  child: Text(
+                                    _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+
+              Expanded(
+                child: _showNotifications
+                    ? const NotificationsPage()
+                    : IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    const HomePage(),
+                    _totalCartItems == 0
+                        ? _buildEmptyCart()
+                        : Builder(
+                      builder: (context) {
+                        return CartPage(
+                          onTotalCartItemsChanged: _updateCartItemCount,
+                          onCartSelectionChanged: _updateCartSelection,
+                        );
+                      },
                     ),
+                    const HistoryPage(),
+                    const ProfilePage(),
                   ],
                 ),
               ),
-              ),
-              
-              // Contenu principal
-              Expanded(
-                child: _showNotifications 
-                  ? const NotificationsPage()
-                  : IndexedStack(
-                      index: _currentIndex,
-                      children: [
-                        const HomePage(),
-                        _totalCartItems == 0 
-                          ? _buildEmptyCart()
-                          : Builder(
-                              builder: (context) {
-                                return CartPage(
-                                  onTotalCartItemsChanged: _updateCartItemCount,
-                                  onCartSelectionChanged: _updateCartSelection,
-                                );
-                              },
-                            ),
-                        const HistoryPage(),
-                        const ProfilePage(),
-                      ],
-                    ),
-              ),
             ],
           ),
-          
-          // Overlay du panier
+
           if (_currentIndex == 1 && _showCartOverlay)
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.3),
                 child: Stack(
                   children: [
-                    // Fond pour fermer l'overlay
                     Positioned.fill(
                       child: GestureDetector(
                         onTap: _toggleCartOverlay,
                         child: Container(color: Colors.transparent),
                       ),
                     ),
-                    
-                    // Contenu de l'overlay
+
                     Positioned(
-                      bottom: 161, // Juste au-dessus de la navigation panier (60px nav + 101px total bar)
+                      bottom: 161,
                       left: 16,
                       right: 16,
-                      top: 80, // Laisser de l'espace pour le header
+                      top: 80,
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -513,18 +620,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             ),
         ],
       ),
-      
-      // Barre de navigation inférieure fixe
-      bottomNavigationBar: _currentIndex == 1 
-        ? _buildCartNavigationBar() // Navigation spéciale pour panier
-        : _buildDefaultNavigationBar(), // Navigation normale
+
+      bottomNavigationBar: _currentIndex == 1
+          ? _buildCartNavigationBar()
+          : _buildDefaultNavigationBar(),
     );
   }
 
   Widget _buildCartOverlayContent() {
     return Column(
       children: [
-        // Header de l'overlay
         Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
@@ -555,14 +660,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             ],
           ),
         ),
-        
-        // Contenu de l'overlay
+
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Articles sélectionnés
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,12 +678,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       if (_selectedCartItems > 0)
                         Expanded(
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
-                            itemCount: _selectedCartItems, // Utiliser le vrai nombre d'articles sélectionnés
+                            itemCount: _selectedCartItems,
                             itemBuilder: (context, index) {
                               return _selectedItemCard(index);
                             },
@@ -598,31 +701,30 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                             ),
                           ),
                         ),
-                
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 20),
-                        
-                        // Résumé des prix
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
-                              _summaryRow('Livraison', '5.99 €'),
-                              _summaryRow(
-                                'Total',
-                                '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
-                                isBold: true,
-                                isLarge: true,
-                              ),
-                            ],
-                          ),
+
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 20),
+
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        child: Column(
+                          children: [
+                            _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
+                            _summaryRow('Livraison', '5.99 €'),
+                            _summaryRow(
+                              'Total',
+                              '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
+                              isBold: true,
+                              isLarge: true,
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -635,21 +737,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   Widget _selectedItemCard(int index) {
-    // Récupérer les articles sélectionnés depuis CartPage
-    final selectedItems = <Map<String, dynamic>>[];
-    
-    // Pour l'instant, utiliser les données de test
-    // TODO: Récupérer les vraies données depuis CartPage
     final testItems = [
       {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
       {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
     ];
-    
+
     if (index < testItems.length) {
       final item = testItems[index];
       return Container(
-        width: 80, // Réduit de 120 à 80
-        height: 80, // Réduit de 120 à 80 - carré plus petit
+        width: 80,
+        height: 80,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -665,9 +762,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         ),
         child: Column(
           children: [
-            // Photo
             Expanded(
-              flex: 3, // 3/4 de l'espace pour la photo
+              flex: 3,
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Container(
@@ -680,14 +776,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Icon(
                     Icons.image,
                     color: Colors.grey[400],
-                    size: 24, // Réduit de 40 à 24
+                    size: 24,
                   ),
                 ),
               ),
             ),
-            // Quantité
             Expanded(
-              flex: 1, // 1/4 de l'espace pour la quantité
+              flex: 1,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -697,7 +792,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 ),
                 child: Center(
                   child: Text(
-                    'x${item['quantity']}', // Affiche la quantité
+                    'x${item['quantity']}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -711,8 +806,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         ),
       );
     }
-    
-    return Container(); // Retourner un container vide si index hors limites
+
+    return Container();
   }
 
   Widget _buildEmptyCart() {
@@ -722,7 +817,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icône du panier vide
             Container(
               width: 120,
               height: 120,
@@ -736,10 +830,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 size: 60,
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
-            // Message principal
+
             const Text(
               'Votre panier est vide',
               style: TextStyle(
@@ -748,10 +841,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 color: Colors.black87,
               ),
             ),
-            
+
             const SizedBox(height: 12),
-            
-            // Message secondaire
+
             Text(
               'Ajoutez des articles pour commencer vos achats',
               style: TextStyle(
@@ -759,14 +851,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 color: Colors.grey[600],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
-            // Bouton pour aller aux courses
+
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
-                  _currentIndex = 0; // Aller à la page Home
+                  _currentIndex = 0;
                 });
               },
               icon: const Icon(Icons.shopping_bag),
@@ -863,7 +954,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   Widget _buildCartNavigationBar() {
     return Container(
-      height: 161, // +1 pixel pour corriger l'overflow final
+      height: 161,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -876,9 +967,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       ),
       child: Column(
         children: [
-          // Barre de total intégrée (en haut)
           Container(
-            height: 90, // Hauteur augmentée pour le contenu
+            height: 90,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey[50],
@@ -886,13 +976,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             ),
             child: Row(
               children: [
-                // Cercle pour tout sélectionner
                 GestureDetector(
                   onTap: () {
-                    // Utiliser le service de sélection partagé
                     _selectionService.toggleAllSelection();
-                    
-                    // Mettre à jour la sélection dans l'overlay avec les vraies données
                     final totals = _calculateRealTotals();
                     _updateCartSelection(totals['count'], totals['total']);
                   },
@@ -906,17 +992,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     ),
                     child: _selectionService.isAllSelected
                         ? const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 12,
-                          )
+                      Icons.check,
+                      color: Colors.white,
+                      size: 12,
+                    )
                         : null,
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
-                // Texte "Tout"
+
                 const Text(
                   'Tout',
                   style: TextStyle(
@@ -924,10 +1009,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
-                // Nombre d'articles sélectionnés
+
                 Expanded(
                   child: Text(
                     '$_selectedCartItems article(s)',
@@ -939,14 +1023,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
-                // Prix total avec flèche (uniquement si articles sélectionnés)
+
                 if (_selectedCartItems > 0)
                   GestureDetector(
                     onTap: () {
-                      // Vérifier si l'utilisateur est connecté
                       if (_isUserConnected()) {
                         _toggleCartOverlay();
                       } else {
@@ -989,10 +1071,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       color: Colors.deepPurple,
                     ),
                   ),
-                
+
                 const SizedBox(width: 12),
-                
-                // Bouton paiement
+
                 ElevatedButton(
                   onPressed: _selectedCartItems > 0 ? () {
                     Navigator.pushNamed(context, '/paiement');
@@ -1004,7 +1085,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    minimumSize: const Size(0, 40), // Hauteur minimum fixe
+                    minimumSize: const Size(0, 40),
                   ),
                   child: Text(
                     'Paiement ($_selectedCartItems)',
@@ -1017,14 +1098,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               ],
             ),
           ),
-          
-          // Barre de navigation principale (en dessous)
+
           Expanded(
             child: SafeArea(
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width < 360 ? 12 : 16, 
-                  vertical: MediaQuery.of(context).size.width < 360 ? 1 : 2
+                    horizontal: MediaQuery.of(context).size.width < 360 ? 12 : 16,
+                    vertical: MediaQuery.of(context).size.width < 360 ? 1 : 2
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1070,7 +1150,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     required int index,
   }) {
     final isActive = _currentIndex == index;
-    
+
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       child: Column(

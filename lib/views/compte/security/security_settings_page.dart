@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../services/auto_logout_service.dart';
 import '../../../services/firebase_auth_service.dart';
-import '../../../services/auto_logout_service.dart'; // Importer le service
-import '../../../widgets/auto_logout_warning_dialog.dart'; // Importer le dialog
+import '../../../widgets/auto_logout_warning_dialog.dart';
 import 'change_password/change_password_page.dart';
 
 class SecuritySettingsPage extends StatefulWidget {
@@ -23,6 +23,9 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   bool _sessionTimeout = true;
   String _sessionTimeoutValue = '30 minutes';
 
+  // ✅ Variable pour tracker si le service est prêt
+  bool _isServiceReady = false;
+
   // Firebase Auth
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
@@ -31,31 +34,44 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _initializeService();
     _setupAutoLogout();
   }
 
-  // Charger les paramètres depuis SharedPreferences
-  Future<void> _loadSettings() async {
-    await _autoLogoutService.init();
+  // ✅ Initialiser le service correctement
+  Future<void> _initializeService() async {
+    try {
+      // Le service est déjà initialisé dans main.dart
+      // Mais on peut vérifier et charger les paramètres
+      await _autoLogoutService.init();
 
-    final settings = await _autoLogoutService.loadAutoLogoutSettings();
+      final settings = await _autoLogoutService.loadAutoLogoutSettings();
 
-    setState(() {
-      _sessionTimeout = settings['enabled'] ?? false;
-      _sessionTimeoutValue = settings['duration'] ?? '30 minutes';
-    });
+      if (mounted) {
+        setState(() {
+          _sessionTimeout = settings['enabled'] ?? false;
+          _sessionTimeoutValue = settings['duration'] ?? '30 minutes';
+          _isServiceReady = true;
+        });
+      }
 
-    // Si auto-logout est activé, démarrer la surveillance
-    if (_sessionTimeout) {
-      _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+      print('✅ SecuritySettingsPage: Service prêt');
+      print('   Statut: enabled=${_sessionTimeout}, duration=${_sessionTimeoutValue}');
+
+      // Si auto-logout est activé, démarrer le timer
+      if (_sessionTimeout) {
+        _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
+        print('🚀 SecuritySettingsPage: Auto-logout démarré');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'initialisation du service: $e');
     }
   }
 
-  // Configuration de la déconnexion automatique
+  // ✅ Configurer les callbacks
   void _setupAutoLogout() {
-    // Callback si l'utilisateur doit être déconnecté
     _autoLogoutService.setOnLogoutCallback(() {
+      print('📌 SecuritySettingsPage: Callback logout reçu');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -65,7 +81,9 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           ),
         );
 
-        // Naviguer vers la page de connexion
+        // ✅ Arrêter le service avant de naviguer
+        _autoLogoutService.stopAutoLogout();
+
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/login',
               (route) => false,
@@ -73,65 +91,43 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       }
     });
 
-    // Callback pour afficher l'avertissement
     _autoLogoutService.setOnWarningCallback((remainingSeconds) {
-      if (mounted) {
+      print('📌 SecuritySettingsPage: Callback warning reçu: ${remainingSeconds}s');
+      if (mounted && Navigator.of(context).canPop()) {
         _showAutoLogoutWarning(remainingSeconds);
       }
     });
   }
 
-  // Afficher l'avertissement de déconnexion
+  // ✅ Afficher le dialog d'avertissement
   void _showAutoLogoutWarning(int remainingSeconds) {
-    if (Navigator.of(context).canPop()) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AutoLogoutWarningDialog(
-          remainingSeconds: remainingSeconds,
-          onStayLoggedIn: () {
-            // Réinitialiser le timer
-            _autoLogoutService.recordActivity();
-            print('✅ Utiliser reste connecté, timer réinitialisé');
-          },
-          onLogout: () {
-            // Forcer la déconnexion
-            _autoLogoutService.stopAutoLogout();
-            _auth.signOut();
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/login',
-                  (route) => false,
-            );
-          },
-        ),
-      );
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.resumed:
-      // App revenue au premier plan
-        if (_sessionTimeout) {
+    print('🔔 Affichage du dialog d\'avertissement');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AutoLogoutWarningDialog(
+        remainingSeconds: remainingSeconds,
+        onStayLoggedIn: () {
+          print('✅ User a cliqué "Rester connecté"');
           _autoLogoutService.recordActivity();
-          print('📱 App en avant-plan, activité enregistrée');
-        }
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.inactive:
-      // L'app passe en arrière-plan
-        print('📱 App en arrière-plan');
-        break;
-      case AppLifecycleState.hidden:
-        break;
-    }
+        },
+        onLogout: () {
+          print('❌ User a cliqué "Se déconnecter"');
+          _autoLogoutService.stopAutoLogout();
+          _auth.signOut();
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/login',
+                (route) => false,
+          );
+        },
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _autoLogoutService.stopAutoLogout();
+    // ✅ Ne pas arrêter le service ici, il continue en arrière-plan
+    print('🔌 SecuritySettingsPage: dispose() - Service continue');
     super.dispose();
   }
 
@@ -141,6 +137,21 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
+
+    // ✅ Afficher un loading spinner pendant l'initialisation
+    if (!_isServiceReady) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          title: const Text('Sécurité'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -154,7 +165,10 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          print('👈 Retour arrière depuis SecuritySettingsPage');
+          Navigator.of(context).pop();
+        },
         icon: Icon(
           Icons.arrow_back,
           color: Colors.black87,
@@ -202,7 +216,10 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 title: 'Authentification à deux facteurs',
                 subtitle: 'Ajoute une couche de sécurité supplémentaire',
                 value: _twoFactorAuth,
-                onChanged: (value) => setState(() => _twoFactorAuth = value),
+                onChanged: (value) {
+                  print('🔒 2FA: $value');
+                  setState(() => _twoFactorAuth = value);
+                },
                 isDesktop: isDesktop,
                 isTablet: isTablet,
                 isMobile: isMobile,
@@ -211,7 +228,10 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 title: 'Authentification biométrique',
                 subtitle: 'Utilisez votre empreinte ou visage',
                 value: _biometricAuth,
-                onChanged: (value) => setState(() => _biometricAuth = value),
+                onChanged: (value) {
+                  print('👆 Biométrie: $value');
+                  setState(() => _biometricAuth = value);
+                },
                 isDesktop: isDesktop,
                 isTablet: isTablet,
                 isMobile: isMobile,
@@ -249,14 +269,13 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 subtitle: 'Déconnexion après inactivité',
                 value: _sessionTimeout,
                 onChanged: (value) async {
+                  print('⏱️  Déconnexion auto: $value');
                   setState(() => _sessionTimeout = value);
 
                   if (value) {
-                    // Activer la déconnexion automatique
-                    print('🟢 Déconnexion automatique ACTIVÉE');
+                    print('🟢 ACTIVATION auto-logout');
                     _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
 
-                    // Sauvegarder les paramètres
                     await _autoLogoutService.saveAutoLogoutSettings(
                       enabled: true,
                       duration: _sessionTimeoutValue,
@@ -273,11 +292,9 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                       );
                     }
                   } else {
-                    // Désactiver la déconnexion automatique
-                    print('🔴 Déconnexion automatique DÉSACTIVÉE');
+                    print('🔴 DÉSACTIVATION auto-logout');
                     _autoLogoutService.stopAutoLogout();
 
-                    // Sauvegarder les paramètres
                     await _autoLogoutService.saveAutoLogoutSettings(
                       enabled: false,
                       duration: _sessionTimeoutValue,
@@ -306,12 +323,11 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                   value: _sessionTimeoutValue,
                   items: ['5 secondes', '15 minutes', '30 minutes', '1 heure', '2 heures'],
                   onChanged: (value) async {
+                    print('⏳ Changement durée: $value');
                     setState(() => _sessionTimeoutValue = value);
 
-                    // Redémarrer le timer avec la nouvelle durée
                     _autoLogoutService.startAutoLogout(value);
 
-                    // Sauvegarder les paramètres
                     await _autoLogoutService.saveAutoLogoutSettings(
                       enabled: true,
                       duration: value,
@@ -686,14 +702,13 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   }
 
   void _saveSettings() async {
-    // Sauvegarder les paramètres de session timeout
+    print('💾 Sauvegarde des paramètres');
     if (_sessionTimeout) {
       await _autoLogoutService.saveAutoLogoutSettings(
         enabled: true,
         duration: _sessionTimeoutValue,
       );
 
-      // Démarrer le timer
       _autoLogoutService.startAutoLogout(_sessionTimeoutValue);
     }
 

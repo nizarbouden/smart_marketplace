@@ -18,14 +18,28 @@ import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 import 'package:smart_marketplace/config/firebase_config.dart';
 import 'package:smart_marketplace/providers/auth_provider.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/views/compte/security/security_settings_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  print('🚀 === DÉMARRAGE DE L\'APPLICATION ===');
+
+  // Initialiser Firebase
+  print('📱 Initialisation Firebase...');
   await FirebaseConfig.initializeFirebase();
-  
-  // Nettoyer le cache Firestore pour éviter le crash SQLiteBlobTooBigException
+  print('✅ Firebase initialisé');
+
+  // Nettoyer le cache Firestore
+  print('🧹 Nettoyage du cache Firestore...');
   await FirebaseAuthService().clearFirestoreCache();
-  
+  print('✅ Cache nettoyé');
+
+  print('🎯 === LANCEMENT DE L\'APPLICATION ===\n');
+
+  // ✅ NE PAS initialiser AutoLogoutService ici
+  // Le service sera initialisé SEULEMENT dans MainLayout après connexion
+
   runApp(const MyApp());
 }
 
@@ -65,6 +79,8 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignUpScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
+          // ✅ Route pour la sécurité
+          '/security-settings': (context) => const SecuritySettingsPage(),
         },
       ),
     );

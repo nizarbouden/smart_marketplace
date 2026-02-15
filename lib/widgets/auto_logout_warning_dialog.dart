@@ -25,15 +25,15 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
   void initState() {
     super.initState();
     _countdown = widget.remainingSeconds;
+    print('⚠️  Dialog d\'avertissement affiché: ${widget.remainingSeconds}s');
 
-    // Utiliser un Timer.periodic pour mettre à jour le countdown
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
           _countdown--;
         });
+        print('⏲️  Countdown: $_countdown secondes restantes');
 
-        // Arrêter le timer si countdown atteint 0
         if (_countdown <= 0) {
           timer.cancel();
         }
@@ -66,7 +66,6 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Titre avec icône
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -97,7 +96,6 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
 
               const SizedBox(height: 24),
 
-              // Container avec le countdown
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
@@ -138,7 +136,6 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
 
               const SizedBox(height: 24),
 
-              // Message informatif
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -157,14 +154,13 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
 
               const SizedBox(height: 24),
 
-              // Boutons
               Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Bouton Rester connecté (primaire)
                   ElevatedButton.icon(
                     onPressed: () {
+                      print('✅ Utilisateur: Rester connecté');
                       Navigator.pop(context);
                       widget.onStayLoggedIn();
                     },
@@ -188,9 +184,9 @@ class _AutoLogoutWarningDialogState extends State<AutoLogoutWarningDialog> {
 
                   const SizedBox(height: 12),
 
-                  // Bouton Se déconnecter (secondaire)
                   ElevatedButton.icon(
                     onPressed: () {
+                      print('❌ Utilisateur: Se déconnecter');
                       Navigator.pop(context);
                       widget.onLogout();
                     },

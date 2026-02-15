@@ -12,9 +12,9 @@ class AutoLogoutService {
   Timer? _inactivityTimer;
 
   DateTime _lastActivityTime = DateTime.now();
-  bool _warningShown = false; // Suivre si l'avertissement a déjà été affiché
+  bool _warningShown = false;
+  bool _isInitialized = false;
 
-  // Callbacks
   Function? _onLogoutCallback;
   Function(int)? _onWarningCallback;
 
@@ -24,12 +24,25 @@ class AutoLogoutService {
 
   AutoLogoutService._internal();
 
-  // Initialiser le service
+  // ✅ Initialiser une seule fois
   Future<void> init() async {
+    if (_isInitialized) {
+      print('ℹ️  AutoLogoutService déjà initialisé');
+      return;
+    }
+
     _prefs = await SharedPreferences.getInstance();
+    _isInitialized = true;
+    print('✅ AutoLogoutService initialisé avec succès');
+
+    // ✅ Charger et démarrer auto-logout si activé
+    final settings = await loadAutoLogoutSettings();
+    if (settings['enabled'] == true) {
+      print('🚀 Auto-logout activé au démarrage: ${settings['duration']}');
+      startAutoLogout(settings['duration'] as String);
+    }
   }
 
-  // Enregistrer les callbacks
   void setOnLogoutCallback(Function callback) {
     _onLogoutCallback = callback;
   }
@@ -38,11 +51,10 @@ class AutoLogoutService {
     _onWarningCallback = callback;
   }
 
-  // Convertir la durée en secondes
   int _getDurationInSeconds(String duration) {
     switch (duration) {
       case '5 secondes':
-        return 15; // 5s avant dialog + 10s d'avertissement = 15s total
+        return 15;
       case '15 minutes':
         return 15 * 60;
       case '30 minutes':
@@ -56,20 +68,20 @@ class AutoLogoutService {
     }
   }
 
-  // Démarrer la surveillance de l'inactivité
   void startAutoLogout(String durationString) {
-    // Arrêter les timers existants
+    if (!_isInitialized) {
+      print('❌ AutoLogoutService non initialisé');
+      return;
+    }
+
     stopAutoLogout();
 
     final totalSeconds = _getDurationInSeconds(durationString);
 
-    // Calculer le seuil d'avertissement
-    // Pour "5 secondes": 5s avant dialog (33% du temps = 5s sur 15s)
-    // Pour autres: 80% du temps
     late int warningThresholdSeconds;
 
     if (durationString == '5 secondes') {
-      warningThresholdSeconds = 5; // Dialog après 5 secondes, reste 10 secondes
+      warningThresholdSeconds = 5;
       print('⏱️  Auto-logout démarré: 15 secondes total (TEST) 🧪');
       print('⚠️  Avertissement à: 5 secondes (10s d\'affichage)');
     } else {
@@ -81,23 +93,19 @@ class AutoLogoutService {
     _lastActivityTime = DateTime.now();
     _warningShown = false;
 
-    // Timer principal pour vérifier l'inactivité chaque 100ms (plus précis)
     _inactivityTimer = Timer.periodic(Duration(milliseconds: 100), (timer) {
       _checkInactivity(totalSeconds, warningThresholdSeconds);
     });
   }
 
-  // Vérifier l'inactivité
   void _checkInactivity(int totalSeconds, int warningThresholdSeconds) {
     final now = DateTime.now();
     final elapsedSeconds = now.difference(_lastActivityTime).inSeconds;
 
-    // Debug: afficher chaque seconde
     if (elapsedSeconds % 1 == 0 && elapsedSeconds > 0) {
       print('⏲️  Inactivité: ${elapsedSeconds}s / ${totalSeconds}s');
     }
 
-    // Si 80% du temps est passé et avertissement non montré
     if (elapsedSeconds >= warningThresholdSeconds &&
         elapsedSeconds < totalSeconds &&
         !_warningShown) {
@@ -107,28 +115,30 @@ class AutoLogoutService {
       _onWarningCallback?.call(remainingSeconds);
     }
 
-    // Si le temps limite est atteint
     if (elapsedSeconds >= totalSeconds) {
       print('❌ DÉCONNEXION! Temps d\'inactivité dépassé');
       _performLogout();
     }
   }
 
-  // Arrêter la déconnexion automatique
   void stopAutoLogout() {
     _inactivityTimer?.cancel();
     _warningShown = false;
     print('🛑 Auto-logout arrêté');
   }
 
-  // Enregistrer une activité utilisateur (réinitialiser le timer)
+  // ✅ Enregistrer l'activité avec vérification du service
   void recordActivity() {
+    if (!_isInitialized) {
+      print('⚠️  AutoLogoutService non initialisé, activité ignorée');
+      return;
+    }
+
     _lastActivityTime = DateTime.now();
-    _warningShown = false; // Réinitialiser le flag d'avertissement
+    _warningShown = false;
     print('✏️  Activité enregistrée, timer réinitialisé');
   }
 
-  // Effectuer la déconnexion
   Future<void> _performLogout() async {
     stopAutoLogout();
     try {
@@ -140,18 +150,29 @@ class AutoLogoutService {
     }
   }
 
-  // Sauvegarder les paramètres
   Future<void> saveAutoLogoutSettings({
     required bool enabled,
     required String duration,
   }) async {
+    if (!_isInitialized) {
+      print('❌ AutoLogoutService non initialisé');
+      return;
+    }
+
     await _prefs.setBool('auto_logout_enabled', enabled);
     await _prefs.setString('auto_logout_duration', duration);
     print('💾 Paramètres auto-logout sauvegardés: enabled=$enabled, duration=$duration');
   }
 
-  // Charger les paramètres
   Future<Map<String, dynamic>> loadAutoLogoutSettings() async {
+    if (!_isInitialized) {
+      print('⚠️  AutoLogoutService non initialisé, retour des valeurs par défaut');
+      return {
+        'enabled': false,
+        'duration': '30 minutes',
+      };
+    }
+
     final enabled = _prefs.getBool('auto_logout_enabled') ?? false;
     final duration = _prefs.getString('auto_logout_duration') ?? '30 minutes';
 
@@ -162,17 +183,16 @@ class AutoLogoutService {
     };
   }
 
-  // Vérifier si l'auto-logout est activé
   bool isAutoLogoutEnabled() {
+    if (!_isInitialized) return false;
     return _prefs.getBool('auto_logout_enabled') ?? false;
   }
 
-  // Obtenir la durée configurée
   String getAutoLogoutDuration() {
+    if (!_isInitialized) return '30 minutes';
     return _prefs.getString('auto_logout_duration') ?? '30 minutes';
   }
 
-  // Obtenir le temps d'inactivité actuel (en secondes)
   int getCurrentInactivitySeconds() {
     return DateTime.now().difference(_lastActivityTime).inSeconds;
   }
