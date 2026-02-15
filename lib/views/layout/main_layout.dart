@@ -145,7 +145,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Login Required',
+                        'Connexion requise',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -155,7 +155,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'You must be logged in to access\nthis feature.',
+                        'Vous devez être connecté pour accéder\nà cette fonctionnalité.',
                         style: TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
@@ -185,7 +185,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                   backgroundColor: Colors.transparent,
                                 ),
                                 child: const Text(
-                                  'Later',
+                                  'Plus tard',
                                   style: TextStyle(
                                     color: Color(0xFF6366F1),
                                     fontSize: 15,
@@ -215,7 +215,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                 ),
                                 child: const FittedBox(
                                   child: Text(
-                                    'Login',
+                                    'Se connecter',
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
@@ -286,7 +286,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         _setupAutoLogoutCallbacks();
       }
     } catch (e) {
-      print('❌ Error initializing auto-logout: $e');
+      print('❌ Erreur lors de l\'initialisation de l\'auto-logout: $e');
     }
   }
 
@@ -295,7 +295,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⏱️ Session expired due to inactivity'),
+            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 5),
           ),
@@ -351,7 +351,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         });
       }
     } catch (e) {
-      print('❌ Error loading notifications count: $e');
+      print('❌ Erreur lors du chargement du compteur de notifications: $e');
     }
   }
 
@@ -600,7 +600,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Cart Summary',
+                'Résumé du panier',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -632,7 +632,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Selected Items',
+                        'Articles sélectionnés',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -654,7 +654,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         const Expanded(
                           child: Center(
                             child: Text(
-                              'No items selected',
+                              'Aucun article sélectionné',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -675,8 +675,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         ),
                         child: Column(
                           children: [
-                            _summaryRow('Subtotal', '${_selectedTotal.toStringAsFixed(2)} €'),
-                            _summaryRow('Shipping', '5.99 €'),
+                            _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
+                            _summaryRow('Livraison', '5.99 €'),
                             _summaryRow(
                               'Total',
                               '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
@@ -699,8 +699,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   Widget _selectedItemCard(int index) {
     final testItems = [
-      {'id': '1', 'name': 'Product A', 'price': 49.99, 'quantity': 2},
-      {'id': '2', 'name': 'Product B', 'price': 29.99, 'quantity': 1},
+      {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
+      {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
     ];
 
     if (index < testItems.length) {
@@ -795,7 +795,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             const SizedBox(height: 24),
 
             const Text(
-              'Your cart is empty',
+              'Votre panier est vide',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -806,7 +806,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             const SizedBox(height: 12),
 
             Text(
-              'Add items to start shopping',
+              'Ajoutez des articles pour commencer vos achats',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -822,7 +822,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 });
               },
               icon: const Icon(Icons.shopping_bag),
-              label: const Text('Start Shopping'),
+              label: const Text('Commencer mes achats'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
@@ -891,19 +891,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               _buildNavItem(
                 icon: Icons.shopping_cart_outlined,
                 activeIcon: Icons.shopping_cart,
-                label: 'Cart',
+                label: 'Panier',
                 index: 1,
               ),
               _buildNavItem(
                 icon: Icons.history_outlined,
                 activeIcon: Icons.history,
-                label: 'History',
+                label: 'Historique',
                 index: 2,
               ),
               _buildNavItem(
                 icon: Icons.person_outline,
                 activeIcon: Icons.person,
-                label: 'Account',
+                label: 'Compte',
                 index: 3,
               ),
             ],
@@ -964,7 +964,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 const SizedBox(width: 8),
 
                 const Text(
-                  'All',
+                  'Tout',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -975,7 +975,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
                 Expanded(
                   child: Text(
-                    '$_selectedCartItems item(s)',
+                    '$_selectedCartItems article(s)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -1049,7 +1049,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     minimumSize: const Size(0, 40),
                   ),
                   child: Text(
-                    'Payment ($_selectedCartItems)',
+                    'Paiement ($_selectedCartItems)',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1079,19 +1079,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     _buildNavItem(
                       icon: Icons.shopping_cart_outlined,
                       activeIcon: Icons.shopping_cart,
-                      label: 'Cart',
+                      label: 'Panier',
                       index: 1,
                     ),
                     _buildNavItem(
                       icon: Icons.history_outlined,
                       activeIcon: Icons.history,
-                      label: 'History',
+                      label: 'Historique',
                       index: 2,
                     ),
                     _buildNavItem(
                       icon: Icons.person_outline,
                       activeIcon: Icons.person,
-                      label: 'Account',
+                      label: 'Compte',
                       index: 3,
                     ),
                   ],
@@ -1149,11 +1149,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       case 0:
         return 'Smart Market';
       case 1:
-        return 'Cart ($_totalCartItems)';
+        return 'Panier ($_totalCartItems)';
       case 2:
-        return 'Purchase History';
+        return 'Historique d\'achat';
       case 3:
-        return 'My Account';
+        return 'Mon Profil';
       default:
         return 'Smart Market';
     }

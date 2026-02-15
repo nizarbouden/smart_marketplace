@@ -43,7 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('⏱️ Session expired due to inactivity'),
+            content: Text('⏱️ Session expirée due to inactivity'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 5),
           ),
@@ -114,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
         await _authService.syncEmailFromAuth();
       }
     } catch (e) {
-      print('❌ Error syncing email: $e');
+      print('❌ Erreur lors de la synchronisation du email: $e');
     }
   }
 
@@ -477,7 +477,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   } catch (e) {
-                                    print('❌ Error logging out: $e');
+                                    print('❌ Erreur lors de la déconnexion: $e');
                                     Navigator.of(context).pop();
                                     Navigator.pushReplacementNamed(context, '/login');
                                   }

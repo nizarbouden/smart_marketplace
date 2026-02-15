@@ -70,7 +70,7 @@ class AutoLogoutService {
       try {
         listener(WarningEvent(remainingSeconds: remainingSeconds));
       } catch (e) {
-        print('❌ Error in warning listener: $e');
+        print('❌ Erreur dans le listener d\'avertissement: $e');
       }
     }
 
@@ -78,7 +78,7 @@ class AutoLogoutService {
       try {
         _onWarningCallback!(remainingSeconds);
       } catch (e) {
-        print('❌ Error in warning callback: $e');
+        print('❌ Erreur dans le callback d\'avertissement: $e');
       }
     }
   }
@@ -88,7 +88,7 @@ class AutoLogoutService {
       try {
         listener(LogoutEvent());
       } catch (e) {
-        print('❌ Error in logout listener: $e');
+        print('❌ Erreur dans le listener de déconnexion: $e');
       }
     }
 
@@ -96,7 +96,7 @@ class AutoLogoutService {
       try {
         _onLogoutCallback!();
       } catch (e) {
-        print('❌ Error in logout callback: $e');
+        print('❌ Erreur dans le callback de déconnexion: $e');
       }
     }
   }
@@ -120,7 +120,7 @@ class AutoLogoutService {
 
   void startAutoLogout(String durationString) {
     if (!_isInitialized) {
-      print('❌ AutoLogoutService not initialized');
+      print('❌ Service d\'auto-logout non initialisé');
       return;
     }
 
@@ -170,7 +170,7 @@ class AutoLogoutService {
 
   void recordActivity() {
     if (!_isInitialized) {
-      print('⚠️ AutoLogoutService not initialized');
+      print('⚠️ Service d\'auto-logout non initialisé');
       return;
     }
 
@@ -184,7 +184,7 @@ class AutoLogoutService {
       await _auth.signOut();
       _notifyLogout();
     } catch (e) {
-      print('❌ Error during logout: $e');
+      print('❌ Erreur lors de la déconnexion: $e');
     }
   }
 
@@ -193,7 +193,7 @@ class AutoLogoutService {
     required String duration,
   }) async {
     if (!_isInitialized) {
-      print('❌ AutoLogoutService not initialized');
+      print('❌ Service d\'auto-logout non initialisé');
       return;
     }
 
@@ -207,7 +207,7 @@ class AutoLogoutService {
         stopAutoLogout();
       }
     } catch (e) {
-      print('❌ Error saving auto-logout settings: $e');
+      print('❌ Erreur lors de la sauvegarde des paramètres: $e');
     }
   }
 
@@ -228,7 +228,7 @@ class AutoLogoutService {
         'duration': duration,
       };
     } catch (e) {
-      print('❌ Error loading auto-logout settings: $e');
+      print('❌ Erreur lors du chargement des paramètres: $e');
       return {
         'enabled': false,
         'duration': '30 minutes',
