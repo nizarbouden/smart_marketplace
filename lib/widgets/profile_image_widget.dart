@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class ProfileImageWidget extends StatelessWidget {
   final File? profileImage;
@@ -72,7 +73,7 @@ class ProfileImageWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Changer la photo',
+            AppLocalizations.get('change_photo'),
             style: TextStyle(
               fontSize: isDesktop ? 16 : 14,
               color: Colors.deepPurple,
@@ -125,7 +126,7 @@ class ProfileImageWidget extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Choisir une photo',
+              AppLocalizations.get('choose_photo'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -138,7 +139,7 @@ class ProfileImageWidget extends StatelessWidget {
               children: [
                 _buildOption(
                   icon: Icons.camera_alt,
-                  label: 'Appareil photo',
+                  label: AppLocalizations.get('camera'),
                   onTap: () {
                     Navigator.of(context).pop();
                     onTakePhoto();
@@ -146,7 +147,7 @@ class ProfileImageWidget extends StatelessWidget {
                 ),
                 _buildOption(
                   icon: Icons.photo_library,
-                  label: 'Galerie',
+                  label: AppLocalizations.get('gallery'),
                   onTap: () {
                     Navigator.of(context).pop();
                     onPickImage();

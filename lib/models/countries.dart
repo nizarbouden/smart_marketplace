@@ -192,17 +192,4 @@ class CountryData {
     }).toList();
   }
 
-  // Méthode pour obtenir les pays favoris (Maghreb + Europe + Amérique du Nord)
-  static List<Map<String, String>> getFavoriteCountries() {
-    return [
-      {'name': 'Tunisie', 'code': '+216', 'flag': '🇹🇳'},
-      {'name': 'Algérie', 'code': '+213', 'flag': '🇩🇿'},
-      {'name': 'Maroc', 'code': '+212', 'flag': '🇲🇦'},
-      {'name': 'France', 'code': '+33', 'flag': '🇫🇷'},
-      {'name': 'Belgique', 'code': '+32', 'flag': '🇧🇪'},
-      {'name': 'Suisse', 'code': '+41', 'flag': '🇨🇭'},
-      {'name': 'Canada', 'code': '+1', 'flag': '🇨🇦'},
-      {'name': 'États-Unis', 'code': '+1', 'flag': '🇺🇸'},
-    ];
-  }
 }

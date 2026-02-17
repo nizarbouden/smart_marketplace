@@ -133,7 +133,7 @@ class AppLocalizations {
     'add_first_address': 'Ajoutez votre première adresse de livraison',
     'loading_addresses': 'Chargement des adresses...',
     'delete_address': 'Supprimer l\'adresse',
-    'confirm_delete_address': 'Êtes-vous sûr de vouloir\nsupprimer cette adresse ?',
+    'confirm_delete_address': 'Êtes-vous sûr de vouloir supprimer cette notification ?',
     'address_saved': 'Adresse enregistrée avec succès !',
     'address_updated': 'Adresse mise à jour avec succès !',
     'address_default_updated': 'Votre adresse par défaut a été mise à jour',
@@ -215,7 +215,7 @@ class AppLocalizations {
     'notif_email_subtitle': 'Recevoir des notifications par email',
     'notif_section_orders': 'Commandes et livraisons',
     'notif_orders_title': 'Mises à jour de commande',
-    'notif_orders_subtitle': 'Suivi de votre commande et livraison',
+    'notif_orders_subtitle': 'Tout marquer comme lu',
     'notif_section_marketing': 'Marketing et promotions',
     'notif_promo_title': 'Offres promotionnelles',
     'notif_promo_subtitle': 'Réductions et offres spéciales',
@@ -277,6 +277,192 @@ class AppLocalizations {
     'edit_profile_phone_required': 'Veuillez entrer votre numéro de téléphone',
     'edit_profile_section_personal': 'Informations personnelles',
     'edit_profile_section_contact': 'Contact',
+
+    // ── Sécurité ──────────────────────────────────────────────────
+    'security_title': 'Sécurité',
+    'security_subtitle': 'Gérez la sécurité de votre compte',
+    'security_google_account': 'Compte Google',
+    'security_google_connected': 'Votre compte est connecté via Google',
+    'security_google_how_to': 'Comment changer votre mot de passe ?',
+    'security_google_step1': 'Allez dans votre compte Google',
+    'security_google_step2': 'Cliquez sur "Sécurité"',
+    'security_google_step3': 'Sous "Connexion à Google", cliquez sur "Mot de passe"',
+    'security_google_step4': 'Suivez les instructions pour changer votre mot de passe',
+    'security_google_warning': 'Le changement de mot de passe doit être effectué directement sur Google pour des raisons de sécurité.',
+    'security_open_google': 'Ouvrir la sécurité Google',
+    'security_google_dialog_title': 'Ouvrir la sécurité Google',
+    'security_google_dialog_step1': '1. Copier le lien ci-dessous',
+    'security_google_dialog_step2': '2. Ouvrir votre navigateur',
+    'security_google_dialog_step3': '3. Coller le lien et accéder à la page',
+    'security_link_copied': 'Lien copié dans le presse-papiers !',
+    'security_unsupported_title': 'Méthode de connexion non supportée',
+    'security_unsupported_desc': 'Votre méthode de connexion actuelle ne permet pas de changer le mot de passe depuis cette application.',
+    'security_auth_section': 'Authentification',
+    'security_two_factor_subtitle': 'Ajoute une couche de sécurité supplémentaire',
+    'security_biometric_subtitle': 'Utilisez votre empreinte ou visage',
+    'security_change_password_subtitle': 'Mettez à jour votre mot de passe',
+    'security_session_section': 'Session',
+    'security_auto_logout_title': 'Déconnexion automatique',
+    'security_auto_logout_subtitle': 'Déconnexion après inactivité',
+    'security_inactivity_delay': 'Délai d\'inactivité',
+    'security_inactivity_subtitle': 'Temps avant déconnexion automatique',
+    'security_active_sessions_subtitle': 'Gérez vos connexions actives',
+    'security_privacy_section': 'Confidentialité',
+    'security_login_notif_title': 'Notifications de connexion',
+    'security_login_notif_subtitle': 'Soyez notifié des nouvelles connexions',
+    'security_download_data': 'Télécharger vos données',
+    'security_download_subtitle': 'Exportez vos informations personnelles',
+    'security_download_preparing': 'Préparation du téléchargement...',
+    'security_download_success': 'Données exportées avec succès !',
+    'security_download_confirm_title': 'Télécharger vos données',
+    'security_download_confirm_body': 'Voulez-vous télécharger toutes vos informations personnelles ?',
+    'security_download_btn': 'Télécharger',
+    'security_share_btn': 'Partager',
+    'security_delete_account': 'Supprimer le compte',
+    'security_delete_account_subtitle': 'Supprimez définitivement votre compte',
+    'security_delete_account_confirm': 'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible et toutes vos données seront perdues.',
+    'security_auto_logout_activated': 'Déconnexion automatique activée',
+    'security_auto_logout_deactivated': 'Déconnexion automatique désactivée',
+    'security_delay_changed': 'Délai d\'inactivité changé à',
+
+    // ── Layout principal ──────────────────────────────────────────
+    'main_smart_market': 'Smart Market',
+    'main_purchase_history': 'Historique d\'achat',
+    'main_my_profile': 'Mon Profil',
+    'main_login_required_title': 'Connexion requise',
+    'main_login_required_body': 'Vous devez être connecté pour accéder à cette fonctionnalité.',
+    'main_later': 'Plus tard',
+    'main_cart_summary': 'Résumé du panier',
+    'main_selected_items': 'Articles sélectionnés',
+    'main_start_shopping': 'Commencer mes achats',
+    'main_add_to_cart': 'Ajouter des articles pour commencer vos achats',
+
+    // ── Notifications page ────────────────────────────────────────
+    'notif_page_mark_all_read': 'Tout marquer comme lu',
+    'notif_page_delete_all': 'Tout supprimer',
+    'notif_page_empty_title': 'Aucune notification',
+    'notif_page_empty_subtitle': 'Vous n\'avez pas de notifications pour le moment',
+    'notif_page_delete_confirm_title': 'Supprimer tout',
+    'notif_page_delete_confirm_body': 'Êtes-vous sûr de vouloir supprimer toutes vos notifications ?',
+    'notif_page_time_ago_minutes': 'Il y a {n} minute(s)',
+    'notif_page_time_ago_hours': 'Il y a {n} heure(s)',
+    'notif_page_time_ago_days': 'Il y a {n} jour(s)',
+    'notif_page_time_ago_default': 'Il y a quelque temps',
+    'notif_page_mark_error': 'Erreur lors du marquage',
+    'notif_page_delete_error': 'Erreur lors de la suppression',
+
+    // ── Sessions actives ──────────────────────────────────────────
+    'session_cannot_revoke_current': 'Impossible de révoquer la session actuelle',
+    'session_revoke_title': 'Révoquer la session',
+    'session_revoke_confirm': 'Êtes-vous sûr de vouloir révoquer la session sur',
+    'session_reconnect_required': 'L\'utilisateur devra se reconnecter.',
+    'session_revoked_success': 'Session révoquée avec succès',
+    'session_revoke_error': 'Erreur lors de la révocation de la session',
+    'session_no_other': 'Aucune autre session à révoquer',
+    'session_revoke_all_title': 'Révoquer toutes les autres sessions',
+    'session_revoke_all_confirm': 'Êtes-vous sûr de vouloir révoquer',
+    'session_sessions': 'session(s)',
+    'session_all_reconnect': 'Tous les utilisateurs devront se reconnecter.',
+    'session_revoked_count': 'session(s) révoquée(s)',
+    'session_delete_all_title': 'Supprimer toutes les sessions',
+    'session_delete_all_confirm': 'ATTENTION ! Ceci supprimera TOUTES vos sessions y compris la session actuelle.\n\nVous devrez vous reconnecter sur tous vos appareils.\n\nVoulez-vous continuer ?',
+    'session_all_deleted': 'Toutes les sessions ont été supprimées',
+    'session_delete_error': 'Erreur lors de la suppression',
+    'session_revoke_btn': 'Révoquer',
+    'session_current': 'Session actuelle',
+    'session_active': 'Active',
+    'session_inactive': 'Inactive',
+    'session_version': 'Version',
+    'session_last_activity': 'Dernière activité',
+    'session_created_at': 'Créée le',
+    'session_long_inactive': 'Session inactive depuis longtemps',
+    'session_revoke_tooltip': 'Révoquer cette session',
+    'session_all_sessions': 'Toutes les sessions',
+    'session_refresh': 'Rafraîchir les sessions',
+    'session_revoke_all_btn': 'Tout révoquer',
+    'session_none': 'Aucune session',
+    'session_none_desc': 'Les sessions apparaîtront ici lorsque vous vous connecterez.',
+    'session_total_count': 'session(s) totale(s)',
+    'session_active_count': 'active(s)',
+    'session_inactive_count': 'inactive(s)',
+    'session_delete_all_btn': 'Supprimer tout',
+
+    // ── Formulaire adresse (widget) ───────────────────────────────
+    'addr_country_region': 'Pays/Région',
+    'addr_personal_info_section': 'Informations personnelles',
+    'addr_contact_name_hint': 'Nom du contact*',
+    'addr_contact_name_helper': 'Veuillez saisir un nom de contact.',
+    'addr_contact_name_error': 'Veuillez saisir un nom de contact',
+    'addr_phone_hint': 'Numéro de portable*',
+    'addr_phone_error_required': 'Numéro requis',
+    'addr_phone_error_invalid': 'Numéro invalide',
+    'addr_address_section': 'Adresse',
+    'addr_street_hint': 'Rue et numéro de la rue*',
+    'addr_street_error': 'La rue est requise',
+    'addr_complement_hint': 'Appartement, suite, unité, etc. (facultatif)',
+    'addr_province_hint': 'Province*',
+    'addr_province_error': 'La province est requise',
+    'addr_city_hint': 'Ville*',
+    'addr_city_error': 'La ville est requise',
+    'addr_postal_hint': 'Code postal*',
+    'addr_postal_error': 'Le code postal est requis',
+
+    // ── Dialog déconnexion automatique ────────────────────────────
+    'autologout_title': 'Déconnexion\nautomatique',
+    'autologout_will_logout': 'Vous serez déconnecté dans',
+    'autologout_second': 'seconde',
+    'autologout_seconds': 'secondes',
+    'autologout_inactivity_msg': 'Vous avez été inactif pendant trop longtemps. Cliquez ci-dessous pour rester connecté.',
+    'autologout_stay': 'Rester connecté',
+    'autologout_logout': 'Se déconnecter',
+
+    // ── Widget genre ──────────────────────────────────────────────
+    'gender_select_placeholder': 'Sélectionner le genre',
+    'gender_dialog_title': 'Sélectionner le genre',
+
+    // ── Widget téléphone ──────────────────────────────────────────
+    'phone_select_country': 'Sélectionner un pays',
+    'phone_search_country': 'Rechercher un pays...',
+    'phone_label': 'Téléphone',
+
+    // ── Widget Profile Image ───────────────────────────────────────────────
+    'change_photo': 'Changer la photo',
+    'choose_photo': 'Choisir une photo',
+    'camera': 'Appareil photo',
+    'gallery': 'Galerie',
+
+    // ── Widget FAQ Item ───────────────────────────────────────────────────
+    'faq_question': 'Question',
+    'faq_category': 'Catégorie',
+    'faq_content_unavailable': 'Contenu non disponible',
+    'faq_useful': 'Utile',
+    'faq_share': 'Partager',
+
+    // ── Splash Screen ───────────────────────────────────────────────────
+    'splash_loading': 'Chargement en cours',
+    'splash_version': 'Version 1.0.0',
+    'splash_copyright': ' 2026 winzy. Tous droits réservés.',
+
+    // ── Change Password Page ───────────────────────────────────────────
+    'change_password_google_title': 'Ouvrir la sécurité Google',
+    'change_password_google_desc': 'Pour changer votre mot de passe Google, veuillez:',
+    'change_password_google_step1': '1. Copier le lien ci-dessous',
+    'change_password_google_step2': '2. Ouvrir votre navigateur',
+    'change_password_google_step3': '3. Coller le lien et accéder à la page',
+    'change_password_link_copied': 'Lien copié dans le presse-papiers!',
+    'change_password_google_account': 'Compte Google',
+    'change_password_google_connected': 'Votre compte est connecté via Google',
+    'change_password_how_to': 'Comment changer votre mot de passe ?',
+    'change_password_google_step1_1': '1. Allez dans votre compte Google',
+    'change_password_google_step2_1': '2. Cliquez sur "Sécurité"',
+    'change_password_google_step3_1': '3. Sous "Connexion à Google", cliquez sur "Mot de passe"',
+    'change_password_google_step4_1': '4. Suivez les instructions pour changer votre mot de passe',
+    'change_password_google_warning': 'Le changement de mot de passe doit être effectué directement sur Google pour des raisons de sécurité.',
+    'change_password_info_secure': 'Vos informations sont cryptées et sécurisées',
+
+    // ── Widget Default Address Toggle ──────────────────────────────────────────
+    'set_default_address': 'Définir comme adresse de livraison par défaut',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -409,7 +595,7 @@ class AppLocalizations {
     'add_first_address': 'Add your first delivery address',
     'loading_addresses': 'Loading addresses...',
     'delete_address': 'Delete Address',
-    'confirm_delete_address': 'Are you sure you want to\ndelete this address?',
+    'confirm_delete_address': 'Are you sure you want to delete this notification?',
     'address_saved': 'Address saved successfully!',
     'address_updated': 'Address updated successfully!',
     'address_default_updated': 'Your default address has been updated',
@@ -491,7 +677,7 @@ class AppLocalizations {
     'notif_email_subtitle': 'Receive notifications by email',
     'notif_section_orders': 'Orders & Deliveries',
     'notif_orders_title': 'Order Updates',
-    'notif_orders_subtitle': 'Track your order and delivery',
+    'notif_orders_subtitle': 'Mark all as read',
     'notif_section_marketing': 'Marketing & Promotions',
     'notif_promo_title': 'Promotional Offers',
     'notif_promo_subtitle': 'Discounts and special deals',
@@ -553,9 +739,199 @@ class AppLocalizations {
     'edit_profile_phone_required': 'Please enter your phone number',
     'edit_profile_section_personal': 'Personal Information',
     'edit_profile_section_contact': 'Contact',
-  };
 
-  // ════════════════════════════════════════════════════════════════
+    // ── Security ──────────────────────────────────────────────────
+    'security_title': 'Security',
+    'security_subtitle': 'Manage your account security',
+    'security_google_account': 'Google Account',
+    'security_google_connected': 'Your account is connected via Google',
+    'security_google_how_to': 'How to change your password?',
+    'security_google_step1': 'Go to your Google account',
+    'security_google_step2': 'Click on "Security"',
+    'security_google_step3': 'Under "Signing in to Google", click "Password"',
+    'security_google_step4': 'Follow the instructions to change your password',
+    'security_google_warning': 'Password changes must be made directly on Google for security reasons.',
+    'security_open_google': 'Open Google Security',
+    'security_google_dialog_title': 'Open Google Security',
+    'security_google_dialog_step1': '1. Copy the link below',
+    'security_google_dialog_step2': '2. Open your browser',
+    'security_google_dialog_step3': '3. Paste the link and access the page',
+    'security_link_copied': 'Link copied to clipboard!',
+    'security_unsupported_title': 'Sign-in method not supported',
+    'security_unsupported_desc': 'Your current sign-in method does not allow changing the password from this app.',
+    'security_auth_section': 'Authentication',
+    'security_two_factor_subtitle': 'Adds an extra layer of security',
+    'security_biometric_subtitle': 'Use your fingerprint or face',
+    'security_change_password_subtitle': 'Update your password',
+    'security_session_section': 'Session',
+    'security_auto_logout_title': 'Auto Logout',
+    'security_auto_logout_subtitle': 'Logout after inactivity',
+    'security_inactivity_delay': 'Inactivity Delay',
+    'security_inactivity_subtitle': 'Time before automatic logout',
+    'security_active_sessions_subtitle': 'Manage your active connections',
+    'security_privacy_section': 'Privacy',
+    'security_login_notif_title': 'Login Notifications',
+    'security_login_notif_subtitle': 'Get notified of new logins',
+    'security_download_data': 'Download Your Data',
+    'security_download_subtitle': 'Export your personal information',
+    'security_download_preparing': 'Preparing download...',
+    'security_download_success': 'Data exported successfully!',
+    'security_download_confirm_title': 'Download Your Data',
+    'security_download_confirm_body': 'Do you want to download all your personal information?',
+    'security_download_btn': 'Download',
+    'security_share_btn': 'Share',
+    'security_delete_account': 'Delete Account',
+    'security_delete_account_subtitle': 'Permanently delete your account',
+    'security_delete_account_confirm': 'Are you sure you want to delete your account? This action is irreversible and all your data will be lost.',
+    'security_auto_logout_activated': 'Auto logout activated',
+    'security_auto_logout_deactivated': 'Auto logout deactivated',
+    'security_delay_changed': 'Inactivity delay changed to',
+
+    // ── Main Layout ───────────────────────────────────────────────
+    'main_smart_market': 'Smart Market',
+    'main_purchase_history': 'Purchase History',
+    'main_my_profile': 'My Profile',
+    'main_login_required_title': 'Login Required',
+    'main_login_required_body': 'You must be logged in to access this feature.',
+    'main_later': 'Later',
+    'main_cart_summary': 'Cart Summary',
+    'main_selected_items': 'Selected Items',
+    'main_start_shopping': 'Start Shopping',
+    'main_add_to_cart': 'Add items to start shopping',
+
+    // ── Notifications page ────────────────────────────────────────
+    'notif_page_mark_all_read': 'Mark all as read',
+    'notif_page_delete_all': 'Delete all',
+    'notif_page_empty_title': 'No notifications',
+    'notif_page_empty_subtitle': 'You have no notifications at the moment',
+    'notif_page_delete_confirm_title': 'Delete all',
+    'notif_page_delete_confirm_body': 'Are you sure you want to delete all your notifications?',
+    'notif_page_time_ago_minutes': '{n} minute(s) ago',
+    'notif_page_time_ago_hours': '{n} hour(s) ago',
+    'notif_page_time_ago_days': '{n} day(s) ago',
+    'notif_page_time_ago_default': 'Some time ago',
+    'notif_page_mark_error': 'Error marking notification',
+    'notif_page_delete_error': 'Error deleting notification',
+
+    // ── Active Sessions ───────────────────────────────────────────
+    'session_cannot_revoke_current': 'Cannot revoke the current session',
+    'session_revoke_title': 'Revoke Session',
+    'session_revoke_confirm': 'Are you sure you want to revoke the session on',
+    'session_reconnect_required': 'The user will need to sign in again.',
+    'session_revoked_success': 'Session revoked successfully',
+    'session_revoke_error': 'Error revoking the session',
+    'session_no_other': 'No other sessions to revoke',
+    'session_revoke_all_title': 'Revoke all other sessions',
+    'session_revoke_all_confirm': 'Are you sure you want to revoke',
+    'session_sessions': 'session(s)',
+    'session_all_reconnect': 'All users will need to sign in again.',
+    'session_revoked_count': 'session(s) revoked',
+    'session_delete_all_title': 'Delete all sessions',
+    'session_delete_all_confirm': 'WARNING! This will delete ALL your sessions including the current one.\n\nYou will need to sign in again on all your devices.\n\nDo you want to continue?',
+    'session_all_deleted': 'All sessions have been deleted',
+    'session_delete_error': 'Error deleting sessions',
+    'session_revoke_btn': 'Revoke',
+    'session_current': 'Current session',
+    'session_active': 'Active',
+    'session_inactive': 'Inactive',
+    'session_version': 'Version',
+    'session_last_activity': 'Last activity',
+    'session_created_at': 'Created on',
+    'session_long_inactive': 'Session inactive for a long time',
+    'session_revoke_tooltip': 'Revoke this session',
+    'session_all_sessions': 'All sessions',
+    'session_refresh': 'Refresh sessions',
+    'session_revoke_all_btn': 'Revoke all',
+    'session_none': 'No sessions',
+    'session_none_desc': 'Sessions will appear here when you sign in.',
+    'session_total_count': 'total session(s)',
+    'session_active_count': 'active',
+    'session_inactive_count': 'inactive',
+    'session_delete_all_btn': 'Delete all',
+
+    // ── Address Form Widget ───────────────────────────────────────
+    'addr_country_region': 'Country/Region',
+    'addr_personal_info_section': 'Personal Information',
+    'addr_contact_name_hint': 'Contact name*',
+    'addr_contact_name_helper': 'Please enter a contact name.',
+    'addr_contact_name_error': 'Please enter a contact name',
+    'addr_phone_hint': 'Mobile number*',
+    'addr_phone_error_required': 'Number required',
+    'addr_phone_error_invalid': 'Invalid number',
+    'addr_address_section': 'Address',
+    'addr_street_hint': 'Street and street number*',
+    'addr_street_error': 'Street is required',
+    'addr_complement_hint': 'Apartment, suite, unit, etc. (optional)',
+    'addr_province_hint': 'Province*',
+    'addr_province_error': 'Province is required',
+    'addr_city_hint': 'City*',
+    'addr_city_error': 'City is required',
+    'addr_postal_hint': 'Postal code*',
+    'addr_postal_error': 'Postal code is required',
+
+    // ── Auto Logout Dialog ────────────────────────────────────────
+    'autologout_title': 'Auto\nLogout',
+    'autologout_will_logout': 'You will be logged out in',
+    'autologout_second': 'second',
+    'autologout_seconds': 'seconds',
+    'autologout_inactivity_msg': 'You have been inactive for too long. Click below to stay logged in.',
+    'autologout_stay': 'Stay Logged In',
+    'autologout_logout': 'Log Out',
+
+    // ── Gender Widget ─────────────────────────────────────────────
+    'gender_select_placeholder': 'Select gender',
+    'gender_dialog_title': 'Select gender',
+
+    // ── Phone Widget ──────────────────────────────────────────────
+    'phone_select_country': 'Select a country',
+    'phone_search_country': 'Search for a country...',
+    'phone_label': 'Phone',
+
+      // ── Widget Profile Image ───────────────────────────────────────────────
+    'change_photo': 'Change Photo',
+    'choose_photo': 'Choose Photo',
+    'camera': 'Camera',
+    'gallery': 'Gallery',
+    
+    // ── Widget FAQ Item ───────────────────────────────────────────────────
+    'faq_question': 'Question',
+    'faq_category': 'Category',
+    'faq_content_unavailable': 'Content unavailable',
+    'faq_useful': 'Useful',
+    'faq_share': 'Share',
+    
+    // ── Splash Screen ───────────────────────────────────────────────────
+    'splash_loading': 'Loading',
+    'splash_version': 'Version 1.0.0',
+    'splash_copyright': ' 2026 winzy. All rights reserved.',
+    
+    // ── Change Password Page ───────────────────────────────────────────
+    'change_password_google_title': 'Open Google Security',
+    'change_password_google_desc': 'To change your Google password, please:',
+    'change_password_google_step1': '1. Copy the link below',
+    'change_password_google_step2': '2. Open your browser',
+    'change_password_google_step3': '3. Paste the link and access the page',
+    'change_password_link_copied': 'Link copied to clipboard!',
+    'change_password_google_account': 'Google Account',
+    'change_password_google_connected': 'Your account is connected via Google',
+    'change_password_how_to': 'How to change your password?',
+    'change_password_google_step1_1': '1. Go to your Google account',
+    'change_password_google_step2_1': '2. Click on "Security"',
+    'change_password_google_step3_1': '3. Under "Signing in to Google", click "Password"',
+    'change_password_google_step4_1': '4. Follow instructions to change your password',
+    'change_password_google_warning': 'Password changes must be made directly on Google for security reasons.',
+    'change_password_info_secure': 'Your information is encrypted and secure',
+
+    // ── Session Timeout Values ───────────────────────────────────────
+    'session_timeout_5_seconds': '5 seconds',
+    'session_timeout_15_minutes': '15 minutes',
+    'session_timeout_30_minutes': '30 minutes',
+    'session_timeout_1_hour': '1 hour',
+    'session_timeout_2_hours': '2 hours',
+
+    // ── Widget Default Address Toggle ──────────────────────────────────────────
+    'set_default_address': 'Set as default shipping address',
+  };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
   static const Map<String, String> _ar = {
@@ -685,7 +1061,7 @@ class AppLocalizations {
     'add_first_address': 'أضف عنوان التسليم الأول',
     'loading_addresses': 'جاري تحميل العناوين...',
     'delete_address': 'حذف العنوان',
-    'confirm_delete_address': 'هل أنت متأكد من رغبتك في\nحذف هذا العنوان؟',
+    'confirm_delete_address': 'هل أنت متأكد من رغبتك في حذف هذا الإشعار؟',
     'address_saved': 'تم حفظ العنوان بنجاح!',
     'address_updated': 'تم تحديث العنوان بنجاح!',
     'address_default_updated': 'تم تحديث عنوانك الافتراضي',
@@ -767,7 +1143,7 @@ class AppLocalizations {
     'notif_email_subtitle': 'تلقي الإشعارات عبر البريد الإلكتروني',
     'notif_section_orders': 'الطلبات والتوصيل',
     'notif_orders_title': 'تحديثات الطلب',
-    'notif_orders_subtitle': 'تتبع طلبك وتوصيلك',
+    'notif_orders_subtitle': 'تحديد الكل كمقروء',
     'notif_section_marketing': 'التسويق والعروض',
     'notif_promo_title': 'العروض الترويجية',
     'notif_promo_subtitle': 'الخصومات والعروض الخاصة',
@@ -829,9 +1205,203 @@ class AppLocalizations {
     'edit_profile_phone_required': 'يرجى إدخال رقم هاتفك',
     'edit_profile_section_personal': 'المعلومات الشخصية',
     'edit_profile_section_contact': 'معلومات الاتصال',
+
+    // ── الأمان ────────────────────────────────────────────────────
+    'security_title': 'الأمان',
+    'security_subtitle': 'إدارة أمان حسابك',
+    'security_google_account': 'حساب Google',
+    'security_google_connected': 'حسابك مرتبط عبر Google',
+    'security_google_how_to': 'كيفية تغيير كلمة المرور؟',
+    'security_google_step1': 'اذهب إلى حساب Google الخاص بك',
+    'security_google_step2': 'انقر على "الأمان"',
+    'security_google_step3': 'تحت "تسجيل الدخول إلى Google"، انقر على "كلمة المرور"',
+    'security_google_step4': 'اتبع التعليمات لتغيير كلمة المرور',
+    'security_google_warning': 'يجب إجراء تغيير كلمة المرور مباشرة على Google لأسباب أمنية.',
+    'security_open_google': 'فتح أمان Google',
+    'security_google_dialog_title': 'فتح أمان Google',
+    'security_google_dialog_step1': '1. انسخ الرابط أدناه',
+    'security_google_dialog_step2': '2. افتح متصفحك',
+    'security_google_dialog_step3': '3. الصق الرابط وادخل إلى الصفحة',
+    'security_link_copied': 'تم نسخ الرابط!',
+    'security_unsupported_title': 'طريقة تسجيل الدخول غير مدعومة',
+    'security_unsupported_desc': 'طريقة تسجيل الدخول الحالية لا تسمح بتغيير كلمة المرور من هذا التطبيق.',
+    'security_auth_section': 'المصادقة',
+    'security_two_factor_subtitle': 'يضيف طبقة أمان إضافية',
+    'security_biometric_subtitle': 'استخدم بصمتك أو وجهك',
+    'security_change_password_subtitle': 'قم بتحديث كلمة المرور',
+    'security_session_section': 'الجلسة',
+    'security_auto_logout_title': 'تسجيل الخروج التلقائي',
+    'security_auto_logout_subtitle': 'تسجيل الخروج بعد عدم النشاط',
+    'security_inactivity_delay': 'مهلة عدم النشاط',
+    'security_inactivity_subtitle': 'الوقت قبل تسجيل الخروج التلقائي',
+    'security_active_sessions_subtitle': 'إدارة اتصالاتك النشطة',
+    'security_privacy_section': 'الخصوصية',
+    'security_login_notif_title': 'إشعارات تسجيل الدخول',
+    'security_login_notif_subtitle': 'احصل على إشعار عند تسجيل دخول جديد',
+    'security_download_data': 'تنزيل بياناتك',
+    'security_download_subtitle': 'تصدير معلوماتك الشخصية',
+    'security_download_preparing': 'جاري إعداد التنزيل...',
+    'security_download_success': 'تم تصدير البيانات بنجاح!',
+    'security_download_confirm_title': 'تنزيل بياناتك',
+    'security_download_confirm_body': 'هل تريد تنزيل جميع معلوماتك الشخصية؟',
+    'security_download_btn': 'تنزيل',
+    'security_share_btn': 'مشاركة',
+    'security_delete_account': 'حذف الحساب',
+    'security_delete_account_subtitle': 'حذف حسابك نهائياً',
+    'security_delete_account_confirm': 'هل أنت متأكد من رغبتك في حذف حسابك؟ هذا الإجراء لا رجعة فيه وستُفقد جميع بياناتك.',
+    'security_auto_logout_activated': 'تم تفعيل تسجيل الخروج التلقائي',
+    'security_auto_logout_deactivated': 'تم إلغاء تسجيل الخروج التلقائي',
+    'security_delay_changed': 'تم تغيير مهلة عدم النشاط إلى',
+
+    // ── التخطيط الرئيسي ───────────────────────────────────────────
+    'main_smart_market': 'السوق الذكي',
+    'main_purchase_history': 'سجل المشتريات',
+    'main_my_profile': 'ملفي الشخصي',
+    'main_login_required_title': 'تسجيل الدخول مطلوب',
+    'main_login_required_body': 'يجب أن تكون مسجلاً للدخول للوصول إلى هذه الميزة.',
+    'main_later': 'لاحقاً',
+    'main_cart_summary': 'ملخص عربة التسوق',
+    'main_selected_items': 'المنتجات المحددة',
+    'main_start_shopping': 'ابدأ التسوق',
+    'main_add_to_cart': 'أضف منتجات لبدء التسوق',
+
+    // ── صفحة الإشعارات ───────────────────────────────────────────
+    'notif_page_mark_all_read': 'تحديد الكل كمقروء',
+    'notif_page_delete_all': 'حذف الكل',
+    'notif_page_empty_title': 'لا توجد إشعارات',
+    'notif_page_empty_subtitle': 'ليس لديك إشعارات في الوقت الحالي',
+    'notif_page_delete_confirm_title': 'حذف الكل',
+    'notif_page_delete_confirm_body': 'هل أنت متأكد من رغبتك في حذف جميع إشعاراتك؟',
+    'notif_page_time_ago_minutes': 'منذ {n} دقيقة',
+    'notif_page_time_ago_hours': 'منذ {n} ساعة',
+    'notif_page_time_ago_days': 'منذ {n} يوم',
+    'notif_page_time_ago_default': 'منذ فترة',
+    'notif_page_mark_error': 'خطأ في تحديد الإشعار',
+    'notif_page_delete_error': 'خطأ في حذف الإشعار',
+
+    // ── الجلسات النشطة ────────────────────────────────────────────
+    'session_cannot_revoke_current': 'لا يمكن إلغاء الجلسة الحالية',
+    'session_revoke_title': 'إلغاء الجلسة',
+    'session_revoke_confirm': 'هل أنت متأكد من رغبتك في إلغاء الجلسة على',
+    'session_reconnect_required': 'سيحتاج المستخدم إلى تسجيل الدخول مرة أخرى.',
+    'session_revoked_success': 'تم إلغاء الجلسة بنجاح',
+    'session_revoke_error': 'خطأ في إلغاء الجلسة',
+    'session_no_other': 'لا توجد جلسات أخرى للإلغاء',
+    'session_revoke_all_title': 'إلغاء جميع الجلسات الأخرى',
+    'session_revoke_all_confirm': 'هل أنت متأكد من رغبتك في إلغاء',
+    'session_sessions': 'جلسة/جلسات',
+    'session_all_reconnect': 'سيحتاج جميع المستخدمين إلى تسجيل الدخول مرة أخرى.',
+    'session_revoked_count': 'جلسة/جلسات تم إلغاؤها',
+    'session_delete_all_title': 'حذف جميع الجلسات',
+    'session_delete_all_confirm': 'تحذير! سيتم حذف جميع جلساتك بما في ذلك الجلسة الحالية.\n\nستحتاج إلى تسجيل الدخول مرة أخرى على جميع أجهزتك.\n\nهل تريد المتابعة؟',
+    'session_all_deleted': 'تم حذف جميع الجلسات',
+    'session_delete_error': 'خطأ في حذف الجلسات',
+    'session_revoke_btn': 'إلغاء',
+    'session_current': 'الجلسة الحالية',
+    'session_active': 'نشطة',
+    'session_inactive': 'غير نشطة',
+    'session_version': 'الإصدار',
+    'session_last_activity': 'آخر نشاط',
+    'session_created_at': 'تم الإنشاء في',
+    'session_long_inactive': 'الجلسة غير نشطة منذ فترة طويلة',
+    'session_revoke_tooltip': 'إلغاء هذه الجلسة',
+    'session_all_sessions': 'جميع الجلسات',
+    'session_refresh': 'تحديث الجلسات',
+    'session_revoke_all_btn': 'إلغاء الكل',
+    'session_none': 'لا توجد جلسات',
+    'session_none_desc': 'ستظهر الجلسات هنا عند تسجيل دخولك.',
+    'session_total_count': 'جلسة/جلسات إجمالية',
+    'session_active_count': 'نشطة',
+    'session_inactive_count': 'غير نشطة',
+    'session_delete_all_btn': 'حذف الكل',
+
+    // ── نموذج العنوان (ويدجت) ─────────────────────────────────────
+    'addr_country_region': 'البلد/المنطقة',
+    'addr_personal_info_section': 'المعلومات الشخصية',
+    'addr_contact_name_hint': 'اسم جهة الاتصال*',
+    'addr_contact_name_helper': 'يرجى إدخال اسم جهة الاتصال.',
+    'addr_contact_name_error': 'يرجى إدخال اسم جهة الاتصال',
+    'addr_phone_hint': 'رقم الجوال*',
+    'addr_phone_error_required': 'الرقم مطلوب',
+    'addr_phone_error_invalid': 'رقم غير صحيح',
+    'addr_address_section': 'العنوان',
+    'addr_street_hint': 'الشارع ورقم الشارع*',
+    'addr_street_error': 'الشارع مطلوب',
+    'addr_complement_hint': 'شقة، جناح، وحدة، إلخ. (اختياري)',
+    'addr_province_hint': 'المحافظة*',
+    'addr_province_error': 'المحافظة مطلوبة',
+    'addr_city_hint': 'المدينة*',
+    'addr_city_error': 'المدينة مطلوبة',
+    'addr_postal_hint': 'الرمز البريدي*',
+    'addr_postal_error': 'الرمز البريدي مطلوب',
+
+    // ── حوار تسجيل الخروج التلقائي ───────────────────────────────
+    'autologout_title': 'تسجيل الخروج\nالتلقائي',
+    'autologout_will_logout': 'سيتم تسجيل خروجك خلال',
+    'autologout_second': 'ثانية',
+    'autologout_seconds': 'ثوانٍ',
+    'autologout_inactivity_msg': 'لقد كنت غير نشط لفترة طويلة. انقر أدناه للبقاء متصلاً.',
+    'autologout_stay': 'البقاء متصلاً',
+    'autologout_logout': 'تسجيل الخروج',
+
+    // ── ويدجت الجنس ──────────────────────────────────────────────
+    'gender_select_placeholder': 'اختر الجنس',
+    'gender_dialog_title': 'اختر الجنس',
+
+    // ── ويدجت الهاتف ─────────────────────────────────────────────
+    'phone_select_country': 'اختر دولة',
+    'phone_search_country': 'ابحث عن دولة...',
+    'phone_label': 'الهاتف',
+
+    // ── ويدجت الصورة الشخصية ───────────────────────────────────────────────
+    'change_photo': 'تغيير الصورة',
+    'choose_photo': 'اختر صورة',
+    'camera': 'الكاميرا',
+    'gallery': 'المعرض',
+
+    // ── ويدجت عنصر الأسئلة الشائعة ───────────────────────────────────────────────
+    'faq_question': 'سؤال',
+    'faq_category': 'الفئة',
+    'faq_content_unavailable': 'المحتوى غير متاح',
+    'faq_useful': 'مفيد',
+    'faq_share': 'مشاركة',
+
+    // ── شاشة البداية ───────────────────────────────────────────────────
+    'splash_loading': 'جاري التحميل',
+    'splash_version': 'الإصدار 1.0.0',
+    'splash_copyright': '© 2026 winzy. جميع الحقوق محفوظة.',
+
+    // ── Change Password Page ───────────────────────────────────
+    'change_password_google_title': 'فتح أمان Google',
+    'change_password_google_desc': 'لتغيير كلمة مرور Google، يرجى:',
+    'change_password_google_step1': '1. انسخ الرابط أدناه',
+    'change_password_google_step2': '2. افتح متصفحك',
+    'change_password_google_step3': '3. الصق الرابط وادخل إلى الصفحة',
+    'change_password_link_copied': 'تم نسخ الرابط!',
+    'change_password_google_account': 'حساب Google',
+    'change_password_google_connected': 'حسابك مرتبط عبر Google',
+    'change_password_how_to': 'كيفية تغيير كلمة المرور؟',
+    'change_password_google_step1_1': '1. اذهب إلى حساب Google الخاص بك',
+    'change_password_google_step2_1': '2. انقر على "الأمان"',
+    'change_password_google_step3_1': '3. تحت "تسجيل الدخول إلى Google"، انقر على "كلمة المرور"',
+    'change_password_google_step4_1': '4. اتبع التعليمات لتغيير كلمة المرور',
+    'change_password_google_warning': 'يجب إجراء تغيير كلمة المرور مباشرة على Google لأسباب أمنية.',
+    'change_password_info_secure': 'معلوماتك مشفرة وآمنة',
+
+    // ── Session Timeout Values ───────────────────────────────────────
+    'session_timeout_5_seconds': '5 ثوانٍ',
+    'session_timeout_15_minutes': '15 دقيقة',
+    'session_timeout_30_minutes': '30 دقيقة',
+    'session_timeout_1_hour': '1 ساعة',
+    'session_timeout_2_hours': 'ساعتان',
+
+    // ── ويدجت تبديل العنوان الافتراضي ─────────────────────────────────────────────
+    'set_default_address': 'تعيين كعنوان شحن افتراضي',
   };
 
-  // ── API ────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════
+  //  API
+  // ════════════════════════════════════════════════════════════════
   static String get(String key, {String? languageCode}) {
     final lang = languageCode ?? _currentLanguageCode;
     return _getTranslations(lang)[key] ?? key;
@@ -842,15 +1412,20 @@ class AppLocalizations {
 
   static Map<String, String> _getTranslations(String languageCode) {
     switch (languageCode) {
-      case 'fr': return _fr;
-      case 'en': return _en;
-      case 'ar': return _ar;
-      default:   return _fr;
+      case 'fr':
+        return _fr;
+      case 'en':
+        return _en;
+      case 'ar':
+        return _ar;
+      default:
+        return _fr;
     }
   }
 
   static String _currentLanguageCode = 'fr';
-  static void setLanguage(String languageCode) => _currentLanguageCode = languageCode;
+  static void setLanguage(String languageCode) =>
+      _currentLanguageCode = languageCode;
   static String getLanguage() => _currentLanguageCode;
   static bool get isRtl => _currentLanguageCode == 'ar';
 }

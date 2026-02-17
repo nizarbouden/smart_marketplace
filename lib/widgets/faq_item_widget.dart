@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class FAQItemWidget extends StatefulWidget {
   final Map<String, dynamic> faq;
@@ -77,7 +78,7 @@ class _FAQItemWidgetState extends State<FAQItemWidget> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.faq['title'] ?? 'Question',
+                          widget.faq['title'] ?? AppLocalizations.get('faq_question'),
                           style: TextStyle(
                             fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
                             fontWeight: FontWeight.w600,
@@ -86,7 +87,7 @@ class _FAQItemWidgetState extends State<FAQItemWidget> {
                         ),
                         SizedBox(height: widget.isMobile ? 4 : 6),
                         Text(
-                          widget.faq['category'] ?? 'Catégorie',
+                          widget.faq['category'] ?? AppLocalizations.get('faq_category'),
                           style: TextStyle(
                             fontSize: widget.isDesktop ? 12 : widget.isTablet ? 11 : 10,
                             color: widget.color,
@@ -140,7 +141,7 @@ class _FAQItemWidgetState extends State<FAQItemWidget> {
                     
                     // Contenu de la réponse
                     Text(
-                      widget.faq['content'] ?? 'Contenu non disponible',
+                      widget.faq['content'] ?? AppLocalizations.get('faq_content_unavailable'),
                       style: TextStyle(
                         fontSize: widget.isDesktop ? 14 : widget.isTablet ? 13 : 12,
                         color: Colors.black87,
@@ -160,7 +161,7 @@ class _FAQItemWidgetState extends State<FAQItemWidget> {
                         ),
                         SizedBox(width: widget.isMobile ? 6 : 8),
                         Text(
-                          'Utile',
+                          AppLocalizations.get('faq_useful'),
                           style: TextStyle(
                             fontSize: widget.isDesktop ? 12 : widget.isTablet ? 11 : 10,
                             color: Colors.grey[600],
@@ -176,7 +177,7 @@ class _FAQItemWidgetState extends State<FAQItemWidget> {
                         ),
                         SizedBox(width: widget.isMobile ? 6 : 8),
                         Text(
-                          'Partager',
+                          AppLocalizations.get('faq_share'),
                           style: TextStyle(
                             fontSize: widget.isDesktop ? 12 : widget.isTablet ? 11 : 10,
                             color: Colors.grey[600],

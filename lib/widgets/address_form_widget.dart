@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_marketplace/models/countries.dart';
 import 'package:smart_marketplace/widgets/phone_field_widget.dart';
+import '../localization/app_localizations.dart';
 
 class AddressFormWidget extends StatefulWidget {
   // Controllers
@@ -12,18 +13,18 @@ class AddressFormWidget extends StatefulWidget {
   final TextEditingController provinceController;
   final TextEditingController cityController;
   final TextEditingController postalCodeController;
-  
+
   // Country data
   final String selectedCountryCode;
   final String selectedCountryName;
   final String selectedCountryFlag;
   final List<Map<String, String>> filteredCountries;
-  
+
   // Callbacks
   final VoidCallback onCountryPickerTap;
   final Function(Map<String, String>) onCountrySelected;
   final Function(String) onFilterChanged;
-  
+
   // Responsive
   final bool isDesktop;
   final bool isTablet;
@@ -55,38 +56,51 @@ class AddressFormWidget extends StatefulWidget {
 }
 
 class _AddressFormWidgetState extends State<AddressFormWidget> {
+  // ── Helpers ─────────────────────────────────────────────────────
+  double get _fs => widget.isDesktop ? 16 : widget.isTablet ? 15 : 14;
+  double get _titleFs => widget.isDesktop ? 20 : widget.isTablet ? 18 : 16;
+  double get _helperFs => widget.isDesktop ? 14 : widget.isTablet ? 13 : 12;
+  EdgeInsets get _fieldPadding => EdgeInsets.symmetric(
+    horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
+    vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
+  );
+  double get _sectionGap => widget.isMobile ? 28 : widget.isTablet ? 36 : 44;
+  double get _fieldGap => widget.isMobile ? 16 : widget.isTablet ? 20 : 24;
+
+  InputDecoration _fieldDecoration(String hint, IconData icon) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey[400], fontSize: _fs),
+    prefixIcon: Icon(icon, color: Colors.deepPurple),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.deepPurple, width: 2)),
+    contentPadding: _fieldPadding,
+    filled: true,
+    fillColor: Colors.white,
+  );
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Pays/Région Section
         _buildCountrySection(),
-        SizedBox(height: widget.isMobile ? 28 : widget.isTablet ? 36 : 44),
-
-        // Informations personnelles Section
+        SizedBox(height: _sectionGap),
         _buildPersonalInfoSection(),
-        SizedBox(height: widget.isMobile ? 28 : widget.isTablet ? 36 : 44),
-
-        // Adresse Section
+        SizedBox(height: _sectionGap),
         _buildAddressSection(),
       ],
     );
   }
 
+  // ── Section Pays/Région ──────────────────────────────────────────
   Widget _buildCountrySection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Pays/Région',
-          style: TextStyle(
-            fontSize: widget.isDesktop ? 20 : widget.isTablet ? 18 : 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        Text(AppLocalizations.get('addr_country_region'),
+            style: TextStyle(fontSize: _titleFs, fontWeight: FontWeight.bold, color: Colors.black87)),
+        SizedBox(height: _fieldGap),
         GestureDetector(
           onTap: widget.onCountryPickerTap,
           child: Container(
@@ -101,25 +115,13 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
             ),
             child: Row(
               children: [
-                Text(
-                  widget.selectedCountryFlag,
-                  style: const TextStyle(fontSize: 28),
-                ),
+                Text(widget.selectedCountryFlag, style: const TextStyle(fontSize: 28)),
                 SizedBox(width: widget.isMobile ? 12 : 16),
-                Text(
-                  widget.selectedCountryName,
-                  style: TextStyle(
-                    fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(widget.selectedCountryName,
+                    style: TextStyle(fontSize: _fs, color: Colors.black87, fontWeight: FontWeight.w500)),
                 const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.grey[400],
-                  size: widget.isDesktop ? 24 : widget.isTablet ? 22 : 20,
-                ),
+                Icon(Icons.chevron_right,
+                    color: Colors.grey[400], size: widget.isDesktop ? 24 : widget.isTablet ? 22 : 20),
               ],
             ),
           ),
@@ -128,65 +130,26 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
     );
   }
 
+  // ── Section Informations personnelles ────────────────────────────
   Widget _buildPersonalInfoSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Informations personnelles',
-          style: TextStyle(
-            fontSize: widget.isDesktop ? 20 : widget.isTablet ? 18 : 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        Text(AppLocalizations.get('addr_personal_info_section'),
+            style: TextStyle(fontSize: _titleFs, fontWeight: FontWeight.bold, color: Colors.black87)),
+        SizedBox(height: _fieldGap),
 
         // Nom du contact
         TextFormField(
           controller: widget.contactNameController,
-          decoration: InputDecoration(
-            hintText: 'Nom du contact*',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.person, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Veuillez saisir un nom de contact';
-            }
-            return null;
-          },
+          decoration: _fieldDecoration(AppLocalizations.get('addr_contact_name_hint'), Icons.person),
+          validator: (value) =>
+          (value == null || value.isEmpty) ? AppLocalizations.get('addr_contact_name_error') : null,
         ),
-        SizedBox(height: 8),
-        Text(
-          'Veuillez saisir un nom de contact.',
-          style: TextStyle(
-            fontSize: widget.isDesktop ? 14 : widget.isTablet ? 13 : 12,
-            color: Colors.grey[600],
-          ),
-        ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        const SizedBox(height: 8),
+        Text(AppLocalizations.get('addr_contact_name_helper'),
+            style: TextStyle(fontSize: _helperFs, color: Colors.grey[600])),
+        SizedBox(height: _fieldGap),
 
         // Code pays + Téléphone
         Row(
@@ -197,14 +160,8 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
                 enabled: false,
                 controller: TextEditingController(text: widget.selectedCountryCode),
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: widget.isMobile ? 12 : widget.isTablet ? 16 : 20,
                     vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
@@ -212,11 +169,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
                   filled: true,
                   fillColor: Colors.grey[50],
                 ),
-                style: TextStyle(
-                  fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: _fs, color: Colors.black87, fontWeight: FontWeight.w500),
               ),
             ),
             SizedBox(width: widget.isMobile ? 12 : 16),
@@ -225,39 +178,10 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
                 controller: widget.phoneController,
                 keyboardType: TextInputType.phone,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  hintText: 'Numéro de portable*',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-                  ),
-                  prefixIcon: Icon(Icons.phone, color: Colors.deepPurple),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-                    vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
+                decoration: _fieldDecoration(AppLocalizations.get('addr_phone_hint'), Icons.phone),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Numéro requis';
-                  }
-                  if (value.length < 8) {
-                    return 'Numéro invalide';
-                  }
+                  if (value == null || value.isEmpty) return AppLocalizations.get('addr_phone_error_required');
+                  if (value.length < 8) return AppLocalizations.get('addr_phone_error_invalid');
                   return null;
                 },
               ),
@@ -268,203 +192,57 @@ class _AddressFormWidgetState extends State<AddressFormWidget> {
     );
   }
 
+  // ── Section Adresse ──────────────────────────────────────────────
   Widget _buildAddressSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Adresse',
-          style: TextStyle(
-            fontSize: widget.isDesktop ? 20 : widget.isTablet ? 18 : 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        Text(AppLocalizations.get('addr_address_section'),
+            style: TextStyle(fontSize: _titleFs, fontWeight: FontWeight.bold, color: Colors.black87)),
+        SizedBox(height: _fieldGap),
 
         // Rue et numéro
         TextFormField(
           controller: widget.streetController,
-          decoration: InputDecoration(
-            hintText: 'Rue et numéro de la rue*',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.home, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'La rue est requise';
-            }
-            return null;
-          },
+          decoration: _fieldDecoration(AppLocalizations.get('addr_street_hint'), Icons.home),
+          validator: (value) =>
+          (value == null || value.isEmpty) ? AppLocalizations.get('addr_street_error') : null,
         ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        SizedBox(height: _fieldGap),
 
         // Complément
         TextFormField(
           controller: widget.complementController,
-          decoration: InputDecoration(
-            hintText: 'Appartement, suite, unité, etc. (facultatif)',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.apartment, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
+          decoration: _fieldDecoration(AppLocalizations.get('addr_complement_hint'), Icons.apartment),
         ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        SizedBox(height: _fieldGap),
 
         // Province
         TextFormField(
           controller: widget.provinceController,
-          decoration: InputDecoration(
-            hintText: 'Province*',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.map, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'La province est requise';
-            }
-            return null;
-          },
+          decoration: _fieldDecoration(AppLocalizations.get('addr_province_hint'), Icons.map),
+          validator: (value) =>
+          (value == null || value.isEmpty) ? AppLocalizations.get('addr_province_error') : null,
         ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        SizedBox(height: _fieldGap),
 
         // Ville
         TextFormField(
           controller: widget.cityController,
-          decoration: InputDecoration(
-            hintText: 'Ville*',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.location_city, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'La ville est requise';
-            }
-            return null;
-          },
+          decoration: _fieldDecoration(AppLocalizations.get('addr_city_hint'), Icons.location_city),
+          validator: (value) =>
+          (value == null || value.isEmpty) ? AppLocalizations.get('addr_city_error') : null,
         ),
-        SizedBox(height: widget.isMobile ? 16 : widget.isTablet ? 20 : 24),
+        SizedBox(height: _fieldGap),
 
         // Code postal
         TextFormField(
           controller: widget.postalCodeController,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            hintText: 'Code postal*',
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: widget.isDesktop ? 16 : widget.isTablet ? 15 : 14,
-            ),
-            prefixIcon: Icon(Icons.mail, color: Colors.deepPurple),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: widget.isMobile ? 16 : widget.isTablet ? 20 : 24,
-              vertical: widget.isMobile ? 14 : widget.isTablet ? 16 : 18,
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Le code postal est requis';
-            }
-            return null;
-          },
+          decoration: _fieldDecoration(AppLocalizations.get('addr_postal_hint'), Icons.mail),
+          validator: (value) =>
+          (value == null || value.isEmpty) ? AppLocalizations.get('addr_postal_error') : null,
         ),
       ],
     );

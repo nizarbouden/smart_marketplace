@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class DefaultAddressToggleWidget extends StatelessWidget {
   final bool isDefault;
@@ -21,7 +22,7 @@ class DefaultAddressToggleWidget extends StatelessWidget {
     return Row(
       children: [
         Text(
-          'Définir comme adresse de livraison par défaut',
+          AppLocalizations.get('set_default_address'),
           style: TextStyle(
             fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
             color: Colors.black87,

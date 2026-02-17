@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class GenderFieldWidget extends StatelessWidget {
   final String? selectedGender;
@@ -18,16 +19,14 @@ class GenderFieldWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasGender = selectedGender != null && selectedGender != '';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2)),
         ],
       ),
       child: GestureDetector(
@@ -43,27 +42,19 @@ class GenderFieldWidget extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.person,
-                color: Colors.deepPurple,
-                size: isDesktop ? 24 : isTablet ? 22 : 20,
-              ),
+              Icon(Icons.person, color: Colors.deepPurple, size: isDesktop ? 24 : isTablet ? 22 : 20),
               SizedBox(width: isDesktop ? 16 : isTablet ? 12 : 8),
               Expanded(
                 child: Text(
-                  selectedGender ?? 'Sélectionner le genre',
+                  hasGender ? selectedGender! : AppLocalizations.get('gender_select_placeholder'),
                   style: TextStyle(
                     fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
-                    color: selectedGender != null && selectedGender != '' ? Colors.black87 : Colors.grey[500],
-                    fontWeight: selectedGender != null && selectedGender != '' ? FontWeight.w500 : FontWeight.normal,
+                    color: hasGender ? Colors.black87 : Colors.grey[500],
+                    fontWeight: hasGender ? FontWeight.w500 : FontWeight.normal,
                   ),
                 ),
               ),
-              Icon(
-                Icons.keyboard_arrow_down,
-                color: Colors.grey[600],
-                size: isDesktop ? 24 : isTablet ? 20 : 16,
-              ),
+              Icon(Icons.keyboard_arrow_down, color: Colors.grey[600], size: isDesktop ? 24 : isTablet ? 20 : 16),
             ],
           ),
         ),
@@ -76,9 +67,7 @@ class GenderFieldWidget extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -89,12 +78,8 @@ class GenderFieldWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Sélectionner le genre',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                      AppLocalizations.get('gender_dialog_title'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
@@ -103,12 +88,12 @@ class GenderFieldWidget extends StatelessWidget {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 20),
-                
-                // Options de genre
+
+                // Options
                 ...genders.map((gender) {
-                  bool isSelected = selectedGender == gender;
+                  final isSelected = selectedGender == gender;
                   return InkWell(
                     onTap: () {
                       onGenderSelected(gender);
@@ -118,7 +103,6 @@ class GenderFieldWidget extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                       child: Row(
                         children: [
-                          // Cercle de sélection
                           Container(
                             width: 24,
                             height: 24,
@@ -132,19 +116,15 @@ class GenderFieldWidget extends StatelessWidget {
                             ),
                             child: isSelected
                                 ? Center(
-                                    child: Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  )
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                              ),
+                            )
                                 : null,
                           ),
                           const SizedBox(width: 16),
-                          // Texte du genre
                           Text(
                             gender,
                             style: TextStyle(
@@ -158,7 +138,7 @@ class GenderFieldWidget extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-                
+
                 const SizedBox(height: 20),
               ],
             ),

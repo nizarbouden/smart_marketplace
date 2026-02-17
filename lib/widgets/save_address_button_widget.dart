@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 
 class SaveAddressButtonWidget extends StatelessWidget {
   final bool isLoading;
@@ -42,7 +43,7 @@ class SaveAddressButtonWidget extends StatelessWidget {
                 ),
               )
             : Text(
-                'Enregistrer',
+                AppLocalizations.get('save'),
                 style: TextStyle(
                   fontSize: isDesktop ? 18 : isTablet ? 16 : 15,
                   fontWeight: FontWeight.w600,

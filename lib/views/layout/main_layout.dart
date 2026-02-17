@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../localization/app_localizations.dart';
 import '../../services/auto_logout_service.dart';
 import '../cart/cart_page.dart';
 import '../compte/profile_page.dart';
@@ -9,6 +10,7 @@ import '../../services/selection_service.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -33,16 +35,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   bool _dialogShown = false;
 
-  bool _isUserConnected() {
-    final user = _auth.currentUser;
-    return user != null;
-  }
+  bool _isUserConnected() => _auth.currentUser != null;
 
   void _showAutoLogoutWarning(int remainingSeconds) {
-    if (_dialogShown) {
-      return;
-    }
-
+    if (_dialogShown) return;
     _dialogShown = true;
 
     showDialog(
@@ -52,34 +48,20 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         remainingSeconds: remainingSeconds,
         onStayLoggedIn: () {
           _dialogShown = false;
-
-          if (mounted && Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
-
+          if (mounted && Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
           _autoLogoutService.recordActivity();
         },
         onLogout: () {
           _dialogShown = false;
-
-          if (mounted && Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
-
+          if (mounted && Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
           _autoLogoutService.stopAutoLogout();
           _auth.signOut();
-
           if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/login',
-                  (route) => false,
-            );
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
           }
         },
       ),
-    ).then((_) {
-      _dialogShown = false;
-    });
+    ).then((_) => _dialogShown = false);
   }
 
   void _showLoginRequiredMessage() {
@@ -90,21 +72,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       builder: (BuildContext context) {
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 20,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF6366F1),
-                  const Color(0xFF8B5CF6),
-                  const Color(0xFFA855F7),
-                ],
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFA855F7)],
               ),
             ),
             child: Column(
@@ -118,19 +94,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 2,
-                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
                     ),
-                    child: const Icon(
-                      Icons.lock_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                    child: const Icon(Icons.lock_rounded, color: Colors.white, size: 32),
                   ),
                 ),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
@@ -144,9 +112,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Connexion requise',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.get('login_title'),
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF8700FF),
@@ -154,9 +122,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Vous devez être connecté pour accéder\nà cette fonctionnalité.',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.get('login'),
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
                           height: 1.4,
@@ -164,40 +132,31 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-
                       Row(
                         children: [
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
+                                onPressed: () => Navigator.of(context).pop(),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: Color(0xFF6366F1),
-                                    width: 1.5,
-                                  ),
+                                  side: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  backgroundColor: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const Text(
-                                  'Plus tard',
-                                  style: TextStyle(
-                                    color: Color(0xFF6366F1),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                child: Text(
+                                  AppLocalizations.get('cancel'),
+                                  style: const TextStyle(
+                                      color: Color(0xFF6366F1),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600),
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: ElevatedButton(
                                 onPressed: () {
@@ -207,20 +166,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF6366F1),
                                   foregroundColor: Colors.white,
-                                  shadowColor: const Color(0xFF6366F1).withOpacity(0.3),
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                      borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const FittedBox(
+                                child: FittedBox(
                                   child: Text(
-                                    'Se connecter',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.3,
-                                    ),
+                                    AppLocalizations.get('login'),
+                                    style: const TextStyle(
+                                        fontSize: 15, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ),
@@ -242,17 +196,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
-  final List<Widget> _pages = [
-    const HomePage(),
-    const CartPage(),
-    const HistoryPage(),
-    const ProfilePage(),
-  ];
-
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addObserver(this);
 
     _animationController = AnimationController(
@@ -264,55 +210,41 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     );
 
     _loadUnreadNotificationsCount();
-
     _selectionService.addListener(_onSelectionChanged);
-
     _initializeAutoLogout();
   }
 
   Future<void> _initializeAutoLogout() async {
     try {
       final currentUser = _auth.currentUser;
-
       if (currentUser != null) {
         await _autoLogoutService.init();
         final settings = await _autoLogoutService.loadAutoLogoutSettings();
         final isEnabled = settings['enabled'] ?? false;
         final duration = settings['duration'] ?? '30 minutes';
-        if (isEnabled) {
-          _autoLogoutService.startAutoLogout(duration);
-        }
-
+        if (isEnabled) _autoLogoutService.startAutoLogout(duration);
         _setupAutoLogoutCallbacks();
       }
     } catch (e) {
-      print('❌ Erreur lors de l\'initialisation de l\'auto-logout: $e');
+      print('❌ Erreur auto-logout: $e');
     }
   }
 
   void _setupAutoLogoutCallbacks() {
     _autoLogoutService.setOnLogoutCallback(() {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⏱️ Déconnexion automatique - Inactivité détectée'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.get('inactivity_detected')),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
         _autoLogoutService.stopAutoLogout();
-
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
-              (route) => false,
-        );
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
       }
     });
 
     _autoLogoutService.setOnWarningCallback((remainingSeconds) {
-      if (mounted) {
-        _showAutoLogoutWarning(remainingSeconds);
-      }
+      if (mounted) _showAutoLogoutWarning(remainingSeconds);
     });
   }
 
@@ -327,7 +259,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
     if (state == AppLifecycleState.resumed && !_showNotifications) {
       _autoLogoutService.recordActivity();
       _refreshNotificationCount();
@@ -337,49 +268,29 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   Future<void> _loadUnreadNotificationsCount() async {
     try {
       List<Map<String, dynamic>> notifications = await _authService.getUserNotifications();
-      int unreadCount = 0;
-
-      for (var notification in notifications) {
-        if (!(notification['isRead'] ?? true)) {
-          unreadCount++;
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _unreadNotificationsCount = unreadCount;
-        });
-      }
+      int unreadCount = notifications.where((n) => !(n['isRead'] ?? true)).length;
+      if (mounted) setState(() => _unreadNotificationsCount = unreadCount);
     } catch (e) {
-      print('❌ Erreur lors du chargement du compteur de notifications: $e');
+      print('❌ Erreur notifications: $e');
     }
   }
 
-  void _refreshNotificationCount() {
-    _loadUnreadNotificationsCount();
-  }
+  void _refreshNotificationCount() => _loadUnreadNotificationsCount();
 
   void _onSelectionChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   Map<String, dynamic> _calculateRealTotals() {
-    if (_selectedCartItems > 0) {
-      return {'count': _selectedCartItems, 'total': _selectedTotal};
-    } else {
-      return {'count': 0, 'total': 0.0};
-    }
+    if (_selectedCartItems > 0) return {'count': _selectedCartItems, 'total': _selectedTotal};
+    return {'count': 0, 'total': 0.0};
   }
 
   void _onItemTapped(int index) {
     if (index == 0) {
       setState(() {
         _currentIndex = index;
-        if (index == 0) {
-          _refreshNotificationCount();
-        }
+        _refreshNotificationCount();
       });
     } else {
       if (_isUserConnected()) {
@@ -411,7 +322,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   void _updateCartItemCount(int totalCount) {
     setState(() {
       _totalCartItems = totalCount;
-
       if (_totalCartItems == 0) {
         _selectedCartItems = 0;
         _selectedTotal = 0.0;
@@ -428,11 +338,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     });
   }
 
-  void _toggleCartOverlay() {
-    setState(() {
-      _showCartOverlay = !_showCartOverlay;
-    });
-  }
+  void _toggleCartOverlay() => setState(() => _showCartOverlay = !_showCartOverlay);
 
   @override
   Widget build(BuildContext context) {
@@ -447,11 +353,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))
                     ],
                   ),
                   child: Row(
@@ -462,10 +364,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         child: Text(
                           _getAppBarTitle(),
                           style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                         ),
                       ),
                       Padding(
@@ -489,22 +388,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                   decoration: BoxDecoration(
                                     color: Colors.red,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
+                                    border: Border.all(color: Colors.white, width: 2),
                                   ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 24,
-                                    minHeight: 24,
-                                  ),
+                                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                                   child: Text(
-                                    _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
+                                    _unreadNotificationsCount > 99
+                                        ? '99+'
+                                        : _unreadNotificationsCount.toString(),
                                     style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
@@ -516,7 +410,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   ),
                 ),
               ),
-
               Expanded(
                 child: _showNotifications
                     ? const NotificationsPage()
@@ -526,13 +419,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     const HomePage(),
                     _totalCartItems == 0
                         ? _buildEmptyCart()
-                        : Builder(
-                      builder: (context) {
-                        return CartPage(
-                          onTotalCartItemsChanged: _updateCartItemCount,
-                          onCartSelectionChanged: _updateCartSelection,
-                        );
-                      },
+                        : CartPage(
+                      onTotalCartItemsChanged: _updateCartItemCount,
+                      onCartSelectionChanged: _updateCartSelection,
                     ),
                     const HistoryPage(),
                     const ProfilePage(),
@@ -554,7 +443,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         child: Container(color: Colors.transparent),
                       ),
                     ),
-
                     Positioned(
                       bottom: 161,
                       left: 16,
@@ -566,10 +454,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10))
                           ],
                         ),
                         child: _buildCartOverlayContent(),
@@ -581,10 +468,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             ),
         ],
       ),
-
-      bottomNavigationBar: _currentIndex == 1
-          ? _buildCartNavigationBar()
-          : _buildDefaultNavigationBar(),
+      bottomNavigationBar:
+      _currentIndex == 1 ? _buildCartNavigationBar() : _buildDefaultNavigationBar(),
     );
   }
 
@@ -594,34 +479,24 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-          ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1))),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Résumé du panier',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text(AppLocalizations.get('summary'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               GestureDetector(
                 onTap: _toggleCartOverlay,
                 child: Container(
                   width: 32,
                   height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: Colors.grey[200], shape: BoxShape.circle),
                   child: const Icon(Icons.close, size: 18),
                 ),
               ),
             ],
           ),
         ),
-
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -631,54 +506,38 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Articles sélectionnés',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      Text(AppLocalizations.get('items_selected'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
-
                       if (_selectedCartItems > 0)
                         Expanded(
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
                             itemCount: _selectedCartItems,
-                            itemBuilder: (context, index) {
-                              return _selectedItemCard(index);
-                            },
+                            itemBuilder: (context, index) => _selectedItemCard(index),
                           ),
                         )
                       else
-                        const Expanded(
+                        Expanded(
                           child: Center(
-                            child: Text(
-                              'Aucun article sélectionné',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
+                            child: Text(AppLocalizations.get('empty_cart'),
+                                style: const TextStyle(fontSize: 14, color: Colors.grey)),
                           ),
                         ),
-
                       const SizedBox(height: 20),
                       const Divider(),
                       const SizedBox(height: 20),
-
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                            color: Colors.grey[50], borderRadius: BorderRadius.circular(12)),
                         child: Column(
                           children: [
-                            _summaryRow('Sous-total', '${_selectedTotal.toStringAsFixed(2)} €'),
-                            _summaryRow('Livraison', '5.99 €'),
+                            _summaryRow(AppLocalizations.get('subtotal'),
+                                '${_selectedTotal.toStringAsFixed(2)} €'),
+                            _summaryRow(AppLocalizations.get('shipping'), '5.99 €'),
                             _summaryRow(
-                              'Total',
+                              AppLocalizations.get('total'),
                               '${(_selectedTotal + 5.99).toStringAsFixed(2)} €',
                               isBold: true,
                               isLarge: true,
@@ -714,11 +573,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[300]!),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))
           ],
         ),
         child: Column(
@@ -729,16 +584,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Container(
                   width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  ),
-                  child: Icon(
-                    Icons.image,
-                    color: Colors.grey[400],
-                    size: 24,
-                  ),
+                  color: Colors.grey[200],
+                  child: Icon(Icons.image, color: Colors.grey[400], size: 24),
                 ),
               ),
             ),
@@ -748,18 +595,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 decoration: const BoxDecoration(
-                  color: Colors.deepPurple,
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-                ),
+                    color: Colors.deepPurple,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(12))),
                 child: Center(
-                  child: Text(
-                    'x${item['quantity']}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: Text('x${item['quantity']}',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -767,8 +608,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
         ),
       );
     }
-
-    return Container();
+    return const SizedBox.shrink();
   }
 
   Widget _buildEmptyCart() {
@@ -782,54 +622,26 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.shopping_cart_outlined,
-                color: Colors.deepPurple,
-                size: 60,
-              ),
+                  color: Colors.deepPurple.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.shopping_cart_outlined, color: Colors.deepPurple, size: 60),
             ),
-
             const SizedBox(height: 24),
-
-            const Text(
-              'Votre panier est vide',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-
+            Text(AppLocalizations.get('empty_cart'),
+                style: const TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
             const SizedBox(height: 12),
-
-            Text(
-              'Ajoutez des articles pour commencer vos achats',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-
+            Text(AppLocalizations.get('no_data'),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600])),
             const SizedBox(height: 32),
-
             ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _currentIndex = 0;
-                });
-              },
+              onPressed: () => setState(() => _currentIndex = 0),
               icon: const Icon(Icons.shopping_bag),
-              label: const Text('Commencer mes achats'),
+              label: Text(AppLocalizations.get('home')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -844,21 +656,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: isLarge ? 18 : 14,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: isLarge ? 18 : 14,
-              color: isLarge ? Colors.deepPurple : Colors.black,
-            ),
-          ),
+          Text(label,
+              style: TextStyle(
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                  fontSize: isLarge ? 18 : 14)),
+          Text(value,
+              style: TextStyle(
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                  fontSize: isLarge ? 18 : 14,
+                  color: isLarge ? Colors.deepPurple : Colors.black)),
         ],
       ),
     );
@@ -869,11 +675,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, -2))
         ],
       ),
       child: SafeArea(
@@ -882,30 +684,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home,
-                label: 'Home',
-                index: 0,
-              ),
-              _buildNavItem(
-                icon: Icons.shopping_cart_outlined,
-                activeIcon: Icons.shopping_cart,
-                label: 'Panier',
-                index: 1,
-              ),
-              _buildNavItem(
-                icon: Icons.history_outlined,
-                activeIcon: Icons.history,
-                label: 'Historique',
-                index: 2,
-              ),
-              _buildNavItem(
-                icon: Icons.person_outline,
-                activeIcon: Icons.person,
-                label: 'Compte',
-                index: 3,
-              ),
+              _buildNavItem(icon: Icons.home_outlined, activeIcon: Icons.home,
+                  label: AppLocalizations.get('home'), index: 0),
+              _buildNavItem(icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart,
+                  label: AppLocalizations.get('cart'), index: 1),
+              _buildNavItem(icon: Icons.history_outlined, activeIcon: Icons.history,
+                  label: AppLocalizations.get('history'), index: 2),
+              _buildNavItem(icon: Icons.person_outline, activeIcon: Icons.person,
+                  label: AppLocalizations.get('profile'), index: 3),
             ],
           ),
         ),
@@ -919,11 +705,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, -2))
         ],
       ),
       child: Column(
@@ -932,16 +714,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
             height: 90,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
-              border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-            ),
+                color: Colors.grey[50],
+                border: Border(bottom: BorderSide(color: Colors.grey[300]!))),
             child: Row(
               children: [
                 GestureDetector(
                   onTap: () {
                     _selectionService.toggleAllSelection();
                     final totals = _calculateRealTotals();
-                    _updateCartSelection(totals['count'], totals['total']);
+                    _updateCartSelection(totals['count'] as int, totals['total'] as double);
                   },
                   child: Container(
                     width: 20,
@@ -952,41 +733,23 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       color: _selectionService.isAllSelected ? Colors.deepPurple : null,
                     ),
                     child: _selectionService.isAllSelected
-                        ? const Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 12,
-                    )
+                        ? const Icon(Icons.check, color: Colors.white, size: 12)
                         : null,
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                const Text(
-                  'Tout',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-
+                Text(AppLocalizations.get('select_all'),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                 const SizedBox(width: 8),
-
                 Expanded(
                   child: Text(
-                    '$_selectedCartItems article(s)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    '$_selectedCartItems ${AppLocalizations.get('articles')}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 if (_selectedCartItems > 0)
                   GestureDetector(
                     onTap: () {
@@ -1005,17 +768,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            '${_selectedTotal.toStringAsFixed(2)} €',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
-                            ),
-                          ),
+                          Text('${_selectedTotal.toStringAsFixed(2)} €',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple)),
                           const SizedBox(width: 4),
                           Icon(
-                            _showCartOverlay ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                            _showCartOverlay
+                                ? Icons.keyboard_arrow_down
+                                : Icons.keyboard_arrow_up,
                             color: Colors.deepPurple,
                             size: 16,
                           ),
@@ -1024,76 +786,46 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     ),
                   )
                 else
-                  Text(
-                    '0.00 €',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
-                    ),
-                  ),
-
+                  const Text('0.00 €',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
                 const SizedBox(width: 12),
-
                 ElevatedButton(
-                  onPressed: _selectedCartItems > 0 ? () {
-                    Navigator.pushNamed(context, '/paiement');
-                  } : null,
+                  onPressed: _selectedCartItems > 0
+                      ? () => Navigator.pushNamed(context, '/paiement')
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _selectedCartItems > 0 ? Colors.deepPurple : Colors.grey[300],
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     minimumSize: const Size(0, 40),
                   ),
                   child: Text(
-                    'Paiement ($_selectedCartItems)',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    '${AppLocalizations.get('payment')} ($_selectedCartItems)',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
           ),
-
           Expanded(
             child: SafeArea(
               child: Padding(
                 padding: EdgeInsets.symmetric(
                     horizontal: MediaQuery.of(context).size.width < 360 ? 12 : 16,
-                    vertical: MediaQuery.of(context).size.width < 360 ? 1 : 2
-                ),
+                    vertical: MediaQuery.of(context).size.width < 360 ? 1 : 2),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildNavItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home,
-                      label: 'Home',
-                      index: 0,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.shopping_cart_outlined,
-                      activeIcon: Icons.shopping_cart,
-                      label: 'Panier',
-                      index: 1,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.history_outlined,
-                      activeIcon: Icons.history,
-                      label: 'Historique',
-                      index: 2,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.person_outline,
-                      activeIcon: Icons.person,
-                      label: 'Compte',
-                      index: 3,
-                    ),
+                    _buildNavItem(icon: Icons.home_outlined, activeIcon: Icons.home,
+                        label: AppLocalizations.get('home'), index: 0),
+                    _buildNavItem(icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart,
+                        label: AppLocalizations.get('cart'), index: 1),
+                    _buildNavItem(icon: Icons.history_outlined, activeIcon: Icons.history,
+                        label: AppLocalizations.get('history'), index: 2),
+                    _buildNavItem(icon: Icons.person_outline, activeIcon: Icons.person,
+                        label: AppLocalizations.get('profile'), index: 3),
                   ],
                 ),
               ),
@@ -1111,7 +843,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     required int index,
   }) {
     final isActive = _currentIndex == index;
-
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       child: Column(
@@ -1142,20 +873,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   String _getAppBarTitle() {
-    if (_showNotifications) {
-      return 'Notifications';
-    }
+    if (_showNotifications) return AppLocalizations.get('history');
     switch (_currentIndex) {
-      case 0:
-        return 'Smart Market';
-      case 1:
-        return 'Panier ($_totalCartItems)';
-      case 2:
-        return 'Historique d\'achat';
-      case 3:
-        return 'Mon Profil';
-      default:
-        return 'Smart Market';
+      case 0: return 'Smart Market';
+      case 1: return '${AppLocalizations.get('cart')} ($_totalCartItems)';
+      case 2: return AppLocalizations.get('history');
+      case 3: return AppLocalizations.get('profile');
+      default: return 'Smart Market';
     }
   }
 }

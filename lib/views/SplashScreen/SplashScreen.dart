@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../localization/app_localizations.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -219,8 +221,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       opacity: _textOpacity,
                       child: Column(
                         children: [
-                          const Text(
-                            'Chargement en cours',
+                          Text(
+                            AppLocalizations.get('splash_loading'),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -244,20 +246,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               right: 0,
               child: FadeTransition(
                 opacity: _textOpacity,
-                child: const Column(
+                child: Column(
                   children: [
                     Text(
-                      'Version 1.0.0',
-                      style: TextStyle(
+                      AppLocalizations.get('splash_version'),
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      '© 2026 winzy. Tous droits réservés.',
-                      style: TextStyle(
+                      AppLocalizations.get('splash_copyright'),
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 14,
                         fontWeight: FontWeight.w300,

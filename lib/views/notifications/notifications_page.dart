@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import '../../localization/app_localizations.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -20,10 +21,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() {
-      isLoading = true;
-    });
-
+    setState(() => isLoading = true);
     try {
       List<Map<String, dynamic>> userNotifications = await _authService.getUserNotifications();
       setState(() {
@@ -31,16 +29,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
-  // Convertir Timestamp en texte lisible
   String _formatTime(dynamic timestamp) {
     if (timestamp is String) return timestamp;
-    
     try {
       DateTime dateTime = (timestamp as dynamic).toDate();
       DateTime now = DateTime.now();
@@ -60,75 +54,48 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  // Obtenir l'icône et la couleur selon le type de notification
   Map<String, dynamic> _getNotificationIconAndColor(String type) {
     switch (type) {
       case 'profile':
-        return {
-          'icon': Icons.person,
-          'color': Colors.blue,
-        };
+        return {'icon': Icons.person, 'color': Colors.blue};
       case 'address':
-        return {
-          'icon': Icons.location_on,
-          'color': Colors.green,
-        };
+        return {'icon': Icons.location_on, 'color': Colors.green};
       case 'order':
-        return {
-          'icon': Icons.shopping_cart,
-          'color': Colors.orange,
-        };
+        return {'icon': Icons.shopping_cart, 'color': Colors.orange};
       case 'product':
-        return {
-          'icon': Icons.local_offer,
-          'color': Colors.purple,
-        };
+        return {'icon': Icons.local_offer, 'color': Colors.purple};
       default:
-        return {
-          'icon': Icons.notifications,
-          'color': Colors.grey,
-        };
+        return {'icon': Icons.notifications, 'color': Colors.grey};
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
-    // Responsive padding
     final horizontalPadding = isMobile ? 16.0 : (isTablet ? 24.0 : 32.0);
     final verticalPadding = isMobile ? 16.0 : (isTablet ? 24.0 : 32.0);
-    final topSpacing = isMobile ? 16.0 : (isTablet ? 24.0 : 32.0);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: verticalPadding,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: topSpacing),
-
-              // Header avec titre et options
+              SizedBox(height: isMobile ? 16.0 : (isTablet ? 24.0 : 32.0)),
               _buildHeader(isMobile, isTablet),
-
               SizedBox(height: isDesktop ? 32 : (isTablet ? 28 : 20)),
-
-              // Liste des notifications
               Expanded(
                 child: isLoading
                     ? _buildLoadingState(isMobile, isTablet)
                     : notifications.isEmpty
-                        ? _buildEmptyState(isMobile, isTablet)
-                        : _buildNotificationsList(isMobile, isTablet, isDesktop),
+                    ? _buildEmptyState(isMobile, isTablet)
+                    : _buildNotificationsList(isMobile, isTablet, isDesktop),
               ),
             ],
           ),
@@ -138,16 +105,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildHeader(bool isMobile, bool isTablet) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Boutons - Layout responsive
-        if (isMobile)
-          _buildButtonsMobile()
-        else
-          _buildButtonsDesktop(isTablet),
-      ],
-    );
+    return isMobile ? _buildButtonsMobile() : _buildButtonsDesktop(isTablet);
   }
 
   Widget _buildButtonsMobile() {
@@ -155,22 +113,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       children: [
         Expanded(
           child: TextButton(
-            onPressed: () {
-              _markAllAsRead();
-            },
+            onPressed: _markAllAsRead,
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text(
-              'Tout marquer comme lu',
-              style: TextStyle(
-                color: Colors.deepPurple,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Text(
+              AppLocalizations.get('notif_orders_subtitle'),
+              style: const TextStyle(
+                  color: Colors.deepPurple, fontSize: 12, fontWeight: FontWeight.w500),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -179,26 +130,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
         const SizedBox(width: 8),
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: () {
-              _clearAllNotifications();
-            },
+            onPressed: _clearAllNotifications,
             icon: const Icon(Icons.delete_sweep, size: 15),
-            label: const Text(
-              'Tout supprimer',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            label: Text(AppLocalizations.get('delete'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
@@ -210,53 +152,30 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Gauche: Tout marquer comme lu
         TextButton(
-          onPressed: () {
-            _markAllAsRead();
-          },
+          onPressed: _markAllAsRead,
           style: TextButton.styleFrom(
-            padding: EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: isTablet ? 16 : 20,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            padding: EdgeInsets.symmetric(vertical: 12, horizontal: isTablet ? 16 : 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: Text(
-            'Tout marquer comme lu',
+            AppLocalizations.get('notif_orders_subtitle'),
             style: TextStyle(
-              color: Colors.deepPurple,
-              fontSize: isTablet ? 13 : 14,
-              fontWeight: FontWeight.w500,
-            ),
+                color: Colors.deepPurple,
+                fontSize: isTablet ? 13 : 14,
+                fontWeight: FontWeight.w500),
           ),
         ),
-
-        // Droite: Tout supprimer
         ElevatedButton.icon(
-          onPressed: () {
-            _clearAllNotifications();
-          },
+          onPressed: _clearAllNotifications,
           icon: Icon(Icons.delete_sweep, size: isTablet ? 16 : 18),
-          label: Text(
-            'Tout supprimer',
-            style: TextStyle(
-              fontSize: isTablet ? 13 : 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          label: Text(AppLocalizations.get('delete'),
+              style: TextStyle(fontSize: isTablet ? 13 : 14, fontWeight: FontWeight.w500)),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(
-              horizontal: isTablet ? 16 : 20,
-              vertical: 12,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 20, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
@@ -268,18 +187,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
-            strokeWidth: 3,
-          ),
+          const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple), strokeWidth: 3),
           SizedBox(height: isMobile ? 16 : (isTablet ? 20 : 24)),
-          Text(
-            'Chargement des notifications...',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
-            ),
-          ),
+          Text(AppLocalizations.get('loading'),
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: isMobile ? 14 : (isTablet ? 15 : 16))),
         ],
       ),
     );
@@ -294,33 +207,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
             width: isMobile ? 80 : (isTablet ? 100 : 120),
             height: isMobile ? 80 : (isTablet ? 100 : 120),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.notifications_off,
-              size: isMobile ? 40 : (isTablet ? 50 : 60),
-              color: Colors.deepPurple,
-            ),
+                color: Colors.deepPurple.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(Icons.notifications_off,
+                size: isMobile ? 40 : (isTablet ? 50 : 60), color: Colors.deepPurple),
           ),
           SizedBox(height: isMobile ? 24 : (isTablet ? 32 : 40)),
-          Text(
-            'Aucune notification',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: isMobile ? 16 : (isTablet ? 18 : 20),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(AppLocalizations.get('no_data'),
+              style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: isMobile ? 16 : (isTablet ? 18 : 20),
+                  fontWeight: FontWeight.w500)),
           SizedBox(height: isMobile ? 8 : (isTablet ? 12 : 16)),
-          Text(
-            'Vous n\'avez pas de notifications pour le moment',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
-            ),
-            textAlign: TextAlign.center,
-          ),
+          Text(AppLocalizations.get('no_data'),
+              style: TextStyle(
+                  color: Colors.grey[500], fontSize: isMobile ? 14 : (isTablet ? 15 : 16)),
+              textAlign: TextAlign.center),
         ],
       ),
     );
@@ -335,23 +236,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
         final isRead = notification['isRead'] ?? true;
         final type = notification['type'] ?? 'default';
         final iconData = _getNotificationIconAndColor(type);
-        
+
         return GestureDetector(
           onTap: () async {
-            // Marquer la notification comme lue si elle ne l'est pas déjà
             if (!isRead) {
               try {
                 await _authService.markNotificationAsRead(
                   _authService.currentUser?.uid ?? '',
                   notification['id'] ?? '',
                 );
-                
-                // Mettre à jour l'UI localement
-                setState(() {
-                  notification['isRead'] = true;
-                });
+                setState(() => notification['isRead'] = true);
               } catch (e) {
-                print('❌ Erreur lors du marquage de la notification: $e');
+                print('❌ Erreur marquage notification: $e');
               }
             }
           },
@@ -361,32 +257,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
             background: Container(
               alignment: Alignment.centerRight,
               padding: EdgeInsets.only(right: isMobile ? 20 : (isTablet ? 25 : 30)),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.delete,
-                color: Colors.white,
-                size: isMobile ? 24 : (isTablet ? 28 : 32),
-              ),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
+              child: Icon(Icons.delete, color: Colors.white,
+                  size: isMobile ? 24 : (isTablet ? 28 : 32)),
             ),
             onDismissed: (direction) async {
-              // Supprimer la notification de Firestore
               await _authService.deleteNotification(
-                _authService.currentUser?.uid ?? '',
-                notification['id'] ?? '',
-              );
-              
-              // Mettre à jour l'UI
-              setState(() {
-                notifications.removeAt(index);
-              });
+                  _authService.currentUser?.uid ?? '', notification['id'] ?? '');
+              setState(() => notifications.removeAt(index));
             },
             child: Container(
-              margin: EdgeInsets.only(
-                bottom: isMobile ? 12 : (isTablet ? 16 : 20),
-              ),
+              margin: EdgeInsets.only(bottom: isMobile ? 12 : (isTablet ? 16 : 20)),
               decoration: BoxDecoration(
                 color: isRead ? Colors.white : Colors.deepPurple.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -400,31 +281,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Icône
                     Container(
                       width: isMobile ? 40 : (isTablet ? 48 : 56),
                       height: isMobile ? 40 : (isTablet ? 48 : 56),
                       decoration: BoxDecoration(
-                        color: iconData['color'].withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        iconData['icon'],
-                        size: isMobile ? 20 : (isTablet ? 24 : 28),
-                        color: iconData['color'],
-                      ),
+                          color: iconData['color'].withOpacity(0.1), shape: BoxShape.circle),
+                      child: Icon(iconData['icon'],
+                          size: isMobile ? 20 : (isTablet ? 24 : 28), color: iconData['color']),
                     ),
-
                     SizedBox(width: isMobile ? 12 : (isTablet ? 16 : 20)),
-
-                    // Contenu
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Titre
                           Text(
-                            notification['title'] ?? 'Notification',
+                            notification['title'] ?? AppLocalizations.get('notif_push_title'),
                             style: TextStyle(
                               fontSize: isMobile ? 14 : (isTablet ? 15 : 16),
                               fontWeight: FontWeight.bold,
@@ -433,10 +304,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-
                           SizedBox(height: isMobile ? 4 : (isTablet ? 6 : 8)),
-
-                          // Message
                           Text(
                             notification['body'] ?? '',
                             style: TextStyle(
@@ -447,34 +315,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-
                           SizedBox(height: isMobile ? 6 : (isTablet ? 8 : 10)),
-
-                          // Temps
                           Row(
                             children: [
-                              Icon(
-                                Icons.access_time,
-                                size: isMobile ? 12 : (isTablet ? 13 : 14),
-                                color: Colors.grey[500],
-                              ),
-                              SizedBox(width: 4),
+                              Icon(Icons.access_time,
+                                  size: isMobile ? 12 : (isTablet ? 13 : 14),
+                                  color: Colors.grey[500]),
+                              const SizedBox(width: 4),
                               Text(
                                 _formatTime(notification['createdAt']),
                                 style: TextStyle(
-                                  fontSize: isMobile ? 11 : (isTablet ? 12 : 13),
-                                  color: Colors.grey[500],
-                                ),
+                                    fontSize: isMobile ? 11 : (isTablet ? 12 : 13),
+                                    color: Colors.grey[500]),
                               ),
                               const Spacer(),
                               if (!isRead)
                                 Container(
                                   width: 8,
                                   height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepPurple,
-                                    shape: BoxShape.circle,
-                                  ),
+                                  decoration: const BoxDecoration(
+                                      color: Colors.deepPurple, shape: BoxShape.circle),
                                 ),
                             ],
                           ),
@@ -494,34 +354,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void _markAllAsRead() async {
     try {
       String userId = _authService.currentUser?.uid ?? '';
-      
-      // Marquer toutes les notifications comme lues dans Firestore
       for (var notification in notifications) {
         if (!(notification['isRead'] ?? true)) {
           await _authService.markNotificationAsRead(userId, notification['id'] ?? '');
         }
       }
-      
-      // Mettre à jour l'UI localement
       setState(() {
         for (var notification in notifications) {
           notification['isRead'] = true;
         }
       });
     } catch (e) {
-      // Afficher un message d'erreur
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors du marquage: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${AppLocalizations.get('error')}: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ));
       }
     }
   }
@@ -534,31 +385,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
       builder: (BuildContext context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isMobile = screenWidth < 600;
-        final isTablet = screenWidth >= 600 && screenWidth < 1200;
-        
+
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 20,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFFDC2626), // Rouge foncé
-                  const Color(0xFFEF4444), // Rouge principal
-                  const Color(0xFFF87171), // Rouge clair
-                ],
+                colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
               ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header avec icône animée
                 Container(
                   padding: const EdgeInsets.all(28),
                   child: Container(
@@ -567,137 +410,95 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 2,
-                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
                     ),
-                    child: const Icon(
-                      Icons.delete_sweep_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                    child: const Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 32),
                   ),
                 ),
-                
-                // Contenu blanc
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
+                        bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Supprimer tout',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.get('delete'),
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFDC2626), // Rouge foncé
+                          color: Color(0xFFDC2626),
                           letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Êtes-vous sûr de vouloir supprimer\ntoutes vos notifications?',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF64748B),
-                          height: 1.4,
-                        ),
+                      Text(
+                        AppLocalizations.get('confirm_delete_address'),
+                        style: const TextStyle(
+                            fontSize: 16, color: Color(0xFF64748B), height: 1.4),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-                      
-                      // Boutons modernes
                       Row(
                         children: [
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
+                                onPressed: () => Navigator.of(context).pop(),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: Color(0xFFDC2626), // Rouge foncé
-                                    width: 1.5,
-                                  ),
+                                  side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  backgroundColor: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const Text(
-                                  'Annuler',
-                                  style: TextStyle(
-                                    color: Color(0xFFDC2626), // Rouge foncé
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                child: Text(AppLocalizations.get('cancel'),
+                                    style: const TextStyle(
+                                        color: Color(0xFFDC2626),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600)),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  Navigator.of(context).pop(); // Fermer le dialogue
-                                  
+                                  Navigator.of(context).pop();
                                   try {
-                                    // Supprimer toutes les notifications de Firestore
                                     await _authService.deleteAllNotifications(
-                                      _authService.currentUser?.uid ?? '',
-                                    );
-                                    
-                                    // Mettre à jour l'UI
-                                    setState(() {
-                                      notifications.clear();
-                                    });
+                                        _authService.currentUser?.uid ?? '');
+                                    setState(() => notifications.clear());
                                   } catch (e) {
-                                    // Afficher un message d'erreur
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Erreur lors de la suppression: $e'),
-                                          backgroundColor: Colors.red,
-                                          duration: const Duration(seconds: 3),
-                                          behavior: SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                        content: Text('${AppLocalizations.get('error')}: $e'),
+                                        backgroundColor: Colors.red,
+                                        duration: const Duration(seconds: 3),
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8)),
+                                      ));
                                     }
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFDC2626), // Rouge foncé
+                                  backgroundColor: const Color(0xFFDC2626),
                                   foregroundColor: Colors.white,
                                   shadowColor: const Color(0xFFDC2626).withOpacity(0.3),
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                      borderRadius: BorderRadius.circular(16)),
                                 ),
-                                child: const FittedBox(
-                                  child: Text(
-                                    'Supprimer',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                child: FittedBox(
+                                  child: Text(AppLocalizations.get('delete'),
+                                      style: const TextStyle(
+                                          fontSize: 15, fontWeight: FontWeight.w600)),
                                 ),
                               ),
                             ),
