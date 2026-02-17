@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -20,32 +21,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _agreeToTerms = false;
   List<String> _passwordErrors = [];
 
-  // Méthodes de validation (mêmes critères que change_password_page)
+  // Méthodes de validation
   bool _hasMinLength(String password) => password.length >= 8;
   bool _hasUpperCase(String password) => password.contains(RegExp(r'[A-Z]'));
   bool _hasLowerCase(String password) => password.contains(RegExp(r'[a-z]'));
   bool _isPasswordValid(String password) => _hasMinLength(password) && _hasUpperCase(password) && _hasLowerCase(password);
 
   // Obtenir la liste des erreurs de validation
-  List<String> _getPasswordErrors(String password) {
+  List<String> _getPasswordErrors(String password, LanguageProvider langProvider) {
     List<String> errors = [];
-    
+
     if (password.length < 8) {
-      errors.add('Au moins 8 caractères');
+      errors.add(langProvider.translate('password_min_length'));
     }
     if (!password.contains(RegExp(r'[A-Z]'))) {
-      errors.add('Au moins une lettre majuscule');
+      errors.add(langProvider.translate('password_uppercase'));
     }
     if (!password.contains(RegExp(r'[a-z]'))) {
-      errors.add('Au moins une lettre minuscule');
+      errors.add(langProvider.translate('password_lowercase'));
     }
-    
+
     return errors;
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -88,17 +90,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           child: Image.asset('assets/images/logoApp.png'),
                         ),
                         const SizedBox(height: 20),
-                        
-                        const Text(
-                          'Créer un compte',
-                          style: TextStyle(
+
+                        // ✅ TRADUIT
+                        Text(
+                          langProvider.translate('create_account'),
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF8700FF),
                           ),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Email
                         TextFormField(
                           keyboardType: TextInputType.emailAddress,
@@ -106,7 +109,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[50],
-                            hintText: 'Email',
+                            // ✅ TRADUIT
+                            hintText: langProvider.translate('email'),
                             prefixIcon: const Icon(Icons.email, color: Color(0xFF8700FF)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -124,11 +128,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           onChanged: (value) => _email = value,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre email';
+                              return langProvider.translate('email_required');
                             }
                             final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                             if (!emailRegex.hasMatch(value)) {
-                              return 'Veuillez entrer un email valide';
+                              return langProvider.translate('invalid_email');
                             }
                             return null;
                           },
@@ -142,7 +146,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[50],
-                            hintText: 'Mot de passe',
+                            // ✅ TRADUIT
+                            hintText: langProvider.translate('password'),
                             prefixIcon: const Icon(Icons.lock, color: Color(0xFF8700FF)),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -171,22 +176,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           onChanged: (value) {
                             _password = value;
                             setState(() {
-                              _passwordErrors = _getPasswordErrors(value);
+                              _passwordErrors = _getPasswordErrors(value, langProvider);
                             });
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre mot de passe';
+                              return langProvider.translate('password_required');
                             }
-                            
+
                             if (!_isPasswordValid(value)) {
-                              return 'Le mot de passe ne respecte pas les conditions requises';
+                              return langProvider.translate('password_requirements');
                             }
-                            
+
                             return null;
                           },
                         ),
-                        
+
                         // Messages d'erreur pour le mot de passe
                         if (_passwordErrors.isNotEmpty)
                           Container(
@@ -201,7 +206,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Le mot de passe doit contenir:',
+                                  langProvider.translate('password_must_contain'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -243,7 +248,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[50],
-                            hintText: 'Confirmer le mot de passe',
+                            // ✅ TRADUIT
+                            hintText: langProvider.translate('confirm_password'),
                             prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF8700FF)),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -272,16 +278,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           onChanged: (value) => _confirmPassword = value,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Veuillez confirmer votre mot de passe';
+                              return langProvider.translate('confirm_password_required');
                             }
                             if (value != _password) {
-                              return 'Les mots de passe ne correspondent pas';
+                              return langProvider.translate('passwords_not_match');
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Message d'information
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -296,7 +302,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Les autres informations (nom, prénom, etc.) seront à compléter dans votre profil.',
+                                  langProvider.translate('profile_complete_later'),
                                   style: TextStyle(
                                     color: Colors.blue[700],
                                     fontSize: 14,
@@ -323,11 +329,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             Expanded(
                               child: GestureDetector(
                                 onTap: () {
-                                  _showTermsAndConditions();
+                                  _showTermsAndConditions(langProvider);
                                 },
-                                child: const Text(
-                                  'J\'accepte les conditions générales d\'utilisation',
-                                  style: TextStyle(
+                                child: Text(
+                                  langProvider.translate('agree_terms'),
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     color: Color(0xFF8700FF),
                                     decoration: TextDecoration.underline,
@@ -376,29 +382,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                             onPressed: (authProvider.isLoading || _isLoading) ? null : _handleSignUp,
                             child: (authProvider.isLoading || _isLoading)
-                                ? const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text('Inscription en cours...'),
-                                    ],
-                                  )
-                                : const Text(
-                                    'S\'inscrire',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
+                                ),
+                                const SizedBox(width: 12),
+                                // ✅ TRADUIT
+                                Text(langProvider.translate('signing_up')),
+                              ],
+                            )
+                                : Text(
+                              langProvider.translate('signup_title'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -427,9 +434,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   },
                                 ),
                                 const SizedBox(width: 12),
-                                const Text(
-                                  'Continuer avec Google',
-                                  style: TextStyle(
+                                // ✅ TRADUIT
+                                Text(
+                                  langProvider.translate('continue_google'),
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     color: Colors.black,
                                     fontWeight: FontWeight.w500,
@@ -444,9 +452,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              "Déjà un compte? ",
-                              style: TextStyle(
+                            // ✅ TRADUIT
+                            Text(
+                              '${langProvider.translate('already_account')} ',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
@@ -455,9 +464,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               onTap: () {
                                 Navigator.pushReplacementNamed(context, '/login');
                               },
-                              child: const Text(
-                                "Se connecter",
-                                style: TextStyle(
+                              child: Text(
+                                langProvider.translate('login'),
+                                style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF8700FF),
@@ -478,56 +487,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildValidationIndicator(String text, bool isValid) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isValid ? Colors.green : Colors.grey[300],
-            border: isValid ? Border.all(color: Colors.green, width: 2) : null,
-          ),
-          child: isValid
-              ? const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 12,
-                )
-              : null,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: isValid ? Colors.green : Colors.grey[600],
-            fontWeight: isValid ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+    final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+
     if (!_agreeToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez accepter les conditions générales d\'utilisation'),
+        SnackBar(
+          content: Text(langProvider.translate('accept_terms_required')),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 3), // Ajout de durée
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -545,13 +524,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (success) {
         print('✅ SignUpScreen: Compte créé avec succès, navigation vers /login');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Compte créé avec succès ! Connectez-vous maintenant.'),
+          SnackBar(
+            content: Text(langProvider.translate('signup_success')),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 4), // Augmenté à 4 secondes
+            duration: const Duration(seconds: 4),
           ),
         );
-        // Rediriger vers la page de connexion au lieu de home
         Navigator.pushReplacementNamed(context, '/login');
         print('✅ SignUpScreen: Navigation vers /login effectuée');
       } else {
@@ -562,11 +540,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _isLoading = false;
       });
 
-      // Vérifier si c'est le message de vérification email
       if (e.toString().contains('Inscription réussie')) {
         print('✅ SignUpScreen: Inscription réussie, affichage du message et redirection vers login');
-        
-        // Afficher un dialogue explicatif
+
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -575,46 +551,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
               title: Row(
                 children: [
                   Icon(Icons.email, color: Colors.blue, size: 24),
-                  SizedBox(width: 10),
-                  Text('Inscription réussie !'),
+                  const SizedBox(width: 10),
+                  Text(langProvider.translate('signup_success')),
                 ],
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Un email de vérification a été envoyé à :'),
-                  SizedBox(height: 8),
+                  Text(langProvider.translate('verification_email_sent')),
+                  const SizedBox(height: 8),
                   Text(
                     _email.trim(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.blue,
                     ),
                   ),
-                  SizedBox(height: 12),
-                  Text('Veuillez vérifier votre boîte de réception et cliquer sur le lien de vérification avant de vous connecter.'),
+                  const SizedBox(height: 12),
+                  Text(langProvider.translate('verify_before_login')),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(); // Fermer le dialogue
-                    Navigator.pushReplacementNamed(context, '/login'); // Rediriger vers login
+                    Navigator.of(context).pop();
+                    Navigator.pushReplacementNamed(context, '/login');
                   },
-                  child: Text('OK, j\'ai compris'),
+                  child: Text(langProvider.translate('understand')),
                 ),
               ],
             );
           },
         );
       } else {
-        // Gérer les autres erreurs
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 5), // Augmenté à 5 secondes
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'OK',
               onPressed: () {
@@ -629,7 +604,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -649,14 +624,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  void _showTermsAndConditions() {
+  void _showTermsAndConditions(LanguageProvider langProvider) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text(
-            'Conditions Générales d\'Utilisation',
-            style: TextStyle(
+          title: Text(
+            langProvider.translate('terms_conditions'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Color(0xFF8700FF),
@@ -667,106 +642,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Bienvenue sur Winzy !\n\n',
+                Text(
+                  'Winzy Terms',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                const Text(
-                  '1. Acceptation des Conditions\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  'En utilisant notre application, vous acceptez de respecter et de vous conformer aux conditions suivantes.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '2. Utilisation de la Plateforme\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Winzy est une plateforme de mise en relation entre acheteurs et vendeurs.\n'
-                  '• Vous devez fournir des informations exactes et véridiques.\n'
-                  '• Vous êtes responsable de la sécurité de votre compte.\n'
-                  '• Toute activité frauduleuse entraînera la suspension immédiate de votre compte.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '3. Responsabilités des Vendeurs\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Les vendeurs doivent décrire précisément leurs produits.\n'
-                  '• Les prix affichés doivent être fermes et non négociables sur la plateforme.\n'
-                  '• Les vendeurs sont responsables de la livraison des produits vendus.\n'
-                  '• Winzy n\'est pas responsable des transactions entre vendeurs et acheteurs.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '4. Responsabilités des Acheteurs\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Les acheteurs s\'engagent à payer les produits commandés.\n'
-                  '• Les retours doivent respecter la politique de retour du vendeur.\n'
-                  '• Les acheteurs doivent vérifier les produits avant confirmation de réception.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '5. Propriété Intellectuelle\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Tout contenu publié sur la plateforme reste la propriété de son auteur.\n'
-                  '• Winzy dispose d\'une licence d\'utilisation pour afficher ce contenu.\n'
-                  '• Toute copie ou utilisation non autorisée est strictement interdite.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '6. Confidentialité et Données\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Nous respectons votre vie privée et protégeons vos données personnelles.\n'
-                  '• Vos informations sont utilisées uniquement pour améliorer nos services.\n'
-                  '• Nous ne partageons jamais vos données sans votre consentement.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '7. Modification des Conditions\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Winzy se réserve le droit de modifier ces conditions à tout moment.\n'
-                  '• Les modifications seront notifiées aux utilisateurs par email ou via l\'application.\n'
-                  '• La poursuite de l\'utilisation de l\'application vaut acceptation des nouvelles conditions.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '8. Résolution des Litiges\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• En cas de litige, nous encourageons une résolution amiable entre les parties.\n'
-                  '• Si nécessaire, notre service client pourra intervenir pour médiation.\n'
-                  '• Les litiges seront soumis à la législation en vigueur dans votre pays.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '9. Limitation de Responsabilité\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  '• Winzy agit comme intermédiaire et ne peut être tenue responsable des dommages directs ou indirects.\n'
-                  '• Notre responsabilité est limitée au montant des commissions perçues.\n'
-                  '• Nous ne garantissons pas la qualité des produits vendus par les tiers.\n\n',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const Text(
-                  '10. Contact et Support\n',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
+                const SizedBox(height: 12),
                 Text(
-                  'Dernière mise à jour : ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                  'By using our application, you agree to comply with these terms and conditions.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Last updated: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
@@ -781,9 +668,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'Fermer',
-                style: TextStyle(
+              child: Text(
+                langProvider.translate('close'),
+                style: const TextStyle(
                   color: Color(0xFF8700FF),
                   fontWeight: FontWeight.w600,
                 ),
@@ -800,10 +687,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 backgroundColor: const Color(0xFF8700FF),
                 foregroundColor: Colors.white,
               ),
-              child: const Text(
-                'J\'accepte',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              child: Text(langProvider.translate('i_agree')),
             ),
           ],
         );

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../providers/language_provider.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/auto_logout_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
+import '../../localization/app_localizations.dart';
 import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';
@@ -41,11 +43,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
     _autoLogoutService.addLogoutListener((event) {
       if (mounted) {
+        final langProvider = Provider.of<LanguageProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⏱️ Session expirée due to inactivity'),
+          SnackBar(
+            content: Text(langProvider.translate('session_expired')),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
+            duration: const Duration(seconds: 5),
           ),
         );
 
@@ -133,12 +136,12 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -205,9 +208,24 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _statItem('Orders', '${authProvider.orders.length}', isDesktop, isTablet),
-                      _statItem('Favorites', '${authProvider.favorites.length}', isDesktop, isTablet),
-                      _statItem('Points', '${authProvider.points}', isDesktop, isTablet),
+                      _statItem(
+                        langProvider.translate('orders'),
+                        '${authProvider.orders.length}',
+                        isDesktop,
+                        isTablet,
+                      ),
+                      _statItem(
+                        langProvider.translate('favorites'),
+                        '${authProvider.favorites.length}',
+                        isDesktop,
+                        isTablet,
+                      ),
+                      _statItem(
+                        langProvider.translate('points'),
+                        '${authProvider.points}',
+                        isDesktop,
+                        isTablet,
+                      ),
                     ],
                   ),
                 ],
@@ -231,13 +249,17 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Column(
                 children: [
-                  _menuTile('Personal Info', Icons.person, isDesktop, isTablet),
-                  _menuTile('Addresses', Icons.location_on, isDesktop, isTablet),
-                  _menuTile('Payment Methods', Icons.credit_card, isDesktop, isTablet),
-                  _menuTile('Notification Settings', Icons.notifications, isDesktop, isTablet),
-                  _menuTile('Security', Icons.security, isDesktop, isTablet),
-                  _menuTile('Help', Icons.help, isDesktop, isTablet),
-                  _menuTile('Logout', Icons.logout, isDesktop, isTablet, isLast: true),
+                  _menuTile('personal_info', Icons.person, isDesktop, isTablet, langProvider, context),
+                  _menuTile('addresses', Icons.location_on, isDesktop, isTablet, langProvider, context),
+                  _menuTile('payment_methods', Icons.credit_card, isDesktop, isTablet, langProvider, context),
+                  _menuTile('notification_settings', Icons.notifications, isDesktop, isTablet, langProvider, context),
+                  _menuTile('security', Icons.security, isDesktop, isTablet, langProvider, context),
+
+                  // ✅ LANGUE ENTRE SÉCURITÉ ET AIDE
+                  _languageTile(isDesktop, isTablet, langProvider, context),
+
+                  _menuTile('help', Icons.help, isDesktop, isTablet, langProvider, context),
+                  _menuTile('logout', Icons.logout, isDesktop, isTablet, langProvider, context, isLast: true),
                 ],
               ),
             ),
@@ -272,7 +294,124 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _menuTile(String title, IconData icon, bool isDesktop, bool isTablet, {bool isLast = false}) {
+  // ✅ WIDGET POUR LA LANGUE
+  Widget _languageTile(
+      bool isDesktop,
+      bool isTablet,
+      LanguageProvider langProvider,
+      BuildContext context,
+      ) {
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(
+            Icons.language,
+            color: Colors.deepPurple,
+            size: isDesktop ? 28 : isTablet ? 24 : 20,
+          ),
+          title: Text(
+            langProvider.translate('language'),
+            style: TextStyle(
+              fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
+          ),
+          trailing: PopupMenuButton<String>(
+            onSelected: (String languageCode) async {
+              await langProvider.setLanguage(languageCode);
+              // ✅ Notifier pour mettre à jour tout l'écran
+              setState(() {});
+            },
+            itemBuilder: (BuildContext context) {
+              return langProvider.supportedLanguages.entries.map((entry) {
+                final isSelected = entry.key == langProvider.currentLanguageCode;
+                return PopupMenuItem<String>(
+                  value: entry.key,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        entry.value,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? Colors.deepPurple : Colors.black,
+                        ),
+                      ),
+                      if (isSelected)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 12.0),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: Colors.deepPurple,
+                            size: 20,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }).toList();
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 12 : 8,
+                vertical: isDesktop ? 6 : 4,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    langProvider.currentLanguageFlag,
+                    style: TextStyle(fontSize: isDesktop ? 18 : 16),
+                  ),
+                  SizedBox(width: isDesktop ? 8 : 4),
+                  Text(
+                    langProvider.currentLanguageCode.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: isDesktop ? 14 : 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                  SizedBox(width: isDesktop ? 8 : 4),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.deepPurple,
+                    size: isDesktop ? 20 : 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 8 : isTablet ? 4 : 0,
+            vertical: isDesktop ? 4 : isTablet ? 2 : 0,
+          ),
+        ),
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: Colors.grey[300],
+          indent: isDesktop ? 68 : isTablet ? 64 : 60,
+          endIndent: isDesktop ? 20 : isTablet ? 16 : 12,
+        ),
+      ],
+    );
+  }
+
+  Widget _menuTile(
+      String titleKey,
+      IconData icon,
+      bool isDesktop,
+      bool isTablet,
+      LanguageProvider langProvider,
+      BuildContext context, {
+        bool isLast = false,
+      }) {
     return Column(
       children: [
         ListTile(
@@ -282,7 +421,8 @@ class _ProfilePageState extends State<ProfilePage> {
             size: isDesktop ? 28 : isTablet ? 24 : 20,
           ),
           title: Text(
-            title,
+            // ✅ UTILISER LA TRADUCTION
+            langProvider.translate(titleKey),
             style: TextStyle(
               fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
               fontWeight: FontWeight.w500,
@@ -299,9 +439,9 @@ class _ProfilePageState extends State<ProfilePage> {
             vertical: isDesktop ? 4 : isTablet ? 2 : 0,
           ),
           onTap: () {
-            if (title == 'Logout') {
-              _showLogoutDialog();
-            } else if (title == 'Personal Info') {
+            if (titleKey == 'logout') {
+              _showLogoutDialog(langProvider);
+            } else if (titleKey == 'personal_info') {
               final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
               Navigator.push(
                 context,
@@ -311,27 +451,27 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               );
-            } else if (title == 'Addresses') {
+            } else if (titleKey == 'addresses') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddressPage()),
               );
-            } else if (title == 'Notification Settings') {
+            } else if (titleKey == 'notification_settings') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const NotificationSettingsPage()),
               );
-            } else if (title == 'Security') {
+            } else if (titleKey == 'security') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SecuritySettingsPage()),
               );
-            } else if (title == 'Help') {
+            } else if (titleKey == 'help') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const HelpPage()),
               );
-            } else if (title == 'Payment Methods') {
+            } else if (titleKey == 'payment_methods') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const PaymentMethodsPage()),
@@ -351,7 +491,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showLogoutDialog() {
+  void _showLogoutDialog(LanguageProvider langProvider) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -399,7 +539,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(28),
@@ -413,9 +552,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Logout',
-                        style: TextStyle(
+                      Text(
+                        langProvider.translate('logout'),
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF8700FF),
@@ -423,9 +562,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Are you sure you want to\nlogout?',
-                        style: TextStyle(
+                      Text(
+                        langProvider.translate('confirm_logout'),
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF64748B),
                           height: 1.4,
@@ -433,7 +572,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
-
                       Row(
                         children: [
                           Expanded(
@@ -453,9 +591,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                   backgroundColor: Colors.transparent,
                                 ),
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(
+                                child: Text(
+                                  langProvider.translate('cancel'),
+                                  style: const TextStyle(
                                     color: Color(0xFF6366F1),
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -491,10 +629,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                child: const FittedBox(
+                                child: FittedBox(
                                   child: Text(
-                                    'Logout',
-                                    style: TextStyle(
+                                    langProvider.translate('logout'),
+                                    style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3,

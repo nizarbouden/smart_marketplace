@@ -5,6 +5,7 @@ import 'package:smart_marketplace/widgets/address_form_widget.dart';
 import 'package:smart_marketplace/widgets/default_address_toggle_widget.dart';
 import 'package:smart_marketplace/widgets/save_address_button_widget.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
 
 class AddAddressPage extends StatefulWidget {
   const AddAddressPage({super.key});
@@ -32,6 +33,9 @@ class _AddAddressPageState extends State<AddAddressPage> {
 
   List<Map<String, String>> _filteredCountries = CountryData.getCountriesSorted();
 
+  // Helper traduction
+  String _t(String key) => AppLocalizations.get(key);
+
   @override
   void dispose() {
     _contactNameController.dispose();
@@ -50,11 +54,15 @@ class _AddAddressPageState extends State<AddAddressPage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
+    final isRtl = AppLocalizations.isRtl;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-      body: _buildBody(context, isDesktop, isTablet, isMobile),
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
+        body: _buildBody(context, isDesktop, isTablet, isMobile),
+      ),
     );
   }
 
@@ -65,7 +73,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
         icon: Icon(
-          Icons.arrow_back,
+          AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
           color: Colors.black87,
           size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
@@ -74,20 +82,20 @@ class _AddAddressPageState extends State<AddAddressPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Ajouter une nouvelle adresse',
+            _t('add_address_title'),
             style: TextStyle(
               color: Colors.black87,
               fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 16),
-              SizedBox(width: 6),
+              const Icon(Icons.check_circle, color: Colors.green, size: 16),
+              const SizedBox(width: 6),
               Text(
-                'Toutes vos informations sont cryptées',
+                _t('all_info_encrypted'),
                 style: TextStyle(
                   color: Colors.green,
                   fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
@@ -105,8 +113,8 @@ class _AddAddressPageState extends State<AddAddressPage> {
           child: GestureDetector(
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Vos informations sont cryptées et sécurisées'),
+                SnackBar(
+                  content: Text(_t('info_encrypted_secure')),
                   backgroundColor: Colors.blue,
                 ),
               );
@@ -137,7 +145,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Formulaire d'adresse complet
             AddressFormWidget(
               contactNameController: _contactNameController,
               phoneController: _phoneController,
@@ -173,7 +180,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
             ),
             SizedBox(height: isMobile ? 28 : isTablet ? 36 : 44),
 
-            // Par défaut Toggle
             DefaultAddressToggleWidget(
               isDefault: _isDefault,
               onChanged: (value) {
@@ -187,7 +193,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
             ),
             SizedBox(height: isMobile ? 32 : isTablet ? 40 : 48),
 
-            // Bouton Enregistrer
             SaveAddressButtonWidget(
               isLoading: _isLoading,
               onPressed: _handleRegister,
@@ -209,57 +214,78 @@ class _AddAddressPageState extends State<AddAddressPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+        return Directionality(
+          textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: CountryData.getCountriesSorted().length,
-                  itemBuilder: (context, index) {
-                    final country = CountryData.getCountriesSorted()[index];
-                    return ListTile(
-                      leading: Text(
-                        country['flag']!,
-                        style: const TextStyle(fontSize: 28),
-                      ),
-                      title: Text(
-                        country['name']!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      subtitle: Text(
-                        country['code']!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      onTap: () {
-                        setState(() {
-                          _selectedCountryCode = country['code']!;
-                          _selectedCountryName = country['name']!;
-                          _selectedCountryFlag = country['flag']!;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
+                const SizedBox(height: 12),
+                // Champ de recherche
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: _t('search_country'),
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  ),
+                  onChanged: (query) {
+                    setState(() {
+                      if (query.isEmpty) {
+                        _filteredCountries = CountryData.getCountriesSorted();
+                      } else {
+                        _filteredCountries = CountryData.filterCountries(query);
+                      }
+                    });
                   },
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: CountryData.getCountriesSorted().length,
+                    itemBuilder: (context, index) {
+                      final country = CountryData.getCountriesSorted()[index];
+                      return ListTile(
+                        leading: Text(
+                          country['flag']!,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                        title: Text(
+                          country['name']!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        subtitle: Text(
+                          country['code']!,
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedCountryCode = country['code']!;
+                            _selectedCountryName = country['name']!;
+                            _selectedCountryFlag = country['flag']!;
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -268,12 +294,9 @@ class _AddAddressPageState extends State<AddAddressPage> {
 
   void _handleRegister() async {
     if (_formKey.currentState?.validate() ?? false) {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() { _isLoading = true; });
 
       try {
-        // Sauvegarder l'adresse dans Firestore
         await FirebaseAuthService().addAddress(
           contactName: _contactNameController.text.trim(),
           phone: _phoneController.text.trim(),
@@ -288,37 +311,28 @@ class _AddAddressPageState extends State<AddAddressPage> {
           isDefault: _isDefault,
         );
 
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() { _isLoading = false; });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Adresse enregistrée avec succès!'),
+              content: Text(_t('address_saved')),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
           Navigator.of(context).pop();
         }
       } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
-
+        setState(() { _isLoading = false; });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erreur: $e'),
+              content: Text('${_t('error')}: $e'),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }

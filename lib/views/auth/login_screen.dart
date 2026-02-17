@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/firebase_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -39,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       bool rememberMe = prefs.getBool('rememberMe') ?? false;
       String? lastEmail = prefs.getString('lastEmail');
-      
+
       if (rememberMe && lastEmail != null) {
         setState(() {
           _rememberMe = true;
@@ -60,6 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -102,10 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Image.asset('assets/images/logoApp.png'),
                         ),
                         const SizedBox(height: 20),
-                        
-                        const Text(
-                          'Connexion',
-                          style: TextStyle(
+
+                        // ✅ TRADUIT
+                        Text(
+                          langProvider.translate('login_title'),
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF8700FF),
@@ -120,7 +123,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[50],
-                            hintText: 'Email',
+                            // ✅ TRADUIT
+                            hintText: langProvider.translate('email'),
                             prefixIcon: const Icon(Icons.email, color: Color(0xFF8700FF)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -138,11 +142,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           onChanged: (value) => _email = value,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre email';
+                              return langProvider.translate('email_required');
                             }
                             final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
                             if (!emailRegex.hasMatch(value)) {
-                              return 'Veuillez entrer un email valide';
+                              return langProvider.translate('invalid_email');
                             }
                             return null;
                           },
@@ -156,7 +160,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[50],
-                            hintText: 'Mot de passe',
+                            // ✅ TRADUIT
+                            hintText: langProvider.translate('password'),
                             prefixIcon: const Icon(Icons.lock, color: Color(0xFF8700FF)),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -189,18 +194,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Veuillez entrer votre mot de passe';
+                              return langProvider.translate('password_required');
                             }
-                            
+
                             // Validation simple sans indicateurs visuels
                             if (value.length < 8) {
                               return '';
                             }
-                            
+
                             return null;
                           },
                         ),
-                        
+
                         const SizedBox(height: 15),
 
                         // Remember me
@@ -215,16 +220,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                               activeColor: const Color(0xFF8700FF),
                             ),
-                            const Text(
-                              'Se souvenir de moi',
-                              style: TextStyle(
+                            // ✅ TRADUIT
+                            Text(
+                              langProvider.translate('remember_me'),
+                              style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 14,
                               ),
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 10),
 
                         // Forgot password
@@ -235,9 +241,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 Navigator.pushNamed(context, '/forgot-password');
                               },
-                              child: const Text(
-                                'Mot de passe oublié?',
-                                style: TextStyle(
+                              child: Text(
+                                langProvider.translate('forgot_password'),
+                                style: const TextStyle(
                                   color: Color(0xFF8700FF),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -286,29 +292,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             onPressed: (authProvider.isLoading || _isLoading) ? null : _handleLogin,
                             child: (authProvider.isLoading || _isLoading)
-                                ? const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text('Connexion en cours...'),
-                                    ],
-                                  )
-                                : const Text(
-                                    'Se connecter',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
+                                ),
+                                const SizedBox(width: 12),
+                                // ✅ TRADUIT
+                                Text(langProvider.translate('logging_in')),
+                              ],
+                            )
+                                : Text(
+                              langProvider.translate('login'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -337,9 +344,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   },
                                 ),
                                 const SizedBox(width: 12),
-                                const Text(
-                                  'Continuer avec Google',
-                                  style: TextStyle(
+                                // ✅ TRADUIT
+                                Text(
+                                  langProvider.translate('continue_google'),
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     color: Colors.black,
                                     fontWeight: FontWeight.w500,
@@ -356,20 +364,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: double.infinity,
                           child: TextButton(
                             onPressed: () async {
-                              // Forcer la déconnexion complète avant de continuer comme visiteur
                               try {
                                 await FirebaseAuth.instance.signOut();
                                 print('✅ LoginScreen: Déconnexion forcée réussie');
                               } catch (e) {
                                 print('⚠️ LoginScreen: Erreur lors de la déconnexion: $e');
                               }
-                              
-                              // Naviguer vers l'accueil
+
                               Navigator.pushReplacementNamed(context, '/home');
                             },
-                            child: const Text(
-                              'Continuer comme visiteur',
-                              style: TextStyle(
+                            child: Text(
+                              langProvider.translate('continue_guest'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 color: Color(0xFF8700FF),
                                 fontWeight: FontWeight.w500,
@@ -381,9 +387,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              "Pas de compte? ",
-                              style: TextStyle(
+                            // ✅ TRADUIT
+                            Text(
+                              '${langProvider.translate('no_account')} ',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
@@ -392,9 +399,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 Navigator.pushReplacementNamed(context, '/signup');
                               },
-                              child: const Text(
-                                "S'inscrire",
-                                style: TextStyle(
+                              child: Text(
+                                langProvider.translate('signup_title'),
+                                style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF8700FF),
@@ -424,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -450,7 +457,6 @@ class _LoginScreenState extends State<LoginScreen> {
         print('❌ LoginScreen: Connexion échouée');
       }
     } on EmailNotVerifiedException catch (e) {
-      // Gérer spécifiquement l'exception de vérification email
       setState(() {
         _isLoading = false;
       });
@@ -459,9 +465,9 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(e.toString()),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 15), // Très long pour la vérification email
+          duration: Duration(seconds: 15),
           action: SnackBarAction(
-            label: 'J\'ai vérifié',
+            label: 'OK',
             textColor: Colors.white,
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -469,48 +475,47 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
-      
+
       print('❌ LoginScreen: Erreur de vérification email affichée: ${e.toString()}');
     } catch (e) {
-      // Vérifier si c'est une erreur de vérification email même sans l'exception
       setState(() {
         _isLoading = false;
       });
 
       String errorMessage = e.toString();
       bool isEmailVerificationError = errorMessage.contains('vérifier votre email');
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
           backgroundColor: Colors.red,
-          duration: isEmailVerificationError 
-              ? Duration(seconds: 15) // Long pour la vérification email
-              : Duration(seconds: 5), // Durée normale pour autres erreurs
-          action: isEmailVerificationError 
+          duration: isEmailVerificationError
+              ? Duration(seconds: 15)
+              : Duration(seconds: 5),
+          action: isEmailVerificationError
               ? SnackBarAction(
-                  label: 'J\'ai vérifié',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  },
-                )
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          )
               : SnackBarAction(
-                  label: 'OK',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  },
-                ),
+            label: 'OK',
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
       );
-      
+
       print('❌ LoginScreen: Erreur affichée: $errorMessage');
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
+
     setState(() {
       _isLoading = true;
     });

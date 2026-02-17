@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -8,49 +9,49 @@ class NotificationSettingsPage extends StatefulWidget {
 }
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
-  // États des notifications
-  bool _pushNotifications = true;
+  bool _pushNotifications  = true;
   bool _emailNotifications = true;
-  bool _orderUpdates = true;
-  bool _promotionalOffers = false;
-  bool _newProducts = true;
-  bool _priceDrops = true;
-  bool _newsletter = false;
-  bool _accountUpdates = true;
-  bool _securityAlerts = true;
+  bool _orderUpdates       = true;
+  bool _promotionalOffers  = false;
+  bool _newProducts        = true;
+  bool _priceDrops         = true;
+  bool _newsletter         = false;
+  bool _accountUpdates     = true;
+  bool _securityAlerts     = true;
+
+  String _t(String key) => AppLocalizations.get(key);
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery
-        .of(context)
-        .size
-        .width;
-    final isMobile = screenWidth < 600;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile  = screenWidth < 600;
+    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-      body: _buildBody(context, isDesktop, isTablet, isMobile),
+    return Directionality(
+      textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
+        body: _buildBody(context, isDesktop, isTablet, isMobile),
+      ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDesktop,
-      bool isTablet, bool isMobile) {
+  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
         icon: Icon(
-          Icons.arrow_back,
+          AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
           color: Colors.black87,
           size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
       ),
       title: Text(
-        'Paramètres de notification',
+        _t('notif_settings_title'),
         style: TextStyle(
           color: Colors.black87,
           fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
@@ -63,157 +64,133 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           padding: const EdgeInsets.only(right: 16),
           child: IconButton(
             onPressed: _saveSettings,
-            icon: Icon(
-              Icons.save,
-              color: Colors.deepPurple,
-              size: isDesktop ? 24 : isTablet ? 22 : 20,
-            ),
-            tooltip: 'Enregistrer les paramètres',
+            icon: Icon(Icons.save, color: Colors.deepPurple,
+                size: isDesktop ? 24 : isTablet ? 22 : 20),
+            tooltip: _t('notif_save_tooltip'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet,
-      bool isMobile) {
+  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Notifications générales
+          // ── Notifications générales ────────────────────────────
           _buildSectionCard(
-            title: 'Notifications générales',
+            title: _t('notif_section_general'),
             icon: Icons.notifications_active,
+            isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
             children: [
               _buildSwitchTile(
-                title: 'Notifications push',
-                subtitle: 'Recevoir des notifications sur votre appareil',
-                value: _pushNotifications,
-                onChanged: (value) =>
-                    setState(() => _pushNotifications = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_push_title'),
+                subtitle: _t('notif_push_subtitle'),
+                value:    _pushNotifications,
+                isLast:   false,
+                onChanged: (v) => setState(() => _pushNotifications = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildSwitchTile(
-                title: 'Notifications par email',
-                subtitle: 'Recevoir des notifications par email',
-                value: _emailNotifications,
-                onChanged: (value) =>
-                    setState(() => _emailNotifications = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_email_title'),
+                subtitle: _t('notif_email_subtitle'),
+                value:    _emailNotifications,
+                isLast:   true,
+                onChanged: (v) => setState(() => _emailNotifications = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
-            isDesktop: isDesktop,
-            isTablet: isTablet,
-            isMobile: isMobile,
           ),
 
           SizedBox(height: isMobile ? 20 : isTablet ? 24 : 28),
 
-          // Section Commandes
+          // ── Commandes et livraisons ────────────────────────────
           _buildSectionCard(
-            title: 'Commandes et livraisons',
+            title: _t('notif_section_orders'),
             icon: Icons.shopping_cart,
+            isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
             children: [
               _buildSwitchTile(
-                title: 'Mises à jour de commande',
-                subtitle: 'Suivi de votre commande et livraison',
-                value: _orderUpdates,
-                onChanged: (value) => setState(() => _orderUpdates = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_orders_title'),
+                subtitle: _t('notif_orders_subtitle'),
+                value:    _orderUpdates,
+                isLast:   true,
+                onChanged: (v) => setState(() => _orderUpdates = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
-            isDesktop: isDesktop,
-            isTablet: isTablet,
-            isMobile: isMobile,
           ),
 
           SizedBox(height: isMobile ? 20 : isTablet ? 24 : 28),
 
-          // Section Marketing
+          // ── Marketing et promotions ────────────────────────────
           _buildSectionCard(
-            title: 'Marketing et promotions',
+            title: _t('notif_section_marketing'),
             icon: Icons.campaign,
+            isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
             children: [
               _buildSwitchTile(
-                title: 'Offres promotionnelles',
-                subtitle: 'Réductions et offres spéciales',
-                value: _promotionalOffers,
-                onChanged: (value) =>
-                    setState(() => _promotionalOffers = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_promo_title'),
+                subtitle: _t('notif_promo_subtitle'),
+                value:    _promotionalOffers,
+                isLast:   false,
+                onChanged: (v) => setState(() => _promotionalOffers = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildSwitchTile(
-                title: 'Nouveaux produits',
-                subtitle: 'Découvrez les nouveaux arrivages',
-                value: _newProducts,
-                onChanged: (value) => setState(() => _newProducts = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_new_products_title'),
+                subtitle: _t('notif_new_products_subtitle'),
+                value:    _newProducts,
+                isLast:   false,
+                onChanged: (v) => setState(() => _newProducts = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildSwitchTile(
-                title: 'Baisse de prix',
-                subtitle: 'Alertes lorsque les prix baissent',
-                value: _priceDrops,
-                onChanged: (value) => setState(() => _priceDrops = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_price_drops_title'),
+                subtitle: _t('notif_price_drops_subtitle'),
+                value:    _priceDrops,
+                isLast:   false,
+                onChanged: (v) => setState(() => _priceDrops = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildSwitchTile(
-                title: 'Newsletter',
-                subtitle: 'Actualités et conseils hebdomadaires',
-                value: _newsletter,
-                onChanged: (value) => setState(() => _newsletter = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_newsletter_title'),
+                subtitle: _t('notif_newsletter_subtitle'),
+                value:    _newsletter,
+                isLast:   true,
+                onChanged: (v) => setState(() => _newsletter = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
-            isDesktop: isDesktop,
-            isTablet: isTablet,
-            isMobile: isMobile,
           ),
 
           SizedBox(height: isMobile ? 20 : isTablet ? 24 : 28),
 
-          // Section Compte
+          // ── Compte et sécurité ─────────────────────────────────
           _buildSectionCard(
-            title: 'Compte et sécurité',
+            title: _t('notif_section_account'),
             icon: Icons.account_circle,
+            isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
             children: [
               _buildSwitchTile(
-                title: 'Mises à jour du compte',
-                subtitle: 'Changements importants sur votre compte',
-                value: _accountUpdates,
-                onChanged: (value) => setState(() => _accountUpdates = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_account_title'),
+                subtitle: _t('notif_account_subtitle'),
+                value:    _accountUpdates,
+                isLast:   false,
+                onChanged: (v) => setState(() => _accountUpdates = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildSwitchTile(
-                title: 'Alertes de sécurité',
-                subtitle: 'Activités suspectes et connexions',
-                value: _securityAlerts,
-                onChanged: (value) => setState(() => _securityAlerts = value),
-                isDesktop: isDesktop,
-                isTablet: isTablet,
-                isMobile: isMobile,
+                title:    _t('notif_security_title'),
+                subtitle: _t('notif_security_subtitle'),
+                value:    _securityAlerts,
+                isLast:   true,
+                onChanged: (v) => setState(() => _securityAlerts = v),
+                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
-            isDesktop: isDesktop,
-            isTablet: isTablet,
-            isMobile: isMobile,
           ),
         ],
       ),
@@ -233,17 +210,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header de la section
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
             child: Row(
@@ -254,11 +226,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     color: Colors.deepPurple.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.deepPurple,
-                    size: isDesktop ? 24 : isTablet ? 22 : 20,
-                  ),
+                  child: Icon(icon, color: Colors.deepPurple,
+                      size: isDesktop ? 24 : isTablet ? 22 : 20),
                 ),
                 SizedBox(width: isMobile ? 12 : 16),
                 Text(
@@ -272,7 +241,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               ],
             ),
           ),
-          // Contenu de la section
           ...children,
         ],
       ),
@@ -283,6 +251,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     required String title,
     required String subtitle,
     required bool value,
+    required bool isLast,
     required Function(bool) onChanged,
     required bool isDesktop,
     required bool isTablet,
@@ -293,7 +262,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         Padding(
           padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 16 : isTablet ? 20 : 24,
-            vertical: isMobile ? 12 : isTablet ? 14 : 16,
+            vertical:   isMobile ? 12 : isTablet ? 14 : 16,
           ),
           child: Row(
             children: [
@@ -301,8 +270,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(title,
                       style: TextStyle(
                         fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
                         fontWeight: FontWeight.w600,
@@ -310,8 +278,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       ),
                     ),
                     SizedBox(height: isMobile ? 2 : 4),
-                    Text(
-                      subtitle,
+                    Text(subtitle,
                       style: TextStyle(
                         fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
                         color: Colors.grey[600],
@@ -330,13 +297,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             ],
           ),
         ),
-        if (title !=
-            'Alertes de sécurité') // Ne pas ajouter de diviseur après le dernier élément
+        if (!isLast)
           Divider(
-            height: 1,
-            thickness: 0.5,
-            color: Colors.grey[200],
-            indent: isMobile ? 16 : isTablet ? 20 : 24,
+            height: 1, thickness: 0.5, color: Colors.grey[200],
+            indent:    isMobile ? 16 : isTablet ? 20 : 24,
             endIndent: isMobile ? 16 : isTablet ? 20 : 24,
           ),
       ],
@@ -344,18 +308,12 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   }
 
   void _saveSettings() {
-    // Simuler la sauvegarde des paramètres
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Paramètres enregistrés avec succès!'),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_t('notif_saved_success')),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
     Navigator.of(context).pop();
   }
-
 }

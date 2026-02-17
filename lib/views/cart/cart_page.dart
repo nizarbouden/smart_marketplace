@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/cart_item.dart';
 import '../../services/selection_service.dart';
+import '../../localization/app_localizations.dart';
 
 class CartPage extends StatefulWidget {
   final Function(int)? onTotalCartItemsChanged;
   final Function(int, double)? onCartSelectionChanged;
-  
+
   const CartPage({super.key, this.onTotalCartItemsChanged, this.onCartSelectionChanged});
 
   @override
@@ -50,17 +51,14 @@ class _CartPageStatefulState extends State<CartPage> {
       quantity: 2,
     ),
   ];
-  
-  // Service de sélection partagé
+
   final SelectionService _selectionService = SelectionService();
 
   @override
   void initState() {
     super.initState();
-    // Écouter les changements de sélection du service partagé
     _selectionService.addListener(_onGlobalSelectionChanged);
-    
-    // Notifier le parent du nombre total d'articles et de la sélection initiale
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onTotalCartItemsChanged?.call(_totalCartItems);
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
@@ -76,15 +74,11 @@ class _CartPageStatefulState extends State<CartPage> {
   void _onGlobalSelectionChanged() {
     if (mounted) {
       setState(() {
-        // Synchroniser l'état global avec les articles individuels
         if (_selectionService.isAllSelected) {
-          // Si "Tout" est coché, on sélectionne tous les articles
           for (int i = 0; i < _cartItems.length; i++) {
             _cartItems[i] = _cartItems[i].copyWith(isSelected: true);
           }
         } else {
-          // Si "Tout" est décoché, on ne déselectionne que si tous les articles étaient sélectionnés
-          // Cela évite de déselectionner des articles individuellement cochés
           final allWereSelected = _cartItems.every((item) => item.isSelected);
           if (allWereSelected) {
             for (int i = 0; i < _cartItems.length; i++) {
@@ -92,8 +86,6 @@ class _CartPageStatefulState extends State<CartPage> {
             }
           }
         }
-        
-        // Notifier le parent du changement
         widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
       });
     }
@@ -106,7 +98,7 @@ class _CartPageStatefulState extends State<CartPage> {
     for (final item in _cartItems) {
       vendors.add(item.vendorName);
     }
-    
+
     final selections = <String, bool>{};
     for (final vendor in vendors) {
       final vendorItems = _cartItems.where((item) => item.vendorName == vendor);
@@ -119,24 +111,21 @@ class _CartPageStatefulState extends State<CartPage> {
     setState(() {
       final vendorItems = _cartItems.where((item) => item.vendorName == vendorName);
       final allSelected = vendorItems.every((item) => item.isSelected);
-      
-      // Inverser la sélection pour tous les articles du vendeur
+
       for (var item in vendorItems) {
         final index = _cartItems.indexOf(item);
         _cartItems[index] = item.copyWith(isSelected: !allSelected);
       }
-      
-      // Mettre à jour l'état global "Tout" si nécessaire
+
       final allItemsSelected = _cartItems.every((item) => item.isSelected);
       final noItemsSelected = _cartItems.every((item) => !item.isSelected);
-      
+
       if (allItemsSelected) {
         _selectionService.setAllSelected(true);
       } else if (noItemsSelected) {
         _selectionService.setAllSelected(false);
       }
-      
-      // Notifier le parent du changement
+
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
     });
   }
@@ -146,18 +135,16 @@ class _CartPageStatefulState extends State<CartPage> {
       _cartItems[index] = _cartItems[index].copyWith(
         isSelected: !_cartItems[index].isSelected,
       );
-      
-      // Mettre à jour l'état global "Tout" si nécessaire
+
       final allItemsSelected = _cartItems.every((item) => item.isSelected);
       final noItemsSelected = _cartItems.every((item) => !item.isSelected);
-      
+
       if (allItemsSelected) {
         _selectionService.setAllSelected(true);
       } else if (noItemsSelected) {
         _selectionService.setAllSelected(false);
       }
-      
-      // Notifier le parent du changement
+
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
     });
   }
@@ -168,29 +155,22 @@ class _CartPageStatefulState extends State<CartPage> {
 
   void _toggleAllSelection() {
     setState(() {
-      // Utiliser le service partagé pour synchroniser
       _selectionService.toggleAllSelection();
       final allSelected = _selectionService.isAllSelected;
-      
+
       for (int i = 0; i < _cartItems.length; i++) {
         _cartItems[i] = _cartItems[i].copyWith(isSelected: allSelected);
       }
-      
-      // Notifier le parent du changement
+
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
     });
   }
 
   void _updateQuantity(int index, int newQuantity) {
-    if (newQuantity < 1) {
-      // Ne pas permettre de descendre en dessous de 1
-      return;
-    }
-    
+    if (newQuantity < 1) return;
+
     setState(() {
       _cartItems[index] = _cartItems[index].copyWith(quantity: newQuantity);
-      
-      // Notifier le parent du changement
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
     });
   }
@@ -198,22 +178,20 @@ class _CartPageStatefulState extends State<CartPage> {
   void _removeItem(int index) {
     setState(() {
       _cartItems.removeAt(index);
-      
-      // Mettre à jour l'état global "Tout" si nécessaire
+
       if (_cartItems.isEmpty) {
         _selectionService.setAllSelected(false);
       } else {
         final allItemsSelected = _cartItems.every((item) => item.isSelected);
         final noItemsSelected = _cartItems.every((item) => !item.isSelected);
-        
+
         if (allItemsSelected) {
           _selectionService.setAllSelected(true);
         } else if (noItemsSelected) {
           _selectionService.setAllSelected(false);
         }
       }
-      
-      // Notifier le parent du changement avec le nouveau nombre d'articles
+
       widget.onTotalCartItemsChanged?.call(_totalCartItems);
       widget.onCartSelectionChanged?.call(_selectedItemCount, _selectedTotal);
     });
@@ -238,7 +216,7 @@ class _CartPageStatefulState extends State<CartPage> {
   }
 
   int get _totalCartItems {
-    return _cartItems.length; // Nombre d'articles uniques, pas la somme des quantités
+    return _cartItems.length;
   }
 
   double get _selectedTotal {
@@ -247,13 +225,21 @@ class _CartPageStatefulState extends State<CartPage> {
         .fold(0.0, (sum, item) => sum + (item.price * item.quantity));
   }
 
+  // Helper pour les textes traduits
+  String _t(String key) => AppLocalizations.get(key);
+
+  // Helper pour le texte article(s) selon la quantité
+  String _articleCount(int count) {
+    if (count <= 1) return '$count ${_t('article')}';
+    return '$count ${_t('articles')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    final isDesktop = screenWidth > 1200;
-    
-    // Group items by vendor
+    final isRtl = AppLocalizations.isRtl;
+
     final groupedItems = <String, List<CartItem>>{};
     for (final item in _cartItems) {
       if (!groupedItems.containsKey(item.vendorName)) {
@@ -264,64 +250,87 @@ class _CartPageStatefulState extends State<CartPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: Stack(
-        children: [
-          // Contenu principal
-          Padding(
-            padding: EdgeInsets.only(
-              left: isTablet ? 24 : 16,
-              right: isTablet ? 24 : 16,
-              top: isTablet ? 30 : 20,
-              bottom: 20, // Padding normal car la barre est dans la navigation
+      body: Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Stack(
+          children: [
+            // Contenu principal
+            Padding(
+              padding: EdgeInsets.only(
+                left: isTablet ? 24 : 16,
+                right: isTablet ? 24 : 16,
+                top: isTablet ? 30 : 20,
+                bottom: 20,
+              ),
+              child: _cartItems.isEmpty
+                  ? _buildEmptyCart(isTablet)
+                  : ListView.builder(
+                itemCount: groupedItems.keys.length,
+                itemBuilder: (context, vendorIndex) {
+                  final vendorName = groupedItems.keys.elementAt(vendorIndex);
+                  final vendorItems = groupedItems[vendorName]!;
+                  return _vendorSection(vendorName, vendorItems, isTablet);
+                },
+              ),
             ),
-            child: ListView.builder(
-              itemCount: groupedItems.keys.length,
-              itemBuilder: (context, vendorIndex) {
-                final vendorName = groupedItems.keys.elementAt(vendorIndex);
-                final vendorItems = groupedItems[vendorName]!;
-                
-                return _vendorSection(vendorName, vendorItems, isTablet);
-              },
+
+            // Overlay résumé
+            if (_showSummaryOverlay)
+              Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: _hideSummaryOverlay,
+                      child: Container(color: Colors.black.withOpacity(0.3)),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 140,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 20,
+                            offset: Offset(0, -5),
+                          ),
+                        ],
+                      ),
+                      child: _summaryOverlayContent(),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCart(bool isTablet) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shopping_cart_outlined,
+            size: isTablet ? 80 : 60,
+            color: Colors.grey[300],
+          ),
+          SizedBox(height: isTablet ? 24 : 16),
+          Text(
+            _t('empty_cart'),
+            style: TextStyle(
+              fontSize: isTablet ? 18 : 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
-          
-          // Overlay pour le résumé avec effet de shadow sur le reste
-          if (_showSummaryOverlay)
-            Stack(
-              children: [
-                // Fond sombre pour l'effet de shadow
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: IgnorePointer(
-                      child: Container(),
-                    ),
-                  ),
-                ),
-                
-                // Contenu de l'overlay
-                Positioned(
-                  bottom: 140, // Juste au-dessus de la barre de total (80) + navigation (60)
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 20,
-                          offset: Offset(0, -5),
-                        ),
-                      ],
-                    ),
-                    child: _summaryOverlayContent(),
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -330,7 +339,7 @@ class _CartPageStatefulState extends State<CartPage> {
   Widget _vendorSection(String vendorName, List<CartItem> items, bool isTablet) {
     final vendorSelections = _vendorSelections;
     final isVendorSelected = vendorSelections[vendorName] ?? false;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: isTablet ? 24 : 20),
       decoration: BoxDecoration(
@@ -347,7 +356,7 @@ class _CartPageStatefulState extends State<CartPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header du vendeur
+          // Header vendeur
           Padding(
             padding: EdgeInsets.all(isTablet ? 16 : 12),
             child: Row(
@@ -366,11 +375,7 @@ class _CartPageStatefulState extends State<CartPage> {
                       color: isVendorSelected ? Colors.deepPurple : Colors.transparent,
                     ),
                     child: isVendorSelected
-                        ? Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: isTablet ? 16 : 14,
-                          )
+                        ? Icon(Icons.check, color: Colors.white, size: isTablet ? 16 : 14)
                         : null,
                   ),
                 ),
@@ -384,7 +389,7 @@ class _CartPageStatefulState extends State<CartPage> {
                 ),
                 const Spacer(),
                 Text(
-                  '${items.length} article${items.length > 1 ? 's' : ''}',
+                  _articleCount(items.length),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: isTablet ? 14 : 12,
@@ -394,8 +399,8 @@ class _CartPageStatefulState extends State<CartPage> {
             ),
           ),
           const Divider(height: 1),
-          
-          // Articles du vendeur
+
+          // Articles
           ...items.asMap().entries.map((entry) {
             final index = _cartItems.indexOf(entry.value);
             return _cartItemCard(entry.value, index, isTablet);
@@ -410,7 +415,7 @@ class _CartPageStatefulState extends State<CartPage> {
       padding: EdgeInsets.all(isTablet ? 16 : 12),
       child: Row(
         children: [
-          // Checkbox de sélection
+          // Checkbox sélection
           GestureDetector(
             onTap: () => _toggleItemSelection(index),
             child: Container(
@@ -425,35 +430,27 @@ class _CartPageStatefulState extends State<CartPage> {
                 color: item.isSelected ? Colors.deepPurple : Colors.transparent,
               ),
               child: item.isSelected
-                  ? Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: isTablet ? 16 : 14,
-                    )
+                  ? Icon(Icons.check, color: Colors.white, size: isTablet ? 16 : 14)
                   : null,
             ),
           ),
-          
+
           SizedBox(width: isTablet ? 12 : 8),
-          
-          // Image du produit
+
+          // Image produit
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Container(
               width: isTablet ? 100 : 80,
               height: isTablet ? 100 : 80,
               color: Colors.grey[200],
-              child: Icon(
-                Icons.image,
-                color: Colors.grey,
-                size: isTablet ? 40 : 30,
-              ),
+              child: Icon(Icons.image, color: Colors.grey, size: isTablet ? 40 : 30),
             ),
           ),
-          
+
           SizedBox(width: isTablet ? 16 : 12),
-          
-          // Détails du produit
+
+          // Détails produit
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,6 +474,7 @@ class _CartPageStatefulState extends State<CartPage> {
                 SizedBox(height: isTablet ? 16 : 8),
                 Row(
                   children: [
+                    // Contrôle quantité
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
@@ -488,6 +486,7 @@ class _CartPageStatefulState extends State<CartPage> {
                           IconButton(
                             icon: Icon(Icons.remove, size: isTablet ? 20 : 16),
                             onPressed: () => _updateQuantity(index, item.quantity - 1),
+                            tooltip: _t('quantity'),
                           ),
                           Padding(
                             padding: EdgeInsets.symmetric(horizontal: isTablet ? 12 : 8),
@@ -499,6 +498,7 @@ class _CartPageStatefulState extends State<CartPage> {
                           IconButton(
                             icon: Icon(Icons.add, size: isTablet ? 20 : 16),
                             onPressed: () => _updateQuantity(index, item.quantity + 1),
+                            tooltip: _t('quantity'),
                           ),
                         ],
                       ),
@@ -507,6 +507,7 @@ class _CartPageStatefulState extends State<CartPage> {
                     IconButton(
                       icon: Icon(Icons.delete, color: Colors.red, size: isTablet ? 24 : 20),
                       onPressed: () => _removeItem(index),
+                      tooltip: _t('delete'),
                     ),
                   ],
                 ),
@@ -520,10 +521,11 @@ class _CartPageStatefulState extends State<CartPage> {
 
   Widget _summaryOverlayContent() {
     final selectedItems = _cartItems.where((item) => item.isSelected);
-    
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
     return Column(
       children: [
-        // Header de l'overlay
+        // Header overlay
         Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
@@ -532,12 +534,9 @@ class _CartPageStatefulState extends State<CartPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Résumé',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              Text(
+                _t('summary'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
                 onTap: _hideSummaryOverlay,
@@ -554,14 +553,14 @@ class _CartPageStatefulState extends State<CartPage> {
             ],
           ),
         ),
-        
-        // Contenu de l'overlay
+
+        // Contenu overlay
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Photos des articles
+                // Photos articles
                 SizedBox(
                   height: 100,
                   child: ListView.builder(
@@ -597,10 +596,7 @@ class _CartPageStatefulState extends State<CartPage> {
                                 const SizedBox(width: 2),
                                 Text(
                                   'x${item.quantity}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
+                                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                                 ),
                               ],
                             ),
@@ -612,7 +608,7 @@ class _CartPageStatefulState extends State<CartPage> {
                 ),
 
                 const SizedBox(height: 16),
-                
+
                 // Résumé des prix
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -622,15 +618,28 @@ class _CartPageStatefulState extends State<CartPage> {
                   ),
                   child: Column(
                     children: [
-                      _summaryRowDrawer('Total articles', '${_selectedTotal.toStringAsFixed(2)} €'),
-                      _summaryRowDrawer('Réductions', '-${(_selectedTotal * 0.1).toStringAsFixed(2)} €'),
-                      _summaryRowDrawer('Sous-total', '${(_selectedTotal * 0.9).toStringAsFixed(2)} €'),
+                      _summaryRowDrawer(
+                        _t('cart_title'),
+                        '${_selectedTotal.toStringAsFixed(2)} €',
+                      ),
+                      _summaryRowDrawer(
+                        _t('reductions'),
+                        '-${(_selectedTotal * 0.1).toStringAsFixed(2)} €',
+                      ),
+                      _summaryRowDrawer(
+                        _t('subtotal'),
+                        '${(_selectedTotal * 0.9).toStringAsFixed(2)} €',
+                      ),
                       const Divider(),
-                      _summaryRowDrawer('Livraison', '5,00 €', isBold: true),
+                      _summaryRowDrawer(
+                        _t('shipping'),
+                        '5,00 €',
+                        isBold: true,
+                      ),
                       const SizedBox(height: 8),
                       _summaryRowDrawer(
-                        'Total estimé', 
-                        '${(_selectedTotal * 0.9 + 5.0).toStringAsFixed(2)} €', 
+                        _t('estimated_total'),
+                        '${(_selectedTotal * 0.9 + 5.0).toStringAsFixed(2)} €',
                         isBold: true,
                         isLarge: true,
                       ),

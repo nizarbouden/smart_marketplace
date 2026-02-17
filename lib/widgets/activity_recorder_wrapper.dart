@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import '../services/auto_logout_service.dart';
+import '../../services/auto_logout_service.dart';
 
 class ActivityRecorderWrapper extends StatefulWidget {
   final Widget child;
-  final AutoLogoutService autoLogoutService;
 
   const ActivityRecorderWrapper({
-    super.key,
     required this.child,
-    required this.autoLogoutService,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<ActivityRecorderWrapper> createState() => _ActivityRecorderWrapperState();
@@ -17,121 +15,161 @@ class ActivityRecorderWrapper extends StatefulWidget {
 
 class _ActivityRecorderWrapperState extends State<ActivityRecorderWrapper>
     with WidgetsBindingObserver {
-  late DateTime _lastActivityRecordedTime;
-
-  // ✅ Nouvelles propriétés pour filtrer les interactions
-  late Offset _lastTapPosition;
-  late DateTime _lastTapTime;
-  static const int _minTapInterval = 500; // 500ms minimum entre les taps
+  // ✅ Service est créé localement (singleton)
+  final AutoLogoutService _autoLogoutService = AutoLogoutService();
+  bool _timerInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _lastActivityRecordedTime = DateTime.now();
-    _lastTapTime = DateTime.now();
-    _lastTapPosition = Offset.zero;
     WidgetsBinding.instance.addObserver(this);
+
+    // ✅ Initialiser le timer SEULEMENT une fois (singleton)
+    _initializeTimer();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
+  Future<void> _initializeTimer() async {
+    try {
+      // ✅ Vérifier si déjà initialisé
+      if (_autoLogoutService.isTimerRunning()) {
+        print('⏸️ Timer déjà en cours d\'exécution, pas de réinitialisation');
+        if (mounted) {
+          setState(() {
+            _timerInitialized = true;
+          });
+        }
+        return;
+      }
 
-  // ✅ Vérifier si on est sur une page où ignorer l'activité
-  bool _isSettingsPage() {
-    final currentRoute = ModalRoute.of(context)?.settings.name;
-    return currentRoute == '/settings' ||
-        currentRoute == '/security-settings' ||
-        currentRoute == '/auto-logout-test' ||
-        currentRoute == '/profil' ||
-        currentRoute == '/notification-settings' ||
-        currentRoute == '/addresses' ||
-        currentRoute == '/payment-methods' ||
-        currentRoute == '/edit-profile';
-  }
+      // ✅ Initialiser le service SI pas encore fait
+      await _autoLogoutService.init();
 
-  // ✅ Filtre pour les interactions significatives
-  bool _isSignificantInteraction(Offset position) {
-    final now = DateTime.now();
-    final timeSinceLastTap = now.difference(_lastTapTime).inMilliseconds;
+      // ✅ Charger les paramètres sauvegardés
+      final settings = await _autoLogoutService.loadAutoLogoutSettings();
+      final isEnabled = settings['enabled'] ?? false;
+      final duration = settings['duration'] ?? '30 minutes';
 
-    // Vérifier que ce n'est pas un double-tap accidentel
-    final distance = (_lastTapPosition - position).distance;
+      if (mounted) {
+        setState(() {
+          _timerInitialized = true;
+        });
+      }
 
-    // Enregistrer seulement si:
-    // 1. Au moins 500ms depuis le dernier tap
-    // 2. À plus de 50 pixels de distance (pas un double-tap)
-    // 3. Pas sur une page Settings
-
-    if (timeSinceLastTap < _minTapInterval && distance < 50) {
-      print('ℹ️  Double-tap ignoré (distance: ${distance.toStringAsFixed(2)}px)');
-      return false;
-    }
-
-    _lastTapPosition = position;
-    _lastTapTime = now;
-
-    return true;
-  }
-
-  // ✅ Throttle et filtre pour enregistrer l'activité
-  void _recordActivityWithThrottle() {
-    final now = DateTime.now();
-    final timeSinceLastRecord = now.difference(_lastActivityRecordedTime).inMilliseconds;
-
-    // Enregistrer seulement si 300ms ont passé
-    if (timeSinceLastRecord > 300) {
-      // ✅ Vérifier que le service est initialisé
-      if (widget.autoLogoutService.isAutoLogoutEnabled()) {
-        widget.autoLogoutService.recordActivity();
-        _lastActivityRecordedTime = now;
-        print('✏️  Activité enregistrée avec succès');
+      // ✅ Démarrer le timer SI activé
+      if (isEnabled && !_autoLogoutService.isTimerRunning()) {
+        _autoLogoutService.startAutoLogout(duration);
+        print('✅ Timer démarré/maintenu: $duration');
+      } else if (isEnabled) {
+        print('✅ Timer déjà actif: $duration');
       } else {
-        print('ℹ️  Auto-logout désactivé, activité ignorée');
+        print('⏸️ Timer désactivé pour cet utilisateur');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'initialisation du timer: $e');
+      if (mounted) {
+        setState(() {
+          _timerInitialized = true;
+        });
       }
     }
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // ✅ NE PAS arrêter le service ici (il est singleton et utilisé partout)
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('📱 App resumed');
+      _autoLogoutService.recordActivity();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // ✅ GestureDetector pour capturer TOUS les événements
     return GestureDetector(
-      // ✅ TAP: Interaction significative
-      onTapDown: (details) {
-        if (!_isSettingsPage()) {
-          if (_isSignificantInteraction(details.globalPosition)) {
-            _recordActivityWithThrottle();
-            print('✏️  Tap détecté (${details.globalPosition}) - Activité enregistrée');
-          }
-        } else {
-          print('ℹ️  Tap sur page Settings/Profil: ignoré');
-        }
+      onTap: () {
+        print('👆 Tap');
+        _autoLogoutService.recordActivity();
       },
-
-      // ✅ DRAG VERTICAL: Scroll vers le bas (interaction significative)
-      onVerticalDragDown: (details) {
-        if (!_isSettingsPage()) {
-          _recordActivityWithThrottle();
-          print('✏️  Scroll vertical détecté - Activité enregistrée');
-        } else {
-          print('ℹ️  Scroll vertical sur page Settings: ignoré');
-        }
+      onPanDown: (_) {
+        print('👉 Drag/Swipe');
+        _autoLogoutService.recordActivity();
       },
-
-      // ✅ DRAG HORIZONTAL: Swipe gauche/droite (interaction significative)
-      onHorizontalDragDown: (details) {
-        if (!_isSettingsPage()) {
-          _recordActivityWithThrottle();
-          print('✏️  Swipe horizontal détecté - Activité enregistrée');
-        } else {
-          print('ℹ️  Swipe horizontal sur page Settings: ignoré');
-        }
+      onLongPress: () {
+        print('🟡 Long press');
+        _autoLogoutService.recordActivity();
       },
-
-      // ✅ Important: laisser passer les events aux enfants
       behavior: HitTestBehavior.translucent,
-      child: widget.child,
+      child: _RouteDetectorWidget(
+        onRouteChange: () {
+          print('📍 Route changed');
+          _autoLogoutService.recordActivity();
+        },
+        child: widget.child,
+      ),
     );
+  }
+}
+
+// ✅ Widget pour détecter les changements de route
+class _RouteDetectorWidget extends StatefulWidget {
+  final VoidCallback onRouteChange;
+  final Widget child;
+
+  const _RouteDetectorWidget({
+    required this.onRouteChange,
+    required this.child,
+  });
+
+  @override
+  State<_RouteDetectorWidget> createState() => _RouteDetectorWidgetState();
+}
+
+class _RouteDetectorWidgetState extends State<_RouteDetectorWidget>
+    with RouteAware {
+  late RouteObserver<PageRoute<dynamic>> _routeObserver;
+  String? _currentRoute;
+
+  @override
+  void initState() {
+    super.initState();
+    _routeObserver = RouteObserver<PageRoute<dynamic>>();
+  }
+
+  @override
+  void didPush() {
+    super.didPush();
+    final currentRoute = ModalRoute.of(context);
+    if (currentRoute is PageRoute) {
+      _handleRouteChange(currentRoute);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    final currentRoute = ModalRoute.of(context);
+    if (currentRoute is PageRoute) {
+      _handleRouteChange(currentRoute);
+    }
+  }
+
+  void _handleRouteChange(PageRoute<dynamic> route) {
+    final routeName = route.settings.name ?? route.toString();
+    if (_currentRoute != routeName) {
+      _currentRoute = routeName;
+      widget.onRouteChange();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'add_address_page.dart';
 import 'edit_address_page.dart';
 
@@ -16,9 +17,11 @@ class _AddressPageState extends State<AddressPage> {
   List<Map<String, dynamic>> addresses = [];
   bool isLoading = true;
   String? _previousDefaultAddressId;
-  String? _animatingAddressId;
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final FirebaseAuthService _authService = FirebaseAuthService();
+
+  // Helper traduction
+  String _t(String key) => AppLocalizations.get(key);
 
   @override
   void initState() {
@@ -27,14 +30,11 @@ class _AddressPageState extends State<AddressPage> {
   }
 
   Future<void> _loadAddresses() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() { isLoading = true; });
 
     try {
       List<Map<String, dynamic>> userAddresses = await _authService.getUserAddresses();
-      
-      // Sauvegarder l'ID de l'adresse par défaut actuelle pour l'animation
+
       String? currentDefaultId;
       for (var address in userAddresses) {
         if (address['isDefault'] == true) {
@@ -42,21 +42,19 @@ class _AddressPageState extends State<AddressPage> {
           break;
         }
       }
-      
+
       setState(() {
         addresses = userAddresses;
         _previousDefaultAddressId = currentDefaultId;
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      
+      setState(() { isLoading = false; });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors du chargement des adresses: $e'),
+            content: Text('${_t('address_load_error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -66,16 +64,14 @@ class _AddressPageState extends State<AddressPage> {
 
   Future<void> _setDefaultAddress(String addressId) async {
     try {
-      // Récupérer les dimensions de l'écran
       final screenWidth = MediaQuery.of(context).size.width;
       final isMobile = screenWidth < 600;
       final isTablet = screenWidth >= 600 && screenWidth < 1200;
       final isDesktop = screenWidth >= 1200;
-      
-      // Trouver l'adresse actuelle et sa position
+
       int currentIndex = -1;
       Map<String, dynamic>? targetAddress;
-      
+
       for (int i = 0; i < addresses.length; i++) {
         if (addresses[i]['id'] == addressId) {
           currentIndex = i;
@@ -83,56 +79,48 @@ class _AddressPageState extends State<AddressPage> {
           break;
         }
       }
-      
+
       if (targetAddress == null || currentIndex == -1) return;
-      
-      // Mettre à jour l'adresse par défaut dans Firestore
+
       await _authService.setDefaultAddress(
         FirebaseAuthService().currentUser?.uid ?? '',
         addressId,
       );
-      
-      // Animation de déplacement : supprimer l'adresse de sa position actuelle
+
       if (_listKey.currentState != null && currentIndex > 0) {
         _listKey.currentState!.removeItem(
           currentIndex,
-          (context, animation) => _buildAnimatedAddressCard(
+              (context, animation) => _buildAnimatedAddressCard(
             context,
             targetAddress!,
             currentIndex,
             animation,
-            false, // isRemoving
+            false,
             isMobile,
             isTablet,
             isDesktop,
           ),
           duration: const Duration(milliseconds: 300),
         );
-        
-        // Attendre la fin de l'animation
         await Future.delayed(const Duration(milliseconds: 300));
       }
-      
-      // Créer la notification d'adresse par défaut
+
       await FirebaseAuthService().createNotification(
         userId: FirebaseAuthService().currentUser?.uid ?? '',
-        title: 'Adresse par défaut',
-        body: 'Votre adresse par défaut a été mise à jour',
+        title: _t('address_default_title'),
+        body: _t('address_default_updated'),
         type: 'address',
       );
-      
-      // Recharger les adresses pour mettre à jour l'UI
+
       await _loadAddresses();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text('${_t('error')}: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -145,19 +133,15 @@ class _AddressPageState extends State<AddressPage> {
         FirebaseAuthService().currentUser?.uid ?? '',
         addressId,
       );
-      
-      // Recharger les adresses pour mettre à jour l'UI
       await _loadAddresses();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text('${_t('error')}: $e'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -170,14 +154,18 @@ class _AddressPageState extends State<AddressPage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
+    final isRtl = AppLocalizations.isRtl;
 
-    return ChangeNotifierProvider(
-      create: (context) => ProfileViewModel(),
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(context, isMobile, isTablet, isDesktop),
-        body: _buildBody(context, isMobile, isTablet, isDesktop),
-        bottomNavigationBar: _buildAddButton(context, isMobile, isTablet, isDesktop),
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: ChangeNotifierProvider(
+        create: (context) => ProfileViewModel(),
+        child: Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: _buildAppBar(context, isMobile, isTablet, isDesktop),
+          body: _buildBody(context, isMobile, isTablet, isDesktop),
+          bottomNavigationBar: _buildAddButton(context, isMobile, isTablet, isDesktop),
+        ),
       ),
     );
   }
@@ -189,13 +177,13 @@ class _AddressPageState extends State<AddressPage> {
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
         icon: Icon(
-          Icons.arrow_back,
+          AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
           color: Colors.black87,
           size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
       ),
       title: Text(
-        'Adresse de livraison',
+        _t('delivery_address_title'),
         style: TextStyle(
           color: Colors.black87,
           fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
@@ -212,16 +200,13 @@ class _AddressPageState extends State<AddressPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Indicateur de sécurité
-          _buildSecurityIndicator(isMobile, isTablet, isDesktop),
-          SizedBox(height: isMobile ? 24 : isTablet ? 32 : 40),
+          SizedBox(height: isMobile ? 8 : isTablet ? 12 : 16),
 
-          // Liste des adresses
           isLoading
               ? _buildLoadingState(isMobile, isTablet, isDesktop)
               : addresses.isEmpty
-                  ? _buildEmptyState(isMobile, isTablet, isDesktop)
-                  : _buildAddressesList(context, isMobile, isTablet, isDesktop),
+              ? _buildEmptyState(isMobile, isTablet, isDesktop)
+              : _buildAddressesList(context, isMobile, isTablet, isDesktop),
 
           SizedBox(height: isMobile ? 80 : isTablet ? 100 : 120),
         ],
@@ -229,24 +214,20 @@ class _AddressPageState extends State<AddressPage> {
     );
   }
 
-  Widget _buildSecurityIndicator(bool isMobile, bool isTablet, bool isDesktop) {
-    return const SizedBox.shrink();
-  }
-
   Widget _buildLoadingState(bool isMobile, bool isTablet, bool isDesktop) {
-    return Container(
+    return SizedBox(
       height: 200,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
+            const CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
               strokeWidth: 3,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
-              'Chargement des adresses...',
+              _t('loading_addresses'),
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
@@ -262,7 +243,7 @@ class _AddressPageState extends State<AddressPage> {
     return Column(
       children: [
         SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6, // Limiter la hauteur
+          height: MediaQuery.of(context).size.height * 0.6,
           child: AnimatedList(
             key: _listKey,
             initialItemCount: addresses.length,
@@ -274,7 +255,7 @@ class _AddressPageState extends State<AddressPage> {
                 addresses[index],
                 index,
                 animation,
-                false, // isRemoving
+                false,
                 isMobile,
                 isTablet,
                 isDesktop,
@@ -287,38 +268,28 @@ class _AddressPageState extends State<AddressPage> {
   }
 
   Widget _buildAnimatedAddressCard(
-    BuildContext context,
-    Map<String, dynamic> address,
-    int index,
-    Animation<double> animation,
-    bool isRemoving,
-    bool isMobile,
-    bool isTablet,
-    bool isDesktop,
-  ) {
-    final isDefault = address['isDefault'] == true;
-    final isNewDefault = isDefault && address['id'] != _previousDefaultAddressId;
-    
+      BuildContext context,
+      Map<String, dynamic> address,
+      int index,
+      Animation<double> animation,
+      bool isRemoving,
+      bool isMobile,
+      bool isTablet,
+      bool isDesktop,
+      ) {
     return SizeTransition(
       sizeFactor: animation,
       child: FadeTransition(
         opacity: animation,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: Offset(isRemoving ? 0.0 : -1.0, 0.0), // Slide from left
-            end: Offset(isRemoving ? 1.0 : 0.0, 0.0),   // Slide to right if removing
+            begin: Offset(isRemoving ? 0.0 : -1.0, 0.0),
+            end: Offset(isRemoving ? 1.0 : 0.0, 0.0),
           ).animate(CurvedAnimation(
             parent: animation,
             curve: Curves.easeInOutCubic,
           )),
-          child: _buildAddressCard(
-            context,
-            address,
-            index,
-            isMobile,
-            isTablet,
-            isDesktop,
-          ),
+          child: _buildAddressCard(context, address, index, isMobile, isTablet, isDesktop),
         ),
       ),
     );
@@ -334,7 +305,7 @@ class _AddressPageState extends State<AddressPage> {
       ) {
     final isDefault = address['isDefault'] == true;
     final isNewDefault = isDefault && address['id'] != _previousDefaultAddressId;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 16 : isTablet ? 20 : 24),
       decoration: BoxDecoration(
@@ -345,7 +316,7 @@ class _AddressPageState extends State<AddressPage> {
             : Border.all(color: Colors.grey.shade300, width: 1),
         boxShadow: [
           BoxShadow(
-            color: isDefault 
+            color: isDefault
                 ? Colors.deepPurple.withOpacity(0.2)
                 : Colors.black.withOpacity(0.05),
             blurRadius: isDefault ? 15 : 10,
@@ -356,7 +327,7 @@ class _AddressPageState extends State<AddressPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header avec badge "Par défaut" si applicable
+          // Badge "Par défaut"
           if (isDefault)
             Container(
               width: double.infinity,
@@ -365,7 +336,7 @@ class _AddressPageState extends State<AddressPage> {
                 vertical: isMobile ? 8 : isTablet ? 10 : 12,
               ),
               decoration: BoxDecoration(
-                color: isNewDefault 
+                color: isNewDefault
                     ? Colors.deepPurple.withOpacity(0.2)
                     : Colors.deepPurple.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
@@ -375,14 +346,10 @@ class _AddressPageState extends State<AddressPage> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.star,
-                    color: Colors.deepPurple,
-                    size: isMobile ? 16 : isTablet ? 18 : 20,
-                  ),
-                  SizedBox(width: 8),
+                  Icon(Icons.star, color: Colors.deepPurple, size: isMobile ? 16 : isTablet ? 18 : 20),
+                  const SizedBox(width: 8),
                   Text(
-                    'Adresse par défaut',
+                    _t('default_address'),
                     style: TextStyle(
                       color: Colors.deepPurple,
                       fontWeight: FontWeight.bold,
@@ -406,9 +373,9 @@ class _AddressPageState extends State<AddressPage> {
                           ),
                         ],
                       ),
-                      child: const Text(
-                        'Nouveau!',
-                        style: TextStyle(
+                      child: Text(
+                        _t('new_badge'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -418,7 +385,8 @@ class _AddressPageState extends State<AddressPage> {
                 ],
               ),
             ),
-          // Header avec nom et téléphone
+
+          // Nom & téléphone
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
             child: Column(
@@ -487,12 +455,12 @@ class _AddressPageState extends State<AddressPage> {
 
           SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
 
-          // Footer avec checkbox et icônes
+          // Footer: checkbox + actions
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
             child: Row(
               children: [
-                // Checkbox Par défaut
+                // Checkbox par défaut
                 GestureDetector(
                   onTap: () async {
                     if (!isDefault) {
@@ -512,17 +480,13 @@ class _AddressPageState extends State<AddressPage> {
                       ),
                     ),
                     child: isDefault
-                        ? Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: isMobile ? 14 : 16,
-                    )
+                        ? Icon(Icons.check, color: Colors.white, size: isMobile ? 14 : 16)
                         : null,
                   ),
                 ),
                 SizedBox(width: isMobile ? 12 : 16),
                 Text(
-                  'Par défaut',
+                  _t('set_as_default'),
                   style: TextStyle(
                     fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
                     color: Colors.black87,
@@ -530,16 +494,14 @@ class _AddressPageState extends State<AddressPage> {
                   ),
                 ),
                 const Spacer(),
-                // Icônes à droite
+                // Actions
                 Row(
                   children: [
-                    // Icône supprimer avec animation
                     GestureDetector(
                       onTap: () => _showDeleteConfirmation(context, index, isMobile, isTablet, isDesktop),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(8),
-                        transform: Matrix4.identity()..scale(1.0),
                         child: Icon(
                           Icons.delete_outline,
                           color: Colors.red[400],
@@ -548,24 +510,17 @@ class _AddressPageState extends State<AddressPage> {
                       ),
                     ),
                     SizedBox(width: isMobile ? 8 : 12),
-                    // Icône éditer avec animation
                     GestureDetector(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => EditAddressPage(
-                              addressData: addresses[index],
-                            ),
+                            builder: (context) => EditAddressPage(addressData: addresses[index]),
                           ),
-                        ).then((_) {
-                          // Recharger les adresses quand on revient de EditAddressPage
-                          _loadAddresses();
-                        });
+                        ).then((_) => _loadAddresses());
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(8),
-                        transform: Matrix4.identity()..scale(1.0),
                         child: Icon(
                           Icons.edit_outlined,
                           color: Colors.deepPurple,
@@ -595,7 +550,7 @@ class _AddressPageState extends State<AddressPage> {
           ),
           SizedBox(height: isMobile ? 16 : isTablet ? 24 : 32),
           Text(
-            'Aucune adresse',
+            _t('no_addresses'),
             style: TextStyle(
               fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
               fontWeight: FontWeight.bold,
@@ -604,7 +559,7 @@ class _AddressPageState extends State<AddressPage> {
           ),
           SizedBox(height: isMobile ? 8 : 12),
           Text(
-            'Ajoutez votre première adresse de livraison',
+            _t('add_first_address'),
             style: TextStyle(
               fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
               color: Colors.grey[500],
@@ -625,24 +580,17 @@ class _AddressPageState extends State<AddressPage> {
         height: isMobile ? 52 : isTablet ? 56 : 60,
         child: AnimatedButton(
           onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddAddressPage()),
-          ).then((_) {
-            // Recharger les adresses quand on revient de AddAddressPage
-            _loadAddresses();
-          });
-        },
-          text: 'Ajouter une nouvelle adresse',
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddAddressPage()),
+            ).then((_) => _loadAddresses());
+          },
+          text: _t('add_new_address'),
           fontSize: isDesktop ? 18 : isTablet ? 16 : 15,
         ),
       ),
     );
   }
-
-
-
-
 
   void _showDeleteConfirmation(BuildContext context, int index, bool isMobile, bool isTablet, bool isDesktop) {
     showDialog(
@@ -650,29 +598,29 @@ class _AddressPageState extends State<AddressPage> {
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
       builder: (BuildContext context) {
-        return Dialog(
+        return Directionality(
+          textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: Dialog(
             insetPadding: const EdgeInsets.all(20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             elevation: 20,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFFEF4444),
-                    const Color(0xFFF87171),
-                    const Color(0xFFFCA5A5),
+                    Color(0xFFEF4444),
+                    Color(0xFFF87171),
+                    Color(0xFFFCA5A5),
                   ],
                 ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header avec icône
+                  // Icône header
                   Container(
                     padding: const EdgeInsets.all(28),
                     child: Container(
@@ -686,11 +634,7 @@ class _AddressPageState extends State<AddressPage> {
                           width: 2,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.delete_sweep,
-                        color: Colors.white,
-                        size: 32,
-                      ),
+                      child: const Icon(Icons.delete_sweep, color: Colors.white, size: 32),
                     ),
                   ),
 
@@ -708,9 +652,9 @@ class _AddressPageState extends State<AddressPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Supprimer l\'adresse',
-                          style: TextStyle(
+                        Text(
+                          _t('delete_address'),
+                          style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFDC2626),
@@ -718,9 +662,9 @@ class _AddressPageState extends State<AddressPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Êtes-vous sûr de vouloir\nsupprimer cette adresse?',
-                          style: TextStyle(
+                        Text(
+                          _t('confirm_delete_address'),
+                          style: const TextStyle(
                             fontSize: 16,
                             color: Color(0xFF64748B),
                             height: 1.4,
@@ -729,29 +673,20 @@ class _AddressPageState extends State<AddressPage> {
                         ),
                         const SizedBox(height: 28),
 
-                        // Boutons modernes
                         Row(
                           children: [
                             Expanded(
                               child: SizedBox(
                                 height: 48,
                                 child: OutlinedButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
+                                  onPressed: () => Navigator.of(context).pop(),
                                   style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                      color: Color(0xFFEF4444),
-                                      width: 1.5,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    backgroundColor: Colors.transparent,
+                                    side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
-                                  child: const Text(
-                                    'Annuler',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _t('cancel'),
+                                    style: const TextStyle(
                                       color: Color(0xFFEF4444),
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
@@ -774,13 +709,11 @@ class _AddressPageState extends State<AddressPage> {
                                     foregroundColor: Colors.white,
                                     shadowColor: const Color(0xFFEF4444).withOpacity(0.3),
                                     elevation: 4,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
-                                  child: const Text(
-                                    'Supprimer',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _t('delete'),
+                                    style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3,
@@ -797,6 +730,7 @@ class _AddressPageState extends State<AddressPage> {
                 ],
               ),
             ),
+          ),
         );
       },
     );
@@ -810,6 +744,7 @@ class AnimatedButton extends StatefulWidget {
   final double fontSize;
 
   const AnimatedButton({
+    super.key,
     required this.onPressed,
     required this.text,
     required this.fontSize,
@@ -831,7 +766,6 @@ class _AnimatedButtonState extends State<AnimatedButton>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
@@ -843,18 +777,12 @@ class _AnimatedButtonState extends State<AnimatedButton>
     super.dispose();
   }
 
-  void _onTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
-
+  void _onTapDown(TapDownDetails details) => _controller.forward();
   void _onTapUp(TapUpDetails details) {
     _controller.reverse();
     widget.onPressed();
   }
-
-  void _onTapCancel() {
-    _controller.reverse();
-  }
+  void _onTapCancel() => _controller.reverse();
 
   @override
   Widget build(BuildContext context) {
@@ -868,9 +796,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
           onPressed: widget.onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.deepPurple,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             elevation: 2,
           ),
           child: Text(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../../providers/language_provider.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -29,10 +31,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final String email = _emailController.text.trim();
-      
+
       // Envoyer directement l'email de réinitialisation Firebase
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      
+
       setState(() {
         _isLoading = false;
         _emailSent = true;
@@ -44,7 +46,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
 
       String errorMessage = 'Une erreur est survenue';
-      
+
       if (e.code == 'user-not-found') {
         errorMessage = 'Aucun compte trouvé avec cet email';
       } else if (e.code == 'invalid-email') {
@@ -56,7 +58,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       setState(() {
         _errorMessage = errorMessage;
       });
-      
+
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -74,6 +76,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final langProvider = Provider.of<LanguageProvider>(context);
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
 
@@ -124,10 +127,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                             // Titre
                             Text(
-                              'MOT DE PASSE OUBLIÉ',
+                              langProvider.translate('forgot_password_title'),
                               style: TextStyle(
                                 color: const Color(0xFF8700FF),
-                                fontSize: screenWidth * 0.06, // Responsive
+                                fontSize: screenWidth * 0.06,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -135,11 +138,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                             // Description
                             Text(
-                              'Entrez votre adresse email pour recevoir\nun lien de réinitialisation de mot de passe',
+                              langProvider.translate('forgot_password_desc'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Color(0xFF718096),
-                                fontSize: screenWidth * 0.04, // Responsive
+                                color: const Color(0xFF718096),
+                                fontSize: screenWidth * 0.04,
                                 height: 1.4,
                               ),
                             ),
@@ -153,30 +156,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 hintText: 'votre.email@example.com',
                                 hintStyle: TextStyle(
                                   color: Colors.grey[400],
-                                  fontSize: screenWidth * 0.04, // Responsive
+                                  fontSize: screenWidth * 0.04,
                                 ),
-                                prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF8700FF), size: screenWidth * 0.05),
+                                prefixIcon: Icon(Icons.email_outlined, color: const Color(0xFF8700FF), size: screenWidth * 0.05),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(color: Colors.grey[300]!),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Color(0xFF8700FF), width: 2),
+                                  borderSide: const BorderSide(color: Color(0xFF8700FF), width: 2),
                                 ),
                                 filled: true,
                                 fillColor: Colors.grey[50],
                                 contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.02),
                               ),
                               style: TextStyle(
-                                fontSize: screenWidth * 0.04, // Responsive
+                                fontSize: screenWidth * 0.04,
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Veuillez entrer votre adresse email';
+                                  return langProvider.translate('email_required');
                                 }
                                 if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                  return 'Veuillez entrer une adresse email valide';
+                                  return langProvider.translate('invalid_email');
                                 }
                                 return null;
                               },
@@ -189,18 +192,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               Container(
                                 padding: EdgeInsets.all(screenWidth * 0.03),
                                 decoration: BoxDecoration(
-                                  color: Color(0xFFFFF5F5),
+                                  color: const Color(0xFFFFF5F5),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Color(0xFFFA5450), width: 1),
+                                  border: Border.all(color: const Color(0xFFFA5450), width: 1),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.warning_amber_outlined, color: Color(0xFFFA5450), size: screenWidth * 0.05),
+                                    Icon(Icons.warning_amber_outlined, color: const Color(0xFFFA5450), size: screenWidth * 0.05),
                                     SizedBox(width: screenWidth * 0.02),
                                     Expanded(
                                       child: Text(
                                         _errorMessage,
-                                        style: TextStyle(color: Color(0xFFFA5450), fontSize: screenWidth * 0.035),
+                                        style: TextStyle(color: const Color(0xFFFA5450), fontSize: screenWidth * 0.035),
                                       ),
                                     ),
                                   ],
@@ -215,7 +218,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF8700FF),
-                                  padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02), // Responsive
+                                  padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -223,42 +226,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 ),
                                 onPressed: _isLoading ? null : _sendPasswordResetEmail,
                                 child: _isLoading
-                                    ? const Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                            ),
-                                          ),
-                                          SizedBox(width: 12),
-                                          Text(
-                                            'Envoi en cours...',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      )
+                                    ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      langProvider.translate('sending'),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
                                     : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.email_outlined,
                                       color: Colors.white,
-                                      size: screenWidth * 0.05, // Responsive
+                                      size: screenWidth * 0.05,
                                     ),
-                                    SizedBox(width: screenWidth * 0.02), // Responsive
+                                    SizedBox(width: screenWidth * 0.02),
                                     Text(
-                                      'Envoyer le lien',
+                                      langProvider.translate('send_link'),
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: screenWidth * 0.04, // Responsive
+                                        fontSize: screenWidth * 0.04,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -274,10 +277,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  "Retourner à la ",
+                                  "${langProvider.translate('back_to')} ",
                                   style: TextStyle(
                                     color: Colors.grey,
-                                    fontSize: screenWidth * 0.035, // Responsive
+                                    fontSize: screenWidth * 0.035,
                                   ),
                                 ),
                                 GestureDetector(
@@ -285,10 +288,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     Navigator.pushReplacementNamed(context, '/login');
                                   },
                                   child: Text(
-                                    'page de connexion',
+                                    langProvider.translate('login_page'),
                                     style: TextStyle(
-                                      color: Color(0xFF8700FF),
-                                      fontSize: screenWidth * 0.035, // Responsive
+                                      color: const Color(0xFF8700FF),
+                                      fontSize: screenWidth * 0.035,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -317,40 +320,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 children: [
                                   Icon(
                                     Icons.check_circle,
-                                    color: Color(0xFF10B981),
-                                    size: screenWidth * 0.15, // Responsive
+                                    color: const Color(0xFF10B981),
+                                    size: screenWidth * 0.15,
                                   ),
                                   SizedBox(height: screenHeight * 0.025),
                                   Text(
-                                    'Email envoyé !',
+                                    langProvider.translate('email_sent'),
                                     style: TextStyle(
-                                      fontSize: screenWidth * 0.05, // Responsive
+                                      fontSize: screenWidth * 0.05,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF10B981),
+                                      color: const Color(0xFF10B981),
                                     ),
                                   ),
                                   SizedBox(height: screenHeight * 0.015),
                                   Text(
-                                    'Un lien de réinitialisation a été envoyé à ${_emailController.text}',
+                                    '${langProvider.translate('reset_link_sent')} ${_emailController.text}',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: screenWidth * 0.035, // Responsive
-                                      color: Color(0xFF718096),
+                                      fontSize: screenWidth * 0.035,
+                                      color: const Color(0xFF718096),
                                     ),
                                   ),
                                   SizedBox(height: screenHeight * 0.025),
                                   Text(
-                                    'Vérifiez votre boîte de réception et cliquez sur le lien pour réinitialiser votre mot de passe',
+                                    langProvider.translate('check_inbox_reset'),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: screenWidth * 0.035, // Responsive
-                                      color: Color(0xFF718096),
+                                      fontSize: screenWidth * 0.035,
+                                      color: const Color(0xFF718096),
                                     ),
                                   ),
                                   SizedBox(height: screenHeight * 0.04),
                                   SizedBox(
                                     width: double.infinity,
-                                    height: screenHeight * 0.07, // Responsive
+                                    height: screenHeight * 0.07,
                                     child: ElevatedButton(
                                       onPressed: () {
                                         Navigator.pushReplacementNamed(context, '/login');
@@ -365,9 +368,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                         shadowColor: const Color(0xFF5689FF).withOpacity(0.3),
                                       ),
                                       child: Text(
-                                        'Continuer',
+                                        langProvider.translate('continue'),
                                         style: TextStyle(
-                                          fontSize: screenWidth * 0.04, // Responsive
+                                          fontSize: screenWidth * 0.04,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -379,8 +382,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ],
                         ],
                       ),
+                    ),
                   ),
-                ),
                 ),
               ],
             ),

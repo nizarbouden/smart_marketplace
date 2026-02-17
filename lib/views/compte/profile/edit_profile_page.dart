@@ -8,10 +8,10 @@ import 'package:smart_marketplace/widgets/gender_field_widget.dart';
 import 'package:smart_marketplace/widgets/profile_image_widget.dart';
 import 'package:smart_marketplace/models/user_model.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
 
 class EditProfilePage extends StatefulWidget {
   final UserModel? user;
-  
   const EditProfilePage({super.key, this.user});
 
   @override
@@ -22,27 +22,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
   late final ProfileViewModel viewModel;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  String _t(String key) => AppLocalizations.get(key);
+
   @override
   void initState() {
     super.initState();
-    
-    // S'assurer que l'email vient de Firebase Auth en priorité
-    String authEmail = FirebaseAuthService().getCurrentEmail() ?? '';
-    String userEmail = widget.user?.email ?? authEmail;
-    
-    print('📧 Email dans EditProfilePage - Auth: $authEmail, User: $widget.user?.email, Final: $userEmail');
-    
+
+    final String authEmail  = FirebaseAuthService().getCurrentEmail() ?? '';
+    final String userEmail  = widget.user?.email ?? authEmail;
+
     viewModel = ProfileViewModel(
-      firstName: widget.user?.prenom ?? '',
-      lastName: widget.user?.nom ?? '',
-      email: userEmail, // Utiliser l'email synchronisé
-      phone: widget.user?.phoneNumber ?? '',
+      firstName: widget.user?.prenom      ?? '',
+      lastName:  widget.user?.nom         ?? '',
+      email:     userEmail,
+      phone:     widget.user?.phoneNumber ?? '',
       countryCode: widget.user?.countryCode ?? '+216',
-      genre: widget.user?.genre,
-      photoUrl: widget.user?.photoUrl,
+      genre:     widget.user?.genre,
+      photoUrl:  widget.user?.photoUrl,
     );
-    
-    // Synchroniser l'email si nécessaire
+
     if (authEmail.isNotEmpty && authEmail != widget.user?.email) {
       _syncEmail();
     }
@@ -51,37 +49,42 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _syncEmail() async {
     try {
       await FirebaseAuthService().syncEmailFromAuth();
-      print('✅ Email synchronisé dans EditProfilePage');
-    } catch (e) {
-      print('❌ Erreur de synchronisation email: $e');
-    }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: viewModel,
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(context),
-        body: _buildBody(context),
+      child: Directionality(
+        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: _buildAppBar(context),
+          body: _buildBody(context),
+        ),
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final isTablet  = MediaQuery.of(context).size.width >= 600;
+    final isDesktop = MediaQuery.of(context).size.width >= 1200;
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.arrow_back, color: Colors.black87),
+        icon: Icon(
+          AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
+          color: Colors.black87,
+        ),
       ),
       title: Text(
-        'Modifier le profil',
+        _t('edit_profile_title'),
         style: TextStyle(
           color: Colors.black87,
-          fontSize: MediaQuery.of(context).size.width > 600 ? 24 : 20,
+          fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -91,8 +94,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Widget _buildBody(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 1200;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isDesktop   = screenWidth >= 1200;
+    final isTablet    = screenWidth >= 600 && screenWidth < 1200;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
@@ -103,22 +106,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
           children: [
             // Photo de profil
             ProfileImageWidget(
-              profileImage: viewModel.profileImage,
+              profileImage:    viewModel.profileImage,
               profileImageUrl: viewModel.profileImageUrl,
-              onPickImage: viewModel.pickImageFromGallery,
-              onTakePhoto: viewModel.takePhoto,
+              onPickImage:     viewModel.pickImageFromGallery,
+              onTakePhoto:     viewModel.takePhoto,
               isDesktop: isDesktop,
-              isTablet: isTablet,
+              isTablet:  isTablet,
             ),
-            
+
             SizedBox(height: isDesktop ? 45 : isTablet ? 37 : 31),
-            
-            // Champs du formulaire
+
             _buildFormFields(context, isDesktop, isTablet),
-            
+
             SizedBox(height: isDesktop ? 40 : isTablet ? 32 : 24),
-            
-            // Bouton de sauvegarde
+
             _buildSaveButton(context, isDesktop, isTablet),
           ],
         ),
@@ -128,17 +129,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Widget _buildFormFields(BuildContext context, bool isDesktop, bool isTablet) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Nom et Prénom
+        // ── Section Informations personnelles ──────────────────────
+        _buildSectionHeader(_t('edit_profile_section_personal'), isDesktop, isTablet),
+        SizedBox(height: isDesktop ? 12 : 8),
+
+        // Prénom & Nom
         Row(
           children: [
             Expanded(
               child: CustomTextField(
                 controller: viewModel.firstNameController,
-                label: 'Prénom',
-                validator: viewModel.validateFirstName,
+                label:     _t('edit_profile_first_name'),
+                validator: (v) => (v == null || v.isEmpty)
+                    ? _t('edit_profile_first_name_required') : null,
                 isDesktop: isDesktop,
-                isTablet: isTablet,
+                isTablet:  isTablet,
                 prefixIcon: Icons.person,
               ),
             ),
@@ -146,85 +153,99 @@ class _EditProfilePageState extends State<EditProfilePage> {
             Expanded(
               child: CustomTextField(
                 controller: viewModel.lastNameController,
-                label: 'Nom',
-                validator: viewModel.validateLastName,
+                label:     _t('edit_profile_last_name'),
+                validator: (v) => (v == null || v.isEmpty)
+                    ? _t('edit_profile_last_name_required') : null,
                 isDesktop: isDesktop,
-                isTablet: isTablet,
+                isTablet:  isTablet,
                 prefixIcon: Icons.person_outline,
               ),
             ),
           ],
         ),
-        
+
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
-        
-        // Email
+
+        // Genre
+        Consumer<ProfileViewModel>(
+          builder: (context, vm, _) => GenderFieldWidget(
+            selectedGender: vm.selectedGender,
+            genders:        vm.genders,
+            onGenderSelected: vm.selectGender,
+            isDesktop: isDesktop,
+            isTablet:  isTablet,
+          ),
+        ),
+
+        SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
+
+        // ── Section Contact ────────────────────────────────────────
+        _buildSectionHeader(_t('edit_profile_section_contact'), isDesktop, isTablet),
+        SizedBox(height: isDesktop ? 12 : 8),
+
+        // Email (lecture seule)
         CustomTextField(
           controller: viewModel.emailController,
-          label: 'Email',
-          validator: viewModel.validateEmail,
-          isDesktop: isDesktop,
-          isTablet: isTablet,
+          label:      _t('edit_profile_email'),
+          isDesktop:  isDesktop,
+          isTablet:   isTablet,
           prefixIcon: Icons.email,
           keyboardType: TextInputType.emailAddress,
-          enabled: false, // TOUJOURS désactivé pour la sécurité
-          readOnly: true, // TOUJOURS en lecture seule pour la sécurité
+          enabled:  false,
+          readOnly: true,
         ),
-        
-        // Message d'information pour tous les utilisateurs
+
+        // Bandeau info email non modifiable
         Container(
-          margin: EdgeInsets.only(top: 8),
-          padding: EdgeInsets.all(8),
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.blue.withOpacity(0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue),
+            border: Border.all(color: Colors.blue.withOpacity(0.4)),
           ),
           child: Row(
             children: [
-              Icon(Icons.info, color: Colors.blue, size: 16),
-              SizedBox(width: 8),
+              const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Email non modifiable pour des raisons de sécurité',
-                  style: TextStyle(color: Colors.blue, fontSize: 12),
+                  _t('edit_profile_email_readonly'),
+                  style: const TextStyle(color: Colors.blue, fontSize: 12),
                 ),
               ),
             ],
           ),
         ),
-        
+
         SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
-        
+
         // Téléphone
         PhoneFieldWidget(
-          controller: viewModel.phoneController,
-          countries: viewModel.filteredCountries,
+          controller:          viewModel.phoneController,
+          countries:           viewModel.filteredCountries,
           selectedCountryCode: viewModel.selectedCountryCode,
           selectedCountryName: viewModel.selectedCountryName,
           selectedCountryFlag: viewModel.selectedCountryFlag,
-          onCountrySelected: viewModel.selectCountry,
-          onFilterChanged: viewModel.filterCountries,
-          validator: viewModel.validatePhone,
+          onCountrySelected:   viewModel.selectCountry,
+          onFilterChanged:     viewModel.filterCountries,
+          validator: (v) => (v == null || v.isEmpty)
+              ? _t('edit_profile_phone_required') : null,
           isDesktop: isDesktop,
-          isTablet: isTablet,
-        ),
-        
-        SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
-        
-        // Genre
-        Consumer<ProfileViewModel>(
-          builder: (context, viewModel, child) {
-            return GenderFieldWidget(
-              selectedGender: viewModel.selectedGender,
-              genders: viewModel.genders,
-              onGenderSelected: viewModel.selectGender,
-              isDesktop: isDesktop,
-              isTablet: isTablet,
-            );
-          },
+          isTablet:  isTablet,
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, bool isDesktop, bool isTablet) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: isDesktop ? 18 : isTablet ? 17 : 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
     );
   }
 
@@ -234,62 +255,48 @@ class _EditProfilePageState extends State<EditProfilePage> {
       height: isDesktop ? 56 : isTablet ? 52 : 48,
       child: ElevatedButton.icon(
         onPressed: viewModel.isLoading ? null : () async {
-          // Valider le formulaire avant de sauvegarder
           if (_formKey.currentState?.validate() ?? false) {
             bool success = await viewModel.saveProfile(context);
-            
             if (success) {
-              // Créer la notification de mise à jour du profil
               try {
                 await FirebaseAuthService().createNotification(
                   userId: FirebaseAuthService().currentUser?.uid ?? '',
-                  title: 'Profil mis à jour',
-                  body: 'Vos informations ont été enregistrées avec succès',
-                  type: 'profile',
+                  title:  _t('edit_profile_notif_title'),
+                  body:   _t('edit_profile_notif_body'),
+                  type:   'profile',
                 );
-              } catch (e) {
-                print('⚠️ Erreur notification: $e');
-              }
-              
+              } catch (_) {}
+
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profil mis à jour avec succès!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                
-                // Rediriger vers la page profil après 1 seconde
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(_t('edit_profile_success')),
+                  backgroundColor: Colors.green,
+                ));
                 Future.delayed(const Duration(seconds: 1), () {
-                  if (mounted) {
-                    Navigator.of(context).pop(); // Retour à la page profil
-                  }
+                  if (mounted) Navigator.of(context).pop();
                 });
               }
             } else {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Erreur lors de la mise à jour du profil'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(_t('edit_profile_error')),
+                  backgroundColor: Colors.red,
+                ));
               }
             }
           }
         },
-        icon: viewModel.isLoading 
+        icon: viewModel.isLoading
             ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
+          width: 20, height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
             : const Icon(Icons.save),
         label: Text(
-          viewModel.isLoading ? 'Sauvegarde...' : 'Sauvegarder',
+          viewModel.isLoading ? _t('edit_profile_saving') : _t('edit_profile_save_btn'),
           style: TextStyle(
             fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
             fontWeight: FontWeight.w600,
@@ -299,9 +306,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           backgroundColor: Colors.deepPurple,
           foregroundColor: Colors.white,
           elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
