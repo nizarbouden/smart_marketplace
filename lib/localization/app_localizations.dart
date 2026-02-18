@@ -303,6 +303,8 @@ class AppLocalizations {
 
     // ── Sécurité ──────────────────────────────────────────────────
     'security_title': 'Sécurité',
+    'section_confidentiality': 'Confidentialité',
+    'section_session': 'Session',
     'security_subtitle': 'Gérez la sécurité de votre compte',
     'security_google_account': 'Compte Google',
     'security_google_connected': 'Votre compte est connecté via Google',
@@ -797,6 +799,8 @@ class AppLocalizations {
 
     // ── Security ──────────────────────────────────────────────────
     'security_title': 'Security',
+    'section_session': 'Session',
+    'section_confidentiality': 'Privacy',
     'security_subtitle': 'Manage your account security',
     'security_google_account': 'Google Account',
     'security_google_connected': 'Your account is connected via Google',
@@ -1287,6 +1291,8 @@ class AppLocalizations {
 
     // ── الأمان ────────────────────────────────────────────────────
     'security_title': 'الأمان',
+    'section_confidentiality': 'الخصوصية',
+    'section_session': 'الجلسة',
     'security_subtitle': 'إدارة أمان حسابك',
     'security_google_account': 'حساب Google',
     'security_google_connected': 'حسابك مرتبط عبر Google',

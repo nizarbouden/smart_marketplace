@@ -259,7 +259,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
           // Session
           _buildSectionCard(
-            title: 'Session',
+            title: AppLocalizations.get('section_session'),
             icon: Icons.timer,
             children: [
               _buildSwitchTile(
@@ -345,7 +345,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
           // Confidentialité
           _buildSectionCard(
-            title: 'Confidentialité',
+            title: AppLocalizations.get('section_confidentiality'),
             icon: Icons.privacy_tip,
             children: [
               _buildSwitchTile(
