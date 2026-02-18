@@ -13,6 +13,7 @@ import 'notifications/notification_settings_page.dart';
 import 'security/security_settings_page.dart';
 import 'help/help_page.dart';
 import 'payment/payment_methods_page.dart';
+import 'terms_conditions_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -259,6 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _languageTile(isDesktop, isTablet, langProvider, context),
 
                   _menuTile('help', Icons.help, isDesktop, isTablet, langProvider, context),
+                  _menuTile('terms_conditions', Icons.description, isDesktop, isTablet, langProvider, context),
                   _menuTile('logout', Icons.logout, isDesktop, isTablet, langProvider, context, isLast: true),
                 ],
               ),
@@ -465,6 +467,11 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SecuritySettingsPage()),
+              );
+            } else if (titleKey == 'terms_conditions') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TermsConditionsPage()),
               );
             } else if (titleKey == 'help') {
               Navigator.push(

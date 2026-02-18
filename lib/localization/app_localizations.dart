@@ -45,7 +45,7 @@ class AppLocalizations {
     // ── Termes et Conditions ──────────────────────────────────────
     'terms_title': 'Termes et Conditions d\'Utilisation',
     'terms_description': 'Veuillez lire attentivement ces termes et conditions avant d\'utiliser notre application Winzy.',
-    'terms_last_updated': 'Dernière mise à jour : Janvier 2025',
+    'terms_last_updated': 'Dernière mise à jour : 18 février 2026',
 
     'terms_section_1_title': '1. Acceptation des Conditions',
     'terms_section_1_content': 'En accédant et en utilisant l\'application Winzy, vous acceptez d\'être lié par ces conditions générales d\'utilisation. Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser notre service. L\'utilisation continue de l\'application après toute modification constitue votre acceptation des nouvelles conditions.',
@@ -540,7 +540,7 @@ class AppLocalizations {
     // ── Terms and Conditions ──────────────────────────────────────
     'terms_title': 'Terms and Conditions of Use',
     'terms_description': 'Please read these terms and conditions carefully before using the Winzy application.',
-    'terms_last_updated': 'Last updated: January 2025',
+    'terms_last_updated': 'Last updated: 18 february 2026',
 
     'terms_section_1_title': '1. Acceptance of Terms',
     'terms_section_1_content': 'By accessing and using the Winzy application, you agree to be bound by these terms and conditions. If you do not accept these terms, please do not use our service. Continued use of the application after any changes constitutes your acceptance of the new terms.',
@@ -1032,7 +1032,7 @@ class AppLocalizations {
     // ── الشروط والأحكام ───────────────────────────────────────────
     'terms_title': 'شروط وأحكام الاستخدام',
     'terms_description': 'يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام تطبيق Winzy.',
-    'terms_last_updated': 'آخر تحديث: يناير 2025',
+    'terms_last_updated': 'آخر تحديث :18 فبراير 2026',
 
     'terms_section_1_title': '1. قبول الشروط',
     'terms_section_1_content': 'بالوصول إلى تطبيق Winzy واستخدامه، فإنك توافق على الالتزام بهذه الشروط والأحكام العامة للاستخدام. إذا لم توافق على هذه الشروط، يرجى عدم استخدام خدمتنا. يُعدّ استمرارك في استخدام التطبيق بعد أي تعديل قبولاً منك للشروط الجديدة.',
