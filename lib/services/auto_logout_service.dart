@@ -14,6 +14,7 @@ class AutoLogoutService {
   DateTime _lastActivityTime = DateTime.now();
   bool _warningShown = false;
   bool _isInitialized = false;
+  DateTime _lastRecordTime = DateTime.now(); // Ajout pour éviter les réinitialisations trop fréquentes
 
   final List<Function(LogoutEvent)> _logoutListeners = [];
   final List<Function(WarningEvent)> _warningListeners = [];
@@ -104,14 +105,17 @@ class AutoLogoutService {
   int _getDurationInSeconds(String duration) {
     switch (duration) {
       case '5 secondes':
-        return 15;
+      case '5 seconds':
+        return 5;
       case '15 minutes':
         return 15 * 60;
       case '30 minutes':
         return 30 * 60;
       case '1 heure':
+      case '1 hour':
         return 60 * 60;
       case '2 heures':
+      case '2 hours':
         return 2 * 60 * 60;
       default:
         return 30 * 60;
@@ -124,16 +128,26 @@ class AutoLogoutService {
       return;
     }
 
+    print('🚀 Démarrage auto-logout avec durée: $durationString');
     stopAutoLogout();
 
-    final totalSeconds = _getDurationInSeconds(durationString);
+    var totalSeconds = _getDurationInSeconds(durationString);
     late int warningThresholdSeconds;
 
-    if (durationString == '5 secondes') {
+    if (durationString == '5 secondes' || durationString == '5 seconds') {
       warningThresholdSeconds = 5;
     } else {
       warningThresholdSeconds = (totalSeconds * 0.8).toInt();
     }
+
+    // Pour le mode 5 secondes, on veut 10 secondes de dialogue
+    if (durationString == '5 secondes' || durationString == '5 seconds') {
+      // Le dialogue s'affiche après 5s et dure 10s supplémentaires
+      final dialogDuration = 10;
+      totalSeconds = warningThresholdSeconds + dialogDuration; // 5 + 10 = 15s total
+    }
+
+    print('⏰ Total secondes: $totalSeconds, Seuil d\'avertissement: $warningThresholdSeconds');
 
     _lastActivityTime = DateTime.now();
     _warningShown = false;
@@ -141,21 +155,30 @@ class AutoLogoutService {
     _inactivityTimer = Timer.periodic(Duration(milliseconds: 100), (timer) {
       _checkInactivity(totalSeconds, warningThresholdSeconds);
     });
+    
+    print('✅ Timer d\'auto-logout démarré');
   }
 
   void _checkInactivity(int totalSeconds, int warningThresholdSeconds) {
     final now = DateTime.now();
     final elapsedSeconds = now.difference(_lastActivityTime).inSeconds;
 
+    // Log toutes les secondes pour le mode 5 secondes
+    if (totalSeconds <= 5 || elapsedSeconds % 10 == 0) {
+      print('⏱️ Inactivité: ${elapsedSeconds}s / Total: ${totalSeconds}s / Seuil: ${warningThresholdSeconds}s / Warning: $_warningShown');
+    }
+
     if (elapsedSeconds >= warningThresholdSeconds &&
         elapsedSeconds < totalSeconds &&
         !_warningShown) {
       _warningShown = true;
       final remainingSeconds = totalSeconds - elapsedSeconds;
+      print('⚠️ ENVOI D\'AVERTISSEMENT - Secondes restantes: $remainingSeconds');
       _notifyWarning(remainingSeconds);
     }
 
     if (elapsedSeconds >= totalSeconds) {
+      print('🚨 DÉCONNEXION AUTOMATIQUE - Inactivité: ${elapsedSeconds}s >= ${totalSeconds}s');
       _performLogout();
     }
   }
@@ -174,7 +197,16 @@ class AutoLogoutService {
       return;
     }
 
-    _lastActivityTime = DateTime.now();
+    final now = DateTime.now();
+    final timeSinceLastRecord = now.difference(_lastRecordTime).inMilliseconds;
+    
+    // Ignorer les activités trop fréquentes (moins de 500ms entre chaque)
+    if (timeSinceLastRecord < 500) {
+      return;
+    }
+    
+    _lastActivityTime = now;
+    _lastRecordTime = now;
     _warningShown = false;
   }
 
