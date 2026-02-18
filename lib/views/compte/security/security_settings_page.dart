@@ -10,6 +10,7 @@ import '../../../services/auto_logout_service.dart';
 import '../../../services/session_management_service.dart';
 import '../../../widgets/auto_logout_warning_dialog.dart';
 import '../../../widgets/active_sessions_dialog.dart';
+import '../../../widgets/delete_account_dialog.dart';
 import 'change_password/change_password_page.dart';
 
 
@@ -363,7 +364,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildActionTile(
-                title: AppLocalizations.get('delete'),
+                title: AppLocalizations.get('security_delete_account'),
                 subtitle: AppLocalizations.get('confirm'),
                 icon: Icons.delete_forever,
                 isDanger: true,
@@ -784,28 +785,40 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   void _showDeleteAccountDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.get('delete'),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-        content: Text(AppLocalizations.get('confirm')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.get('cancel')),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(AppLocalizations.get('error')),
-                backgroundColor: Colors.orange,
-              ));
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: Text(AppLocalizations.get('delete')),
-          ),
-        ],
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (context) => DeleteAccountDialog(
+        onConfirmDelete: () {
+          // Le DeleteAccountDialog gère maintenant toute la logique
+          // Pas besoin de code supplémentaire ici
+        },
+        onDeactivated: () async {
+          try {
+            // Attendre un peu pour s'assurer que tout est bien déconnecté
+            await Future.delayed(const Duration(milliseconds: 300));
+            
+            // Forcer la navigation vers login
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login',
+                (route) => false,
+              );
+            }
+          } catch (e) {
+            print('❌ Erreur dans onDeactivated: $e');
+            // Dernière tentative de redirection
+            try {
+              if (mounted) {
+                Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+                  '/login',
+                  (route) => false,
+                );
+              }
+            } catch (e2) {
+              print('❌ Erreur finale de redirection: $e2');
+            }
+          }
+        },
       ),
     );
   }

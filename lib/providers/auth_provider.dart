@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/firebase_auth_service.dart';
 
@@ -167,6 +168,25 @@ class AuthProvider with ChangeNotifier {
       _setLoading(true);
       _clearError();
       
+      // Vérifier si le compte est désactivé avant de permettre la connexion
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .limit(1)
+          .get();
+      
+      if (userDoc.docs.isNotEmpty) {
+        final userData = userDoc.docs.first.data() as Map<String, dynamic>;
+        final status = userData['status'] as String? ?? 'active';
+        
+        if (status == 'deactivated') {
+          print('❌ AuthProvider: Compte désactivé, connexion refusée pour $email');
+          _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
+          notifyListeners();
+          return false;
+        }
+      }
+      
       print('🔄 AuthProvider: Appel de signInWithEmailAndPassword');
       _user = await _authService.signInWithEmailAndPassword(email, password);
       print('🔄 AuthProvider: UserModel reçu: ${_user?.email}');
@@ -208,6 +228,29 @@ class AuthProvider with ChangeNotifier {
       _clearError();
       
       _user = await _authService.signInWithGoogle();
+      
+      // Vérifier si le compte est désactivé après connexion Google
+      if (_user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: _user!.email.toLowerCase().trim())
+            .limit(1)
+            .get();
+        
+        if (userDoc.docs.isNotEmpty) {
+          final userData = userDoc.docs.first.data() as Map<String, dynamic>;
+          final status = userData['status'] as String? ?? 'active';
+          
+          if (status == 'deactivated') {
+            print('❌ AuthProvider: Compte Google désactivé, déconnexion forcée pour ${_user!.email}');
+            await _auth.signOut();
+            _user = null;
+            _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
+            notifyListeners();
+            return false;
+          }
+        }
+      }
       
       notifyListeners();
       return true;

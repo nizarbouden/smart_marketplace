@@ -22,12 +22,12 @@ import 'package:smart_marketplace/services/firebase_auth_service.dart';
 import 'package:smart_marketplace/views/compte/security/security_settings_page.dart';
 import 'package:smart_marketplace/widgets/activity_recorder_wrapper.dart';
 import 'package:smart_marketplace/views/compte/security/change_password/change_password_page.dart';
-
+import 'package:smart_marketplace/services/navigation_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('🚀 === DÉMARRAGE DE L\'APPLICATION ===');
+  print(' === DÉMARRAGE DE L\'APPLICATION ===');
 
   // Initialiser Firebase
   print('📱 Initialisation Firebase...');
@@ -49,6 +49,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final navigationService = NavigationService();
+    
     return MultiProvider(
       providers: [
         // ✅ AuthProvider pour l'authentification
@@ -63,6 +65,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, _) {
           return MaterialApp(
+            navigatorKey: navigationService.navigatorKey, // Ajouter le navigatorKey global
             debugShowCheckedModeBanner: false,
             title: 'Winzy',
 
