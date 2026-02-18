@@ -41,9 +41,32 @@ class AppLocalizations {
     'verify_before_login': 'Veuillez vérifier votre boîte de réception et cliquer sur le lien avant de vous connecter.',
     'understand': 'OK, j\'ai compris',
     'signing_up': 'Inscription en cours...',
+
+    // ── Termes et Conditions ──────────────────────────────────────
+    'terms_title': 'Termes et Conditions d\'Utilisation',
+    'terms_description': 'Veuillez lire attentivement ces termes et conditions avant d\'utiliser notre application Winzy.',
+    'terms_last_updated': 'Dernière mise à jour : Janvier 2025',
+
+    'terms_section_1_title': '1. Acceptation des Conditions',
+    'terms_section_1_content': 'En accédant et en utilisant l\'application Winzy, vous acceptez d\'être lié par ces conditions générales d\'utilisation. Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser notre service. L\'utilisation continue de l\'application après toute modification constitue votre acceptation des nouvelles conditions.',
+
+    'terms_section_2_title': '2. Utilisation du Service',
+    'terms_section_2_content': 'Winzy est une plateforme de commerce électronique qui vous permet d\'acheter et de vendre des produits. Vous vous engagez à utiliser le service de manière légale et éthique, à ne pas publier de contenu frauduleux ou trompeur, à respecter les droits des autres utilisateurs et à ne pas tenter de compromettre la sécurité de la plateforme.',
+
+    'terms_section_3_title': '3. Confidentialité et Données Personnelles',
+    'terms_section_3_content': 'Nous collectons et traitons vos données personnelles conformément à notre politique de confidentialité. Vos informations sont utilisées uniquement pour améliorer votre expérience sur la plateforme et traiter vos commandes. Nous ne vendons jamais vos données à des tiers. Vous pouvez demander la suppression de vos données à tout moment.',
+
+    'terms_section_4_title': '4. Paiements et Remboursements',
+    'terms_section_4_content': 'Tous les paiements sont traités de manière sécurisée. Les prix affichés incluent toutes les taxes applicables. En cas de litige concernant une commande, notre équipe de support est disponible pour vous aider. Les remboursements sont traités dans un délai de 5 à 10 jours ouvrables selon votre mode de paiement.',
+
+    'terms_section_5_title': '5. Limitation de Responsabilité',
+    'terms_section_5_content': 'Winzy s\'efforce de garantir la disponibilité et la fiabilité du service, mais ne peut être tenu responsable des interruptions temporaires de service, des erreurs de contenu, des dommages indirects résultant de l\'utilisation du service, ni des actions des vendeurs tiers sur la plateforme.',
     'terms_conditions': 'Conditions Générales d\'Utilisation',
+
     'close': 'Fermer',
     'i_agree': 'J\'accepte',
+
+
     'forgot_password_title': 'MOT DE PASSE OUBLIÉ',
     'forgot_password_desc': 'Entrez votre adresse email pour recevoir\nun lien de réinitialisation',
     'send_link': 'Envoyer le lien',
@@ -326,7 +349,7 @@ class AppLocalizations {
     'security_delay_changed': 'Délai d\'inactivité changé à',
 
     // ── Layout principal ──────────────────────────────────────────
-    'main_smart_market': 'Smart Market',
+    'main_smart_market': 'Winzy',
     'main_purchase_history': 'Historique d\'achat',
     'main_my_profile': 'Mon Profil',
     'main_login_required_title': 'Connexion requise',
@@ -460,6 +483,14 @@ class AppLocalizations {
     'change_password_google_warning': 'Le changement de mot de passe doit être effectué directement sur Google pour des raisons de sécurité.',
     'change_password_info_secure': 'Vos informations sont cryptées et sécurisées',
 
+    // ── Session Timeout Values ───────────────────────────────────────
+    'session_timeout_5_seconds': '5 secondes',
+    'session_timeout_15_minutes': '15 minutes',
+    'session_timeout_30_minutes': '30 minutes',
+    'session_timeout_1_hour': '1 heure',
+    'session_timeout_2_hours': '2 heures',
+
+
     // ── Widget Default Address Toggle ──────────────────────────────────────────
     'set_default_address': 'Définir comme adresse de livraison par défaut',
 
@@ -503,9 +534,33 @@ class AppLocalizations {
     'verify_before_login': 'Please check your inbox and click the verification link before logging in.',
     'understand': 'OK, I understand',
     'signing_up': 'Signing up...',
+
+    // ── Terms and Conditions ──────────────────────────────────────
+    'terms_title': 'Terms and Conditions of Use',
+    'terms_description': 'Please read these terms and conditions carefully before using the Winzy application.',
+    'terms_last_updated': 'Last updated: January 2025',
+
+    'terms_section_1_title': '1. Acceptance of Terms',
+    'terms_section_1_content': 'By accessing and using the Winzy application, you agree to be bound by these terms and conditions. If you do not accept these terms, please do not use our service. Continued use of the application after any changes constitutes your acceptance of the new terms.',
+
+    'terms_section_2_title': '2. Use of Service',
+    'terms_section_2_content': 'Winzy is an e-commerce platform that allows you to buy and sell products. You agree to use the service lawfully and ethically, not to post fraudulent or misleading content, to respect the rights of other users, and not to attempt to compromise the security of the platform.',
+
+    'terms_section_3_title': '3. Privacy and Personal Data',
+    'terms_section_3_content': 'We collect and process your personal data in accordance with our privacy policy. Your information is used solely to enhance your experience on the platform and to process your orders. We never sell your data to third parties. You may request deletion of your data at any time.',
+
+    'terms_section_4_title': '4. Payments and Refunds',
+    'terms_section_4_content': 'All payments are processed securely. Displayed prices include all applicable taxes. In case of a dispute regarding an order, our support team is available to assist you. Refunds are processed within 5 to 10 business days depending on your payment method.',
+
+    'terms_section_5_title': '5. Limitation of Liability',
+    'terms_section_5_content': 'Winzy strives to ensure the availability and reliability of the service, but cannot be held responsible for temporary service interruptions, content errors, indirect damages resulting from the use of the service, or the actions of third-party sellers on the platform.',
+
     'terms_conditions': 'Terms and Conditions',
+
     'close': 'Close',
     'i_agree': 'I Agree',
+
+
     'forgot_password_title': 'FORGOT PASSWORD',
     'forgot_password_desc': 'Enter your email address to receive\na password reset link',
     'send_link': 'Send Link',
@@ -788,7 +843,7 @@ class AppLocalizations {
     'security_delay_changed': 'Inactivity delay changed to',
 
     // ── Main Layout ───────────────────────────────────────────────
-    'main_smart_market': 'Smart Market',
+    'main_smart_market': 'Winzy',
     'main_purchase_history': 'Purchase History',
     'main_my_profile': 'My Profile',
     'main_login_required_title': 'Login Required',
@@ -969,9 +1024,33 @@ class AppLocalizations {
     'verify_before_login': 'يرجى التحقق من صندوق الوارد والنقر على رابط التحقق قبل تسجيل الدخول.',
     'understand': 'حسناً، فهمت',
     'signing_up': 'جاري التسجيل...',
+
+    // ── الشروط والأحكام ───────────────────────────────────────────
+    'terms_title': 'شروط وأحكام الاستخدام',
+    'terms_description': 'يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام تطبيق Winzy.',
+    'terms_last_updated': 'آخر تحديث: يناير 2025',
+
+    'terms_section_1_title': '1. قبول الشروط',
+    'terms_section_1_content': 'بالوصول إلى تطبيق Winzy واستخدامه، فإنك توافق على الالتزام بهذه الشروط والأحكام العامة للاستخدام. إذا لم توافق على هذه الشروط، يرجى عدم استخدام خدمتنا. يُعدّ استمرارك في استخدام التطبيق بعد أي تعديل قبولاً منك للشروط الجديدة.',
+
+    'terms_section_2_title': '2. استخدام الخدمة',
+    'terms_section_2_content': 'Winzy هي منصة تجارة إلكترونية تتيح لك شراء المنتجات وبيعها. تلتزم باستخدام الخدمة بشكل قانوني وأخلاقي، وعدم نشر محتوى احتيالي أو مضلل، واحترام حقوق المستخدمين الآخرين، وعدم محاولة المساس بأمن المنصة.',
+
+    'terms_section_3_title': '3. الخصوصية والبيانات الشخصية',
+    'terms_section_3_content': 'نقوم بجمع بياناتك الشخصية ومعالجتها وفقاً لسياسة الخصوصية الخاصة بنا. تُستخدم معلوماتك فقط لتحسين تجربتك على المنصة ومعالجة طلباتك. لا نبيع بياناتك أبداً لأطراف ثالثة. يمكنك طلب حذف بياناتك في أي وقت.',
+
+    'terms_section_4_title': '4. المدفوعات والمبالغ المستردة',
+    'terms_section_4_content': 'تتم معالجة جميع المدفوعات بشكل آمن. تشمل الأسعار المعروضة جميع الضرائب المطبقة. في حالة وجود نزاع بشأن طلبية، يتوفر فريق الدعم لمساعدتك. تتم معالجة المبالغ المستردة في غضون 5 إلى 10 أيام عمل وفقاً لطريقة الدفع الخاصة بك.',
+
+    'terms_section_5_title': '5. تحديد المسؤولية',
+    'terms_section_5_content': 'يسعى Winzy  لضمان توفر الخدمة وموثوقيتها، إلا أنه لا يمكن مساءلته عن انقطاعات الخدمة المؤقتة، أو أخطاء المحتوى، أو الأضرار غير المباشرة الناجمة عن استخدام الخدمة، أو تصرفات البائعين الأطراف الثالثة على المنصة.',
+
     'terms_conditions': 'الشروط والأحكام',
+
     'close': 'إغلاق',
     'i_agree': 'أوافق',
+
+
     'forgot_password_title': 'نسيت كلمة المرور',
     'forgot_password_desc': 'أدخل بريدك الإلكتروني لتلقي\nرابط استرجاع كلمة المرور',
     'send_link': 'إرسال الرابط',

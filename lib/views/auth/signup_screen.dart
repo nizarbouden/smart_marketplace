@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/language_provider.dart';
+import '../../widgets/terms_and_conditions_dialog.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -328,8 +329,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () {
-                                  _showTermsAndConditions(langProvider);
+                                onTap: () async {
+                                  final result = await showDialog<bool>(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return const TermsAndConditionsDialog();
+                                    },
+                                  );
+                                  if (result == true) {
+                                    setState(() {
+                                      _agreeToTerms = true;
+                                    });
+                                  }
                                 },
                                 child: Text(
                                   langProvider.translate('agree_terms'),
@@ -622,76 +633,5 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } else {
       print('❌ SignUpScreen: Échec de la connexion Google');
     }
-  }
-
-  void _showTermsAndConditions(LanguageProvider langProvider) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            langProvider.translate('terms_conditions'),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF8700FF),
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Winzy Terms',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'By using our application, you agree to comply with these terms and conditions.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Last updated: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                langProvider.translate('close'),
-                style: const TextStyle(
-                  color: Color(0xFF8700FF),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _agreeToTerms = true;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8700FF),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(langProvider.translate('i_agree')),
-            ),
-          ],
-        );
-      },
-    );
   }
 }
