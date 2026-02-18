@@ -41,6 +41,7 @@ class AppLocalizations {
     'verify_before_login': 'Veuillez vérifier votre boîte de réception et cliquer sur le lien avant de vous connecter.',
     'understand': 'OK, j\'ai compris',
     'signing_up': 'Inscription en cours...',
+    'account_deactivated_error': 'Ce compte a été désactivé et sera supprimé dans 30 jours.',
 
     // ── Termes et Conditions ──────────────────────────────────────
     'terms_title': 'Termes et Conditions d\'Utilisation',
@@ -552,6 +553,7 @@ class AppLocalizations {
     'verify_before_login': 'Please check your inbox and click the verification link before logging in.',
     'understand': 'OK, I understand',
     'signing_up': 'Signing up...',
+    'account_deactivated_error': 'This account has been deactivated and will be deleted in 30 days.',
 
     // ── Terms and Conditions ──────────────────────────────────────
     'terms_title': 'Terms and Conditions of Use',
@@ -1060,7 +1062,7 @@ class AppLocalizations {
     'verify_before_login': 'يرجى التحقق من صندوق الوارد والنقر على رابط التحقق قبل تسجيل الدخول.',
     'understand': 'حسناً، فهمت',
     'signing_up': 'جاري التسجيل...',
-
+    'account_deactivated_error': 'تم تعطيل هذا الحساب وسيتم حذفه خلال 30 يوماً.',
     // ── الشروط والأحكام ───────────────────────────────────────────
     'terms_title': 'شروط وأحكام الاستخدام',
     'terms_description': 'يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام تطبيق Winzy.',

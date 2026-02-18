@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../localization/app_localizations.dart';
 import '../models/user_model.dart';
 import '../services/firebase_auth_service.dart';
 
@@ -238,14 +239,14 @@ class AuthProvider with ChangeNotifier {
             .get();
         
         if (userDoc.docs.isNotEmpty) {
-          final userData = userDoc.docs.first.data() as Map<String, dynamic>;
+          final userData = userDoc.docs.first.data();
           final status = userData['status'] as String? ?? 'active';
           
           if (status == 'deactivated') {
             print('❌ AuthProvider: Compte Google désactivé, déconnexion forcée pour ${_user!.email}');
             await _auth.signOut();
             _user = null;
-            _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
+            _setError(AppLocalizations.get('account_deactivated_error'));
             notifyListeners();
             return false;
           }
