@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../localization/app_localizations.dart';
 import '../../../services/navigation_service.dart';
+import '../../../services/email_service.dart';
 
 class DeleteAccountDialog extends StatefulWidget {
   final VoidCallback onConfirmDelete;
@@ -64,8 +65,9 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
 
   // ── Désactivation + redirection ──────────────────────────────
   Future<void> _deactivateAccount() async {
-    // ✅ Capturer le navigatorKey AVANT tout await (avant que le context soit invalide)
+    // Capturer le navigatorKey AVANT tout await (avant que le context soit invalide)
     final navigationService = NavigationService();
+    final emailService = EmailService();
 
     setState(() => _isLoading = true);
 
@@ -96,10 +98,23 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
         'scheduledDeletionAt': Timestamp.fromDate(scheduledDeletionDate),
       });
 
-      // 3. Déconnecter Firebase
+      // 3. Envoyer l'email de réactivation
+      try {
+        await emailService.sendAccountReactivationEmail(
+          userEmail: currentUser.email!,
+          userId: currentUser.uid,
+          userName: currentUser.displayName ?? 'User',
+        );
+        print('✅ Email de réactivation envoyé à: ${currentUser.email}');
+      } catch (emailError) {
+        print('⚠️ Erreur lors de l\'envoi de l\'email de réactivation: $emailError');
+        // Continuer même si l'email échoue
+      }
+
+      // 4. Déconnecter Firebase
       await FirebaseAuth.instance.signOut();
 
-      // ✅ CORRECTION CLÉE : fermer le dialog via le navigatorKey global,
+      // CORRECTION CLÉE : fermer le dialog via le navigatorKey global,
       // pas via le context local qui peut être invalide après les awaits.
       // On utilise directement le navigatorKey pour tout faire en une passe.
       navigationService.navigatorKey.currentState
