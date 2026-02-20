@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
-
 import 'add_card_page.dart';
+import 'add_paypal_account_page.dart';
+
 
 class PaymentMethodsPage extends StatefulWidget {
   const PaymentMethodsPage({super.key});
@@ -11,56 +14,166 @@ class PaymentMethodsPage extends StatefulWidget {
 }
 
 class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
-  List<Map<String, dynamic>> _paymentMethods = [
-    {
-      'id': 1,
-      'type': 'card',
-      'brand': 'visa',
-      'last4': '4242',
-      'expiryMonth': '12',
-      'expiryYear': '24',
-      'isDefault': true,
-      'holderName': 'Jean Dupont',
-    },
-    {
-      'id': 2,
-      'type': 'card',
-      'brand': 'mastercard',
-      'last4': '5555',
-      'expiryMonth': '09',
-      'expiryYear': '25',
-      'isDefault': false,
-      'holderName': 'Jean Dupont',
-    },
-    {
-      'id': 3,
-      'type': 'cash',
-      'isDefault': false,
-      'icon': Icons.money,
-    },
-  ];
+  List<Map<String, dynamic>> _methods = [];
+  bool _isLoading         = true;
+  bool _hasCashOnDelivery = false;
+  bool _hasPaypal         = false;
 
   String _t(String key) => AppLocalizations.get(key);
 
   @override
+  void initState() {
+    super.initState();
+    _loadMethods();
+  }
+
+  // ── Charger tous les moyens de paiement ───────────────────────
+  Future<void> _loadMethods() async {
+    setState(() => _isLoading = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users').doc(uid)
+          .collection('payment_methods')
+          .orderBy('createdAt', descending: false)
+          .get();
+
+      final methods = snapshot.docs
+          .map((doc) => {...doc.data(), 'docId': doc.id})
+          .toList();
+
+      setState(() {
+        _methods           = methods;
+        _hasCashOnDelivery = methods.any((m) => m['type'] == 'cash');
+        _hasPaypal         = methods.any((m) => m['type'] == 'paypal');
+      });
+    } catch (e) {
+      print('❌ Erreur chargement: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // ── Ajouter paiement à la livraison ──────────────────────────
+  Future<void> _addCashOnDelivery() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final col    = FirebaseFirestore.instance
+        .collection('users').doc(uid).collection('payment_methods');
+    final docRef = col.doc();
+
+    await docRef.set({
+      'id':        docRef.id,
+      'type':      'cash',
+      'isDefault': false,
+      'createdAt': Timestamp.now(),
+    });
+
+    await _loadMethods();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('payment_cash_delivery_added')),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  // ── Mettre par défaut ─────────────────────────────────────────
+  Future<void> _setDefault(String docId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final batch = FirebaseFirestore.instance.batch();
+    final col   = FirebaseFirestore.instance
+        .collection('users').doc(uid).collection('payment_methods');
+
+    for (final m in _methods) {
+      batch.update(col.doc(m['docId']), {'isDefault': false});
+    }
+    batch.update(col.doc(docId), {'isDefault': true});
+    await batch.commit();
+
+    await _loadMethods();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('payment_set_default_success')),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  // ── Supprimer ─────────────────────────────────────────────────
+  Future<void> _delete(String docId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(_t('payment_delete_title')),
+          content: Text(_t('payment_delete_confirm')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(_t('cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red, foregroundColor: Colors.white),
+              child: Text(_t('delete')),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await FirebaseFirestore.instance
+        .collection('users').doc(uid)
+        .collection('payment_methods').doc(docId)
+        .delete();
+
+    await _loadMethods();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('payment_deleted_success')),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile  = screenWidth < 600;
-    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
-    final isDesktop = screenWidth >= 1200;
+    final sw        = MediaQuery.of(context).size.width;
+    final isMobile  = sw < 600;
+    final isTablet  = sw >= 600 && sw < 1200;
+    final isDesktop = sw >= 1200;
 
     return Directionality(
       textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-        body: _buildBody(context, isDesktop, isTablet, isMobile),
-        floatingActionButton: _buildFloatingActionButton(isDesktop, isTablet, isMobile),
+        appBar: _buildAppBar(context, isDesktop, isTablet),
+        body: _buildBody(isMobile),
+        floatingActionButton: _buildFAB(isDesktop, isMobile),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+  // ── AppBar ────────────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context, bool isDesktop, bool isTablet) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -69,7 +182,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         icon: Icon(
           AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
           color: Colors.black87,
-          size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
       ),
       title: Text(
@@ -80,33 +192,32 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           fontWeight: FontWeight.bold,
         ),
       ),
-      centerTitle: false,
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+  // ── Body ──────────────────────────────────────────────────────
+  Widget _buildBody(bool isMobile) {
     return Column(
       children: [
         // Bandeau info
         Container(
-          margin: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
-          padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
+          margin: EdgeInsets.all(isMobile ? 16 : 20),
+          padding: EdgeInsets.all(isMobile ? 14 : 16),
           decoration: BoxDecoration(
-            color: Colors.deepPurple.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.deepPurple.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.deepPurple,
-                  size: isDesktop ? 24 : isTablet ? 22 : 20),
-              SizedBox(width: isMobile ? 12 : 16),
+              const Icon(Icons.info_outline, color: Colors.deepPurple, size: 20),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _t('payment_manage_info'),
                   style: TextStyle(
                     color: Colors.deepPurple[800],
-                    fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+                    fontSize: isMobile ? 13 : 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -117,303 +228,465 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
         // Liste
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : isTablet ? 20 : 24),
-            itemCount: _paymentMethods.length,
-            itemBuilder: (context, index) {
-              return _buildPaymentMethodCard(
-                  _paymentMethods[index], index, isDesktop, isTablet, isMobile);
-            },
+          child: _isLoading
+              ? const Center(
+              child: CircularProgressIndicator(color: Colors.deepPurple))
+              : RefreshIndicator(
+            onRefresh: _loadMethods,
+            color: Colors.deepPurple,
+            child: ListView(
+              padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 20),
+              children: [
+                ..._methods.map((m) {
+                  if (m['type'] == 'cash')   return _buildCashItem(m, isMobile);
+                  if (m['type'] == 'paypal') return _buildPaypalItem(m, isMobile);
+                  return _buildCardItem(m, isMobile);
+                }),
+                SizedBox(height: isMobile ? 100 : 120),
+              ],
+            ),
           ),
         ),
 
-        // Section sécurité
-        Container(
-          margin: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
-          padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2)),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.security, color: Colors.green,
-                      size: isDesktop ? 24 : isTablet ? 22 : 20),
-                  SizedBox(width: isMobile ? 8 : 12),
-                  Text(
-                    _t('payment_security_title'),
-                    style: TextStyle(
-                      fontSize: isDesktop ? 18 : isTablet ? 17 : 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: isMobile ? 12 : 16),
-              Text(
-                _t('payment_security_desc'),
-                style: TextStyle(fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
-                    color: Colors.grey[600], height: 1.5),
-              ),
-              SizedBox(height: isMobile ? 12 : 16),
-              Row(
-                children: [
-                  Icon(Icons.verified_user, color: Colors.green,
-                      size: isDesktop ? 20 : isTablet ? 18 : 16),
-                  SizedBox(width: isMobile ? 8 : 12),
-                  Text(
-                    _t('payment_pci_certified'),
-                    style: TextStyle(
-                      fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: isMobile ? 100 : isTablet ? 120 : 140),
+        _buildSecuritySection(isMobile),
       ],
     );
   }
 
-  Widget _buildPaymentMethodCard(
-      Map<String, dynamic> method, int index, bool isDesktop, bool isTablet, bool isMobile) {
-    final isCard    = method['type'] == 'card';
-    final isDefault = method['isDefault'] as bool;
+  // ── Carte bancaire ────────────────────────────────────────────
+  Widget _buildCardItem(Map<String, dynamic> card, bool isMobile) {
+    final isDefault   = card['isDefault'] == true;
+    final cardType    = card['cardType'] ?? 'unknown';
+    final last4       = card['lastFourDigits'] ?? '••••';
+    final holderName  = card['cardholderName'] ?? '';
+    final expiryMonth = card['expiryMonth'] ?? '';
+    final expiryYear  = card['expiryYear'] ?? '';
+    final docId       = card['docId'] as String;
 
-    // Nom et description pour le type "cash" : traduits dynamiquement
-    final String cashName = _t('payment_cash_option_title');
-    final String cashDesc = _t('payment_cash_description');
+    return _buildMethodContainer(
+      isDefault: isDefault,
+      isMobile: isMobile,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildCardTypeIcon(cardType, isMobile),
+              SizedBox(width: isMobile ? 12 : 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(holderName,
+                        style: TextStyle(
+                            fontSize: isMobile ? 14 : 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87)),
+                    if (isDefault) ...[
+                      const SizedBox(height: 4),
+                      _buildDefaultBadge(),
+                    ],
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[500]),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                onSelected: (value) async {
+                  if (value == 'setDefault') await _setDefault(docId);
+                  if (value == 'edit')       _editCard(card);
+                  if (value == 'delete')     await _delete(docId);
+                },
+                itemBuilder: (_) => [
+                  if (!isDefault)
+                    _menuItem('setDefault', Icons.star_outline,
+                        Colors.amber, _t('payment_set_default')),
+                  _menuItem('edit', Icons.edit_outlined,
+                      Colors.blue, _t('edit')),
+                  _menuItem('delete', Icons.delete_outline,
+                      Colors.red, _t('delete'), isRed: true),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 12 : 14),
+          Text(
+            '•••• •••• •••• $last4',
+            style: TextStyle(
+              fontSize: isMobile ? 16 : 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_t('payment_expires')} $expiryMonth/$expiryYear',
+            style: TextStyle(
+                fontSize: isMobile ? 12 : 13, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
 
+  // ── PayPal ────────────────────────────────────────────────────
+  Widget _buildPaypalItem(Map<String, dynamic> paypal, bool isMobile) {
+    final isDefault = paypal['isDefault'] == true;
+    final email     = paypal['email'] ?? '';
+    final holder    = paypal['accountHolderName'] ?? '';
+    final docId     = paypal['docId'] as String;
+
+    return _buildMethodContainer(
+      isDefault: isDefault,
+      isMobile: isMobile,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF003087).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.account_balance_wallet_rounded,
+                color: const Color(0xFF003087),
+                size: isMobile ? 22 : 24),
+          ),
+          SizedBox(width: isMobile ? 12 : 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('PayPal',
+                    style: TextStyle(
+                        fontSize: isMobile ? 14 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+                if (holder.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(holder,
+                      style: TextStyle(
+                          fontSize: isMobile ? 13 : 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black54)),
+                ],
+                const SizedBox(height: 1),
+                Text(email,
+                    style: TextStyle(
+                        fontSize: isMobile ? 12 : 13,
+                        color: Colors.grey[500])),
+                if (isDefault) ...[
+                  const SizedBox(height: 4),
+                  _buildDefaultBadge(),
+                ],
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.grey[500]),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) async {
+              if (value == 'setDefault') await _setDefault(docId);
+              if (value == 'delete')     await _delete(docId);
+            },
+            itemBuilder: (_) => [
+              if (!isDefault)
+                _menuItem('setDefault', Icons.star_outline,
+                    Colors.amber, _t('payment_set_default')),
+              _menuItem('delete', Icons.delete_outline,
+                  Colors.red, _t('delete'), isRed: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Cash on delivery ──────────────────────────────────────────
+  Widget _buildCashItem(Map<String, dynamic> cash, bool isMobile) {
+    final isDefault = cash['isDefault'] == true;
+    final docId     = cash['docId'] as String;
+
+    return _buildMethodContainer(
+      isDefault: isDefault,
+      isMobile: isMobile,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.local_shipping_outlined,
+                color: Colors.green, size: isMobile ? 22 : 24),
+          ),
+          SizedBox(width: isMobile ? 12 : 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_t('payment_cash_delivery_title'),
+                    style: TextStyle(
+                        fontSize: isMobile ? 14 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+                const SizedBox(height: 2),
+                Text(_t('payment_cash_delivery_desc'),
+                    style: TextStyle(
+                        fontSize: isMobile ? 12 : 13,
+                        color: Colors.grey[500])),
+                if (isDefault) ...[
+                  const SizedBox(height: 4),
+                  _buildDefaultBadge(),
+                ],
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.grey[500]),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) async {
+              if (value == 'setDefault') await _setDefault(docId);
+              if (value == 'delete')     await _delete(docId);
+            },
+            itemBuilder: (_) => [
+              if (!isDefault)
+                _menuItem('setDefault', Icons.star_outline,
+                    Colors.amber, _t('payment_set_default')),
+              _menuItem('delete', Icons.delete_outline,
+                  Colors.red, _t('delete'), isRed: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Container commun ──────────────────────────────────────────
+  Widget _buildMethodContainer({
+    required bool isDefault,
+    required bool isMobile,
+    required Widget child,
+  }) {
     return Container(
-      margin: EdgeInsets.only(bottom: isMobile ? 12 : isTablet ? 16 : 20),
+      margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: isDefault
             ? Border.all(color: Colors.deepPurple, width: 2)
-            : Border.all(color: Colors.grey[300]!),
+            : Border.all(color: Colors.grey[200]!),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                if (isCard)
-                  _buildCardIcon(method['brand'] as String, isDesktop, isTablet, isMobile)
-                else
-                  Container(
-                    padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(method['icon'] as IconData, color: Colors.green,
-                        size: isDesktop ? 24 : isTablet ? 22 : 20),
-                  ),
-                SizedBox(width: isMobile ? 12 : 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isCard ? '${method['holderName']}' : cashName,
-                        style: TextStyle(fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-                            fontWeight: FontWeight.bold, color: Colors.black87),
-                      ),
-                      if (isDefault)
-                        Container(
-                          margin: EdgeInsets.only(top: isMobile ? 4 : 6),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 8 : isTablet ? 10 : 12,
-                            vertical:   isMobile ? 2 : 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _t('by_default'),
-                            style: TextStyle(color: Colors.white,
-                                fontSize: isDesktop ? 12 : isTablet ? 11 : 10,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // Menu contextuel
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                  onSelected: (value) {
-                    if (value == 'edit')       _editPaymentMethod(method);
-                    if (value == 'delete')     _deletePaymentMethod(method, index);
-                    if (value == 'setDefault') _setDefaultPaymentMethod(method, index);
-                  },
-                  itemBuilder: (context) => [
-                    if (!isDefault)
-                      PopupMenuItem(
-                        value: 'setDefault',
-                        child: Row(children: [
-                          const Icon(Icons.star_border, size: 18),
-                          const SizedBox(width: 8),
-                          Text(_t('payment_set_default')),
-                        ]),
-                      ),
-                    if (isCard)
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(children: [
-                          const Icon(Icons.edit, size: 18),
-                          const SizedBox(width: 8),
-                          Text(_t('edit')),
-                        ]),
-                      ),
-                    if (!isCard && index > 0)
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(children: [
-                          const Icon(Icons.delete, size: 18, color: Colors.red),
-                          const SizedBox(width: 8),
-                          Text(_t('delete'), style: const TextStyle(color: Colors.red)),
-                        ]),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-
-            SizedBox(height: isMobile ? 12 : 16),
-
-            // Détails
-            if (isCard)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '•••• •••• •••• ${method['last4']}',
-                    style: TextStyle(
-                      fontSize: isDesktop ? 18 : isTablet ? 17 : 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  SizedBox(height: isMobile ? 4 : 6),
-                  Text(
-                    '${_t('payment_expires')} ${method['expiryMonth']}/${method['expiryYear']}',
-                    style: TextStyle(fontSize: isDesktop ? 14 : isTablet ? 13 : 12, color: Colors.grey[600]),
-                  ),
-                ],
-              )
-            else
-              Text(
-                cashDesc,
-                style: TextStyle(fontSize: isDesktop ? 15 : isTablet ? 14 : 13, color: Colors.grey[600]),
-              ),
-          ],
-        ),
+        padding: EdgeInsets.all(isMobile ? 16 : 20),
+        child: child,
       ),
     );
   }
 
-  Widget _buildCardIcon(String brand, bool isDesktop, bool isTablet, bool isMobile) {
-    Color color;
-    switch (brand.toLowerCase()) {
-      case 'visa':       color = Colors.blue; break;
-      case 'mastercard': color = Colors.red;  break;
-      case 'amex':       color = Colors.blue; break;
-      default:           color = Colors.grey;
-    }
+  // ── Badge "Par défaut" ────────────────────────────────────────
+  Widget _buildDefaultBadge() {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        _t('by_default'),
+        style: const TextStyle(
+            color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  // ── MenuItem popup ────────────────────────────────────────────
+  PopupMenuItem<String> _menuItem(
+      String value, IconData icon, Color color, String label,
+      {bool isRed = false}) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Text(label,
+            style: TextStyle(color: isRed ? Colors.red : Colors.black87)),
+      ]),
+    );
+  }
+
+  // ── Icône type carte ──────────────────────────────────────────
+  Widget _buildCardTypeIcon(String cardType, bool isMobile) {
+    final Map<String, Color> colors = {
+      'visa': Colors.blue,
+      'mastercard': Colors.red,
+      'amex': Colors.green,
+      'discover': Colors.orange,
+    };
+    final color = colors[cardType.toLowerCase()] ?? Colors.grey;
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 8 : 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(Icons.credit_card, color: color, size: isDesktop ? 24 : isTablet ? 22 : 20),
+      child: Icon(Icons.credit_card, color: color, size: isMobile ? 20 : 22),
     );
   }
 
-  Widget _buildFloatingActionButton(bool isDesktop, bool isTablet, bool isMobile) {
+  // ── Section sécurité ─────────────────────────────────────────
+  Widget _buildSecuritySection(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+          isMobile ? 16 : 24, 0, isMobile ? 16 : 24, isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 14 : 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.security, color: Colors.green, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_t('payment_security_title'),
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+                const SizedBox(height: 2),
+                Text(_t('payment_pci_certified'),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── FAB ──────────────────────────────────────────────────────
+  Widget _buildFAB(bool isDesktop, bool isMobile) {
     return FloatingActionButton.extended(
       onPressed: _showAddPaymentMethod,
       backgroundColor: Colors.deepPurple,
       foregroundColor: Colors.white,
       elevation: 4,
-      icon: Icon(Icons.add, size: isDesktop ? 24 : isTablet ? 22 : 20),
-      label: Text(
-        _t('payment_add_fab'),
-        style: TextStyle(fontSize: isDesktop ? 16 : isTablet ? 15 : 14, fontWeight: FontWeight.w600),
-      ),
+      icon: const Icon(Icons.add),
+      label: Text(_t('payment_add_fab'),
+          style: TextStyle(
+              fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.w600)),
     );
   }
 
+  // ── Bottom sheet ajout ────────────────────────────────────────
   void _showAddPaymentMethod() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Directionality(
-        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Directionality(
+        textDirection:
+        AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: Container(
-          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2)),
               ),
+              Text(_t('payment_add_sheet_title'),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87)),
               const SizedBox(height: 20),
-              Text(
-                _t('payment_add_sheet_title'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 20),
+
+              // Carte bancaire — toujours visible
               _buildAddOption(
                 _t('payment_card_option_title'),
                 _t('payment_card_option_subtitle'),
                 Icons.credit_card, Colors.blue,
-                    () { Navigator.pop(context); _showAddCardDialog(); },
-              ),
-              _buildAddOption(
-                _t('payment_paypal_option_title'),
-                _t('payment_paypal_option_subtitle'),
-                Icons.account_balance_wallet, Colors.indigo,
                     () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(_t('payment_coming_soon')),
-                    backgroundColor: Colors.indigo,
-                    behavior: SnackBarBehavior.floating,
-                  ));
+                  Navigator.pop(ctx);
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(
+                      builder: (_) => const AddCardPage()))
+                      .then((_) => _loadMethods());
                 },
               ),
+              const SizedBox(height: 10),
+
+              // PayPal — caché si déjà ajouté
+              if (!_hasPaypal) ...[
+                _buildAddOption(
+                  _t('payment_paypal_option_title'),
+                  _t('payment_paypal_option_subtitle'),
+                  Icons.account_balance_wallet, Colors.indigo,
+                      () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(
+                        builder: (_) => const AddPayPalAccountPage()))
+                        .then((_) => _loadMethods());
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // Cash on delivery — caché si déjà ajouté
+              if (!_hasCashOnDelivery) ...[
+                _buildAddOption(
+                  _t('payment_cash_delivery_title'),
+                  _t('payment_cash_delivery_desc'),
+                  Icons.local_shipping_outlined, Colors.green,
+                      () {
+                    Navigator.pop(ctx);
+                    _addCashOnDelivery();
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // Apple Pay / Google Pay
               _buildAddOption(
                 _t('payment_applepay_option_title'),
                 _t('payment_applepay_option_subtitle'),
                 Icons.phone_iphone, Colors.black87,
                     () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(_t('payment_coming_soon')),
                     backgroundColor: Colors.black87,
@@ -421,7 +694,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ));
                 },
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -429,63 +701,49 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  Widget _buildAddOption(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-      trailing: Icon(
-        AppLocalizations.isRtl ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
-        color: Colors.grey, size: 16,
-      ),
+  // ── Option du bottom sheet ────────────────────────────────────
+  Widget _buildAddOption(String title, String subtitle, IconData icon,
+      Color color, VoidCallback onTap) {
+    return InkWell(
       onTap: onTap,
-    );
-  }
-
-  void _showAddCardDialog() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddCardPage()),
-    );
-  }
-
-  void _editPaymentMethod(Map<String, dynamic> method) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_t('payment_edit_coming_soon')),
-      backgroundColor: Colors.orange,
-    ));
-  }
-
-  void _deletePaymentMethod(Map<String, dynamic> method, int index) {
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
-        child: AlertDialog(
-          title: Text(_t('payment_delete_title')),
-          content: Text(_t('payment_delete_confirm')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(_t('cancel')),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.15)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: color.withOpacity(0.12), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 20),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _paymentMethods.removeAt(index));
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(_t('payment_deleted_success')),
-                  backgroundColor: Colors.green,
-                ));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87)),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey[500])),
+                ],
               ),
-              child: Text(_t('delete')),
+            ),
+            Icon(
+              AppLocalizations.isRtl
+                  ? Icons.arrow_back_ios
+                  : Icons.arrow_forward_ios,
+              color: Colors.grey[400],
+              size: 16,
             ),
           ],
         ),
@@ -493,15 +751,12 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  void _setDefaultPaymentMethod(Map<String, dynamic> method, int index) {
-    setState(() {
-      for (int i = 0; i < _paymentMethods.length; i++) {
-        _paymentMethods[i]['isDefault'] = i == index;
-      }
-    });
+  // ── Modifier carte ────────────────────────────────────────────
+  void _editCard(Map<String, dynamic> card) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_t('payment_set_default_success')),
-      backgroundColor: Colors.green,
+      content: Text(_t('payment_edit_coming_soon')),
+      backgroundColor: Colors.orange,
+      behavior: SnackBarBehavior.floating,
     ));
   }
 }

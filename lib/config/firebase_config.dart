@@ -58,16 +58,23 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-
+      
       match /payment_methods/{cardId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+      
       match /addresses/{addressId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+      
       match /notifications/{notifId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+    }
+    
+    // Règles pour les comptes PayPal (collection racine)
+    match /paypal_accounts/{paypalId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     match /deletion_requests/{docId} {
