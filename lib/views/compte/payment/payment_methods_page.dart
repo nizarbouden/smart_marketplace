@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
+import 'add_card_page.dart';
+
 class PaymentMethodsPage extends StatefulWidget {
   const PaymentMethodsPage({super.key});
 
@@ -394,14 +396,28 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     () { Navigator.pop(context); _showAddCardDialog(); },
               ),
               _buildAddOption(
-                _t('payment_cash_option_title'),
-                _t('payment_cash_option_subtitle'),
-                Icons.money, Colors.green,
+                _t('payment_paypal_option_title'),
+                _t('payment_paypal_option_subtitle'),
+                Icons.account_balance_wallet, Colors.indigo,
                     () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(_t('payment_cash_activated')),
-                    backgroundColor: Colors.green,
+                    content: Text(_t('payment_coming_soon')),
+                    backgroundColor: Colors.indigo,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                },
+              ),
+              _buildAddOption(
+                _t('payment_applepay_option_title'),
+                _t('payment_applepay_option_subtitle'),
+                Icons.phone_iphone, Colors.black87,
+                    () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(_t('payment_coming_soon')),
+                    backgroundColor: Colors.black87,
+                    behavior: SnackBarBehavior.floating,
                   ));
                 },
               ),
@@ -432,34 +448,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   }
 
   void _showAddCardDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
-        child: AlertDialog(
-          title: Text(_t('payment_add_card_title')),
-          content: Text(_t('payment_add_card_content')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(_t('cancel')),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(_t('payment_add_coming_soon')),
-                  backgroundColor: Colors.blue,
-                ));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,
-              ),
-              child: Text(_t('add')),
-            ),
-          ],
-        ),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddCardPage()),
     );
   }
 

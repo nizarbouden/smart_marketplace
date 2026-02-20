@@ -522,6 +522,28 @@ class AppLocalizations {
     // ── Widget Default Address Toggle ──────────────────────────────────────────
     'set_default_address': 'Définir comme adresse de livraison par défaut',
 
+    'payment_card_number_label':       'Numéro de carte',
+    'payment_cardholder_label':        'Nom du titulaire',
+    'payment_cardholder_hint':         'NOM PRÉNOM',
+    'payment_cardholder_required':     'Le nom du titulaire est requis',
+    'payment_expiry_label':            'Expiration',
+    'payment_expiry_required':         'Date requise',
+    'payment_expiry_invalid':          'Format invalide',
+    'payment_card_expired':            'Carte expirée',
+    'payment_cvv_label':               'CVV',
+    'payment_cvv_invalid':             'CVV invalide',
+    'payment_card_number_invalid':     'Numéro de carte invalide',
+    'payment_card_holder_label_preview': 'TITULAIRE',
+    'payment_card_holder_placeholder': 'VOTRE NOM',
+    'payment_expires_preview':         'EXPIRE',
+    'payment_add_card_btn':            'Ajouter la carte',
+    'payment_card_added_success':      'Carte ajoutée avec succès !',
+    'payment_paypal_option_title':    'PayPal',
+    'payment_paypal_option_subtitle': 'Payer via votre compte PayPal',
+    'payment_applepay_option_title':  'Apple Pay / Google Pay',
+    'payment_applepay_option_subtitle': 'Paiement rapide via votre téléphone',
+    'payment_coming_soon':            'Bientôt disponible',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1043,6 +1065,29 @@ class AppLocalizations {
 
     // ── Widget Default Address Toggle ──────────────────────────────────────────
     'set_default_address': 'Set as default shipping address',
+
+
+    'payment_card_number_label':       'Card number',
+    'payment_cardholder_label':        'Cardholder name',
+    'payment_cardholder_hint':         'FIRST LAST',
+    'payment_cardholder_required':     'Cardholder name is required',
+    'payment_expiry_label':            'Expiry date',
+    'payment_expiry_required':         'Expiry date required',
+    'payment_expiry_invalid':          'Invalid format',
+    'payment_card_expired':            'Card is expired',
+    'payment_cvv_label':               'CVV',
+    'payment_cvv_invalid':             'Invalid CVV',
+    'payment_card_number_invalid':     'Invalid card number',
+    'payment_card_holder_label_preview': 'CARD HOLDER',
+    'payment_card_holder_placeholder': 'YOUR NAME',
+    'payment_expires_preview':         'EXPIRES',
+    'payment_add_card_btn':            'Add card',
+    'payment_card_added_success':      'Card added successfully!',
+    'payment_paypal_option_title':    'PayPal',
+    'payment_paypal_option_subtitle': 'Pay via your PayPal account',
+    'payment_applepay_option_title':  'Apple Pay / Google Pay',
+    'payment_applepay_option_subtitle': 'Fast payment via your phone',
+    'payment_coming_soon':            'Coming soon',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1561,6 +1606,30 @@ class AppLocalizations {
 
     // ── ويدجت تبديل العنوان الافتراضي ─────────────────────────────────────────────
     'set_default_address': 'تعيين كعنوان شحن افتراضي',
+
+
+    'payment_card_number_label':       'رقم البطاقة',
+    'payment_cardholder_label':        'اسم حامل البطاقة',
+    'payment_cardholder_hint':         'الاسم الأول واسم العائلة',
+    'payment_cardholder_required':     'اسم حامل البطاقة مطلوب',
+    'payment_expiry_label':            'تاريخ الانتهاء',
+    'payment_expiry_required':         'تاريخ الانتهاء مطلوب',
+    'payment_expiry_invalid':          'صيغة غير صالحة',
+    'payment_card_expired':            'البطاقة منتهية الصلاحية',
+    'payment_cvv_label':               'رمز CVV',
+    'payment_cvv_invalid':             'رمز CVV غير صالح',
+    'payment_card_number_invalid':     'رقم البطاقة غير صالح',
+    'payment_card_holder_label_preview': 'حامل البطاقة',
+    'payment_card_holder_placeholder': 'اسمك',
+    'payment_expires_preview':         'تنتهي',
+    'payment_add_card_btn':            'إضافة البطاقة',
+    'payment_card_added_success':      'تمت إضافة البطاقة بنجاح!',
+    'payment_paypal_option_title':    'PayPal',
+    'payment_paypal_option_subtitle': 'الدفع عبر حساب PayPal الخاص بك',
+    'payment_applepay_option_title':  'Apple Pay / Google Pay',
+    'payment_applepay_option_subtitle': 'دفع سريع عبر هاتفك',
+    'payment_coming_soon':            'قريباً',
+
   };
 
   // ════════════════════════════════════════════════════════════════

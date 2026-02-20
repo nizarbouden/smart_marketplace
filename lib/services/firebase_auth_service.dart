@@ -910,22 +910,34 @@ class FirebaseAuthService {
 
       print('📸 Upload de la photo de profil pour: ${user.uid}');
 
-      // 1. Référence Firebase Storage
+      // 1. Créer une référence unique avec timestamp pour éviter les conflits
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final storageRef = FirebaseStorage.instance
           .ref()
           .child('profile_photos')
-          .child('${user.uid}.jpg');
+          .child('${user.uid}_$timestamp.jpg');
+
+      print('📁 Référence Storage: ${storageRef.fullPath}');
 
       // 2. Compresser légèrement l'image avant upload
       final bytes = await imageFile.readAsBytes();
+      print('📊 Taille de l\'image: ${bytes.length} bytes');
 
       // 3. Upload avec métadonnées
-      final uploadTask = storageRef.putFile(
-        imageFile,
-        SettableMetadata(contentType: 'image/jpeg'),
+      final uploadTask = storageRef.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {
+            'userId': user.uid,
+            'uploadedAt': timestamp.toString(),
+          },
+        ),
       );
 
-      // 4. Attendre la fin de l'upload
+      print('⬆️ Début de l\'upload...');
+
+      // 4. Attendre la fin de l'upload avec gestion des erreurs
       final snapshot = await uploadTask;
       print('✅ Photo uploadée : ${snapshot.bytesTransferred} bytes');
 
