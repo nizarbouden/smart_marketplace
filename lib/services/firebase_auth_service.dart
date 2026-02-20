@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
@@ -901,6 +903,84 @@ class FirebaseAuthService {
       throw 'Erreur lors de la récupération des commandes';
     }
   }
+  Future<String> uploadProfilePhoto(File imageFile) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user == null) throw 'Aucun utilisateur connecté';
+
+      print('📸 Upload de la photo de profil pour: ${user.uid}');
+
+      // 1. Référence Firebase Storage
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('${user.uid}.jpg');
+
+      // 2. Compresser légèrement l'image avant upload
+      final bytes = await imageFile.readAsBytes();
+
+      // 3. Upload avec métadonnées
+      final uploadTask = storageRef.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      // 4. Attendre la fin de l'upload
+      final snapshot = await uploadTask;
+      print('✅ Photo uploadée : ${snapshot.bytesTransferred} bytes');
+
+      // 5. Récupérer l'URL publique
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      print('🔗 URL de la photo: $downloadUrl');
+
+      // 6. Mettre à jour Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'photoUrl': downloadUrl,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+
+      // 7. Mettre à jour Firebase Auth displayName/photoURL (optionnel)
+      await user.updatePhotoURL(downloadUrl);
+
+      print('✅ Photo de profil mise à jour avec succès');
+      return downloadUrl;
+    } on FirebaseException catch (e) {
+      print('❌ Erreur Firebase Storage: ${e.code} - ${e.message}');
+      throw 'Erreur lors de l\'upload de la photo: ${e.message}';
+    } catch (e) {
+      print('❌ Erreur lors de l\'upload de la photo: $e');
+      throw 'Erreur lors de l\'upload de la photo de profil';
+    }
+  }
+
+  // ── SUPPRIMER L'ANCIENNE PHOTO ────────────────────────────────
+  Future<void> deleteProfilePhoto() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user == null) return;
+
+      // Supprimer depuis Storage
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('${user.uid}.jpg');
+
+      await storageRef.delete();
+
+      // Mettre à jour Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'photoUrl': FieldValue.delete(),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+
+      // Mettre à jour Firebase Auth
+      await user.updatePhotoURL(null);
+
+      print('✅ Photo de profil supprimée');
+    } catch (e) {
+      print('⚠️ Erreur suppression photo (peut-être inexistante): $e');
+    }
+  }
 
   // GESTION DES ERREURS
   String _getErrorMessage(FirebaseAuthException e) {
@@ -929,4 +1009,5 @@ class FirebaseAuthService {
         return 'Une erreur est survenue: ${e.message}';
     }
   }
+
 }

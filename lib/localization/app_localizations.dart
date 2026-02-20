@@ -301,6 +301,13 @@ class AppLocalizations {
     'edit_profile_phone_required': 'Veuillez entrer votre numéro de téléphone',
     'edit_profile_section_personal': 'Informations personnelles',
     'edit_profile_section_contact': 'Contact',
+    'photo_change_title':    'Changer la photo de profil',
+    'photo_from_gallery':    'Choisir depuis la galerie',
+    'photo_from_camera':     'Prendre une photo',
+    'photo_remove':          'Supprimer la photo',
+    'photo_upload_success':  'Photo de profil mise à jour !',
+    'photo_upload_error':    'Erreur lors de l\'upload de la photo',
+    'photo_removed_success': 'Photo de profil supprimée',
 
     // ── Sécurité ──────────────────────────────────────────────────
     'security_title': 'Sécurité',
@@ -820,6 +827,13 @@ class AppLocalizations {
     'edit_profile_phone_required': 'Please enter your phone number',
     'edit_profile_section_personal': 'Personal Information',
     'edit_profile_section_contact': 'Contact',
+    'photo_change_title':    'Change profile photo',
+    'photo_from_gallery':    'Choose from gallery',
+    'photo_from_camera':     'Take a photo',
+    'photo_remove':          'Remove photo',
+    'photo_upload_success':  'Profile photo updated!',
+    'photo_upload_error':    'Error uploading photo',
+    'photo_removed_success': 'Profile photo removed',
 
     // ── Security ──────────────────────────────────────────────────
     'security_title': 'Security',
@@ -1331,6 +1345,13 @@ class AppLocalizations {
     'edit_profile_phone_required': 'يرجى إدخال رقم هاتفك',
     'edit_profile_section_personal': 'المعلومات الشخصية',
     'edit_profile_section_contact': 'معلومات الاتصال',
+    'photo_change_title':    'تغيير صورة الملف الشخصي',
+    'photo_from_gallery':    'اختر من المعرض',
+    'photo_from_camera':     'التقط صورة',
+    'photo_remove':          'حذف الصورة',
+    'photo_upload_success':  'تم تحديث صورة الملف الشخصي!',
+    'photo_upload_error':    'خطأ في رفع الصورة',
+    'photo_removed_success': 'تم حذف صورة الملف الشخصي',
 
     // ── الأمان ────────────────────────────────────────────────────
     'security_title': 'الأمان',

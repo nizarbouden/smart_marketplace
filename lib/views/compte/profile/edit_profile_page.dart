@@ -108,8 +108,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ProfileImageWidget(
               profileImage:    viewModel.profileImage,
               profileImageUrl: viewModel.profileImageUrl,
-              onPickImage:     viewModel.pickImageFromGallery,
-              onTakePhoto:     viewModel.takePhoto,
+              onPickImage: viewModel.pickImageFromGallery,
+              onTakePhoto: viewModel.takePhoto,
               isDesktop: isDesktop,
               isTablet:  isTablet,
             ),

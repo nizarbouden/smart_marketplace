@@ -23,7 +23,9 @@ class ProfileViewModel extends ChangeNotifier {
 
   // Service d'authentification
   final FirebaseAuthService _authService = FirebaseAuthService();
-
+  bool _isUploadingPhoto = false;
+  bool get isUploadingPhoto => _isUploadingPhoto;
+  final ImagePicker _picker = ImagePicker();
   // Constructeur avec données utilisateur (par défaut vide)
   ProfileViewModel({
     String firstName = '',
@@ -123,27 +125,63 @@ class ProfileViewModel extends ChangeNotifier {
   // Méthodes pour l'image
   Future<void> pickImageFromGallery() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800, maxHeight: 800, imageQuality: 85,
+      );
       if (image != null) {
         _profileImage = File(image.path);
-        _updateProfile();
         notifyListeners();
+        await _uploadPhotoToFirebase();
       }
     } catch (e) {
-      debugPrint('Error picking image from gallery: $e');
+      print('❌ Erreur galerie: $e');
+    }
+  }
+  Future<void> _uploadPhotoToFirebase() async {
+    if (_profileImage == null) return;
+    _isUploadingPhoto = true;
+    notifyListeners();
+    try {
+      final url = await _authService.uploadProfilePhoto(_profileImage!);
+      _profileImageUrl = url;
+      _profileImage    = null;
+    } catch (e) {
+      print('❌ Erreur upload photo: $e');
+    } finally {
+      _isUploadingPhoto = false;
+      notifyListeners();
     }
   }
 
   Future<void> takePhoto() async {
     try {
-      final XFile? photo = await _imagePicker.pickImage(source: ImageSource.camera);
-      if (photo != null) {
-        _profileImage = File(photo.path);
-        _updateProfile();
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800, maxHeight: 800, imageQuality: 85,
+      );
+      if (image != null) {
+        _profileImage = File(image.path);
         notifyListeners();
+        await _uploadPhotoToFirebase();
       }
     } catch (e) {
-      debugPrint('Error taking photo: $e');
+      print('❌ Erreur caméra: $e');
+    }
+  }
+
+  Future<void> removePhoto() async {   // ✅ sans BuildContext
+    _isUploadingPhoto = true;
+    notifyListeners();
+    try {
+      await _authService.deleteProfilePhoto();
+      _profileImageUrl = null;
+      _profileImage    = null;
+    } catch (e) {
+      print('❌ Erreur suppression photo: $e');
+    } finally {
+      _isUploadingPhoto = false;
+      notifyListeners();
     }
   }
 
@@ -244,7 +282,7 @@ class ProfileViewModel extends ChangeNotifier {
         phoneNumber: phoneController.text.trim(),
         countryCode: _selectedCountryCode,
         genre: _selectedGender,
-        photoUrl: _profileImageUrl, // Garder l'ancienne URL
+
       );
       
       print('🔍 DEBUG: Profil sauvegardé (sans modification photo)');

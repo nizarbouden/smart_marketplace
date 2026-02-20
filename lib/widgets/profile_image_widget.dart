@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../localization/app_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
 
 class ProfileImageWidget extends StatelessWidget {
-  final File? profileImage;
+  final File?   profileImage;
   final String? profileImageUrl;
-  final VoidCallback onPickImage;
-  final VoidCallback onTakePhoto;
+  final Future<void> Function() onPickImage;
+  final Future<void> Function() onTakePhoto;
   final bool isDesktop;
   final bool isTablet;
 
@@ -20,179 +22,239 @@ class ProfileImageWidget extends StatelessWidget {
     required this.isTablet,
   });
 
+  double get _avatarRadius =>
+      isDesktop ? 64 : isTablet ? 56 : 48;
+
   @override
   Widget build(BuildContext context) {
-    print('🔍 ProfileImageWidget: profileImage = $profileImage');
-    print('🔍 ProfileImageWidget: profileImageUrl = $profileImageUrl');
-    
-    return Center(
-      child: Column(
-        children: [
-          Stack(
+    return Consumer<ProfileViewModel>(
+      builder: (context, vm, _) {
+        return Center(
+          child: Stack(
+            alignment: Alignment.bottomRight,
             children: [
-              CircleAvatar(
-                radius: isDesktop ? 80 : isTablet ? 70 : 60,
-                backgroundColor: Colors.deepPurple[100],
-                backgroundImage: _getImageProvider(),
-                child: _shouldShowDefaultIcon()
-                    ? Icon(
-                        Icons.person,
-                        size: isDesktop ? 80 : isTablet ? 70 : 60,
-                        color: Colors.deepPurple,
-                      )
-                    : null,
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: () => _showImagePickerBottomSheet(context),
-                  child: Container(
-                    width: isDesktop ? 40 : isTablet ? 36 : 32,
-                    height: isDesktop ? 40 : isTablet ? 36 : 32,
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+              // ── Avatar ──────────────────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.deepPurple.withOpacity(0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 20,
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: _avatarRadius,
+                  backgroundColor: Colors.deepPurple.withOpacity(0.1),
+                  backgroundImage: _resolveImage(vm),
+                  child: _resolveImage(vm) == null
+                      ? Icon(Icons.person,
+                      size: _avatarRadius,
+                      color: Colors.deepPurple.withOpacity(0.5))
+                      : null,
+                ),
+              ),
+
+              // ── Overlay loader pendant l'upload ─────────────────
+              if (vm.isUploadingPhoto)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withOpacity(0.45),
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
                     ),
                   ),
                 ),
-              ),
+
+              // ── Bouton caméra (edit) ─────────────────────────────
+              if (!vm.isUploadingPhoto)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () => _showPhotoOptions(context, vm),
+                    child: Container(
+                      width: isDesktop ? 38 : 32,
+                      height: isDesktop ? 38 : 32,
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.deepPurple.withOpacity(0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.camera_alt,
+                        size: isDesktop ? 20 : 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            AppLocalizations.get('change_photo'),
-            style: TextStyle(
-              fontSize: isDesktop ? 16 : 14,
-              color: Colors.deepPurple,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // Méthode helper pour déterminer l'image à afficher
-  ImageProvider? _getImageProvider() {
-    // Priorité 1: Image locale (nouvelle photo sélectionnée)
-    if (profileImage != null) {
-      return FileImage(profileImage!) as ImageProvider;
+  // ── Résoudre la source de l'image ─────────────────────────────
+  ImageProvider? _resolveImage(ProfileViewModel vm) {
+    if (vm.profileImage != null) return FileImage(vm.profileImage!);
+    if (vm.profileImageUrl != null && vm.profileImageUrl!.isNotEmpty) {
+      return NetworkImage(vm.profileImageUrl!);
     }
-    // Priorité 2: URL de l'image (photo existante)
-    if (profileImageUrl != null && profileImageUrl!.isNotEmpty) {
-      return NetworkImage(profileImageUrl!);
-    }
-    // Pas d'image
     return null;
   }
 
-  // Méthode helper pour déterminer si on affiche l'icône par défaut
-  bool _shouldShowDefaultIcon() {
-    return profileImage == null && 
-           (profileImageUrl == null || profileImageUrl!.isEmpty);
-  }
+  // ── Bottom sheet de choix ──────────────────────────────────────
+  void _showPhotoOptions(BuildContext context, ProfileViewModel vm) {
+    final hasPhoto =
+        vm.profileImage != null || (vm.profileImageUrl?.isNotEmpty ?? false);
 
-  void _showImagePickerBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
             Container(
               width: 40,
               height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
+
             Text(
-              AppLocalizations.get('choose_photo'),
-              style: TextStyle(
+              AppLocalizations.get('photo_change_title'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildOption(
-                  icon: Icons.camera_alt,
-                  label: AppLocalizations.get('camera'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onTakePhoto();
-                  },
-                ),
-                _buildOption(
-                  icon: Icons.photo_library,
-                  label: AppLocalizations.get('gallery'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    onPickImage();
-                  },
-                ),
-              ],
+
+            // Galerie
+            _buildOption(
+              context,
+              icon: Icons.photo_library_rounded,
+              label: AppLocalizations.get('photo_from_gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                onPickImage();
+              },
             ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 12),
+
+            // Caméra
+            _buildOption(
+              context,
+              icon: Icons.camera_alt_rounded,
+              label: AppLocalizations.get('photo_from_camera'),
+              onTap: () {
+                Navigator.pop(context);
+                onTakePhoto();
+              },
+            ),
+
+            // Supprimer (seulement si photo existante)
+            if (hasPhoto) ...[
+              const SizedBox(height: 12),
+              _buildOption(
+                context,
+                icon: Icons.delete_outline_rounded,
+                label: AppLocalizations.get('photo_remove'),
+                color: Colors.red,
+                onTap: () {
+                  Navigator.pop(context);
+                  vm.removePhoto();
+                },
+              ),
+            ],
+
+            const SizedBox(height: 8),
+
+            // Annuler
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                AppLocalizations.get('cancel'),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
+  Widget _buildOption(
+      BuildContext context, {
+        required IconData icon,
+        required String label,
+        required VoidCallback onTap,
+        Color color = Colors.deepPurple,
+      }) {
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Icon(
-              icon,
-              color: Colors.deepPurple,
-              size: 32,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(width: 16),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: color == Colors.red ? Colors.red : Colors.black87,
               ),
             ),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
           ],
         ),
       ),
