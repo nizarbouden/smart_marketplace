@@ -604,6 +604,17 @@ class AppLocalizations {
     'google_pay_step2_desc':       'Ouvrez l\'app Google Wallet et ajoutez votre carte bancaire.',
     'google_pay_step3_title':      'Payez sans contact',
     'google_pay_step3_desc':       'Approchez votre téléphone du terminal NFC pour payer instantanément.',
+
+    // live chat page
+    'chat_welcome_message': 'Bonjour ! Comment puis-je vous aider ?',
+    'chat_support_name': 'Support Winzy',
+    'chat_online_status': 'En ligne',
+    'chat_input_hint': 'Écrivez votre message...',
+    'chat_no_messages': 'Aucun message',
+    'chat_close_chat': 'Fermer le chat',
+    'chat_close_title': 'Fermer la conversation ?',
+    'chat_close_subtitle': 'La conversation sera archivée.',
+    'chat_close_confirm': 'Fermer',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1212,6 +1223,17 @@ class AppLocalizations {
     'google_pay_step2_desc':       'Open the Google Wallet app and add your bank card.',
     'google_pay_step3_title':      'Tap to pay',
     'google_pay_step3_desc':       'Hold your phone near an NFC terminal to pay instantly.',
+
+    // live chat page
+    'chat_welcome_message': 'Hello! How can I help you?',
+    'chat_support_name': 'Winzy Support',
+    'chat_online_status': 'Online',
+    'chat_input_hint': 'Write your message...',
+    'chat_no_messages': 'No messages',
+    'chat_close_chat': 'Close chat',
+    'chat_close_title': 'Close conversation?',
+    'chat_close_subtitle': 'The conversation will be archived.',
+    'chat_close_confirm': 'Close',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1818,6 +1840,16 @@ class AppLocalizations {
     'google_pay_step3_title':      'الدفع بدون تلامس',
     'google_pay_step3_desc':       'أقرب هاتفك من جهاز NFC للدفع فوراً.',
 
+    // live chat page
+    'chat_welcome_message': 'مرحباً! كيف يمكنني مساعدتك؟',
+    'chat_support_name': 'دعم Winzy',
+    'chat_online_status': 'متصل',
+    'chat_input_hint': 'اكتب رسالتك...',
+    'chat_no_messages': 'لا توجد رسائل',
+    'chat_close_chat': 'إغلاق المحادثة',
+    'chat_close_title': 'إغلاق المحادثة؟',
+    'chat_close_subtitle': 'سيتم أرشفة المحادثة.',
+    'chat_close_confirm': 'إغلاق',
   };
 
   // ════════════════════════════════════════════════════════════════

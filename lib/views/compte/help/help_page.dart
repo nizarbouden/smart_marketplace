@@ -6,6 +6,8 @@ import 'package:smart_marketplace/services/email_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
+import 'live_chat_page.dart';
+
 class HelpPage extends StatefulWidget {
   const HelpPage({super.key});
 
@@ -414,11 +416,11 @@ class _HelpPageState extends State<HelpPage> {
                 Icons.chat,
                 Colors.green,
                     () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(_t('help_chat_soon')),
-                    backgroundColor: Colors.blue,
-                  ));
+                  Navigator.pop(context); // ferme le bottom sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LiveChatPage()),
+                  );
                 },
               ),
 
@@ -510,7 +512,7 @@ class _HelpPageState extends State<HelpPage> {
   // Dialogue pour envoyer un email de support automatiquement
   Future<void> _showSupportEmailDialog() async {
     _issueController.clear();
-    
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
