@@ -9,6 +9,7 @@ class EmailJSService {
   // Configuration EmailJS - À remplacer avec vos vraies valeurs
   static const String _serviceId = 'service_ji6jhpj'; // Remplacez avec votre ID de service EmailJS
   static const String _templateId = 'template_53j2rpf'; // Remplacez avec votre ID de template EmailJS
+  static const String _supportTemplateId = 'template_k1lro7i'; // Template pour les demandes de support
   static const String _publicKey = 'HwkqFeJ-iru4f1Pbm'; // Remplacez avec votre clé publique EmailJS
   static const String _baseUrl = 'https://api.emailjs.com/api/v1.0/email/send';
 
@@ -47,6 +48,49 @@ class EmailJSService {
       }
     } catch (e) {
       print('❌ Erreur lors de l\'envoi avec EmailJS: $e');
+      return false;
+    }
+  }
+
+  // Envoyer un email de support automatiquement
+  Future<bool> sendSupportEmail({
+    required String userName,
+    required String userEmail,
+    required String issueDescription,
+    String? userId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'origin': 'http://localhost:3000', // Remplacez avec votre domaine
+        },
+        body: jsonEncode({
+          'service_id': _serviceId,
+          'template_id': _supportTemplateId,
+          'user_id': _publicKey,
+          'template_params': {
+            'to_email': 'nizarbouden234@gmail.com',
+            'from_name': userName,
+            'from_email': userEmail,
+            'user_id': userId ?? 'Non connecté',
+            'issue_description': issueDescription,
+            'subject': 'Demande de support Winzy',
+            'date': DateTime.now().toString().split('.')[0],
+          }
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Email de support envoyé avec EmailJS');
+        return true;
+      } else {
+        print('❌ Erreur EmailJS support: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'envoi de l\'email de support: $e');
       return false;
     }
   }

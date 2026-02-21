@@ -923,10 +923,14 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
   // ── Modifier carte ────────────────────────────────────────────
   void _editCard(Map<String, dynamic> card) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_t('payment_edit_coming_soon')),
-      backgroundColor: Colors.orange,
-      behavior: SnackBarBehavior.floating,
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddCardPage(cardData: card),
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadMethods(); // Rafraîchir la liste après modification
+      }
+    });
   }
 }

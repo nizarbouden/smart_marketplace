@@ -96,7 +96,7 @@ class _ActiveSessionsDialogState extends State<ActiveSessionsDialog> {
   }
 
   Future<void> _revokeAllSessions() async {
-    final confirmed = await _showConfirmationDialog(
+    final confirmed = await _showStyledConfirmationDialog(
       AppLocalizations.get('session_delete_all_title'),
       AppLocalizations.get('session_delete_all_confirm'),
     );
@@ -112,6 +112,146 @@ class _ActiveSessionsDialogState extends State<ActiveSessionsDialog> {
     } finally {
       setState(() => _isRevoking = false);
     }
+  }
+
+  Future<bool> _showStyledConfirmationDialog(String title, String message) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Icône ──────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.3), width: 2),
+                    ),
+                    child: const Icon(Icons.devices_outlined,
+                        color: Colors.white, size: 32),
+                  ),
+                ),
+
+                // ── Contenu ────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDC2626),
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        message,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF64748B),
+                            height: 1.4),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        children: [
+                          // Bouton Annuler
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: Color(0xFFDC2626), width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: Text(
+                                  AppLocalizations.get('cancel'),
+                                  style: const TextStyle(
+                                      color: Color(0xFFDC2626),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Bouton Confirmer
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  foregroundColor: Colors.white,
+                                  shadowColor:
+                                  const Color(0xFFDC2626).withOpacity(0.3),
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: FittedBox(
+                                  child: Text(
+                                    AppLocalizations.get('session_revoke_btn'),
+                                    style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    return result ?? false;
   }
 
   Future<bool> _showConfirmationDialog(String title, String message) async {

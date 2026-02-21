@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:smart_marketplace/services/faq_service.dart';
+import 'package:smart_marketplace/services/email_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
 class HelpPage extends StatefulWidget {
@@ -14,11 +16,14 @@ class HelpPage extends StatefulWidget {
 class _HelpPageState extends State<HelpPage> {
   final TextEditingController _searchController = TextEditingController();
   final FAQService _faqService = FAQService();
+  final EmailService _emailService = EmailService();
+  final TextEditingController _issueController = TextEditingController();
   List<Map<String, dynamic>> _filteredArticles = [];
   List<Map<String, dynamic>> _allArticles = [];
   List<String> _categories = [];
   String _selectedCategory = '';   // initialisé dans initState
   bool _isLoading = true;
+  bool _isSendingEmail = false;
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -33,6 +38,7 @@ class _HelpPageState extends State<HelpPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _issueController.dispose();
     super.dispose();
   }
 
@@ -451,17 +457,7 @@ class _HelpPageState extends State<HelpPage> {
                 Colors.orange,
                     () async {
                   Navigator.pop(context);
-                  try {
-                    final Uri emailUri = Uri(
-                      scheme: 'mailto',
-                      path: 'support@winzy.com',
-                      query: 'subject=Support Winzy&body=',
-                    );
-                    bool launched = await launchUrl(emailUri, mode: LaunchMode.externalApplication);
-                    if (!launched) await _copyEmailToClipboard();
-                  } catch (_) {
-                    await _copyEmailToClipboard();
-                  }
+                  await _showSupportEmailDialog();
                 },
               ),
               const SizedBox(height: 20),
@@ -492,7 +488,7 @@ class _HelpPageState extends State<HelpPage> {
 
   Future<void> _copyEmailToClipboard() async {
     try {
-      await Clipboard.setData(const ClipboardData(text: 'support@winzy.com'));
+      await Clipboard.setData(const ClipboardData(text: 'nizarbouden234@gmail.com'));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(_t('help_email_copied')),
         backgroundColor: Colors.blue,
@@ -508,6 +504,135 @@ class _HelpPageState extends State<HelpPage> {
         backgroundColor: Colors.grey,
         duration: const Duration(seconds: 5),
       ));
+    }
+  }
+
+  // Dialogue pour envoyer un email de support automatiquement
+  Future<void> _showSupportEmailDialog() async {
+    _issueController.clear();
+    
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.email, color: Colors.orange, size: 24),
+                const SizedBox(width: 12),
+                Text(_t('help_email_title')),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _t('help_email_dialog_subtitle'),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _issueController,
+                    maxLines: 5,
+                    maxLength: 500,
+                    decoration: InputDecoration(
+                      hintText: _t('help_email_issue_hint'),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.orange, width: 2),
+                      ),
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _t('help_email_disclaimer'),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text(_t('cancel')),
+              ),
+              ElevatedButton(
+                onPressed: _isSendingEmail ? null : () => _sendSupportEmail(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: _isSendingEmail
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(_t('help_send_email')),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Envoyer l'email de support automatiquement
+  Future<void> _sendSupportEmail() async {
+    if (_issueController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_t('help_email_empty_error')),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    setState(() => _isSendingEmail = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final sent = await _emailService.sendSupportEmail(
+        issueDescription: _issueController.text.trim(),
+        userName: user?.displayName,
+        userEmail: user?.email,
+      );
+
+      Navigator.of(context).pop(); // Fermer le dialogue
+
+      if (sent) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_t('help_email_sent_success')),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_t('help_email_sent_pending')),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // Fermer le dialogue
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${_t('error')}: $e'),
+        backgroundColor: Colors.red,
+      ));
+    } finally {
+      setState(() => _isSendingEmail = false);
     }
   }
 }

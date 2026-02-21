@@ -34,7 +34,9 @@ class CardEncryption {
 }
 
 class AddCardPage extends StatefulWidget {
-  const AddCardPage({super.key});
+  final Map<String, dynamic>? cardData;
+  
+  const AddCardPage({super.key, this.cardData});
 
   @override
   State<AddCardPage> createState() => _AddCardPageState();
@@ -59,6 +61,7 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
   bool _showCvv     = false;
   bool _isFlipped   = false; // animation flip carte
   String _cardType  = 'unknown';
+  bool _isEditMode  = false; // mode édition
 
   late AnimationController _flipController;
   late Animation<double>    _flipAnimation;
@@ -68,6 +71,15 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    
+    // Vérifier si on est en mode édition
+    _isEditMode = widget.cardData != null;
+    
+    // Initialiser les champs si en mode édition
+    if (_isEditMode) {
+      _initializeFields();
+    }
+    
     _flipController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -107,6 +119,30 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
     _expiryFocus.dispose();
     _cvvFocus.dispose();
     super.dispose();
+  }
+
+  // ── Initialisation des champs en mode édition ───────────────
+  void _initializeFields() {
+    if (widget.cardData == null) return;
+    
+    final card = widget.cardData!;
+    
+    // Remplir les champs avec les données de la carte
+    _cardNumberCtrl.text = '**** **** **** ${card['lastFourDigits'] ?? ''}';
+    _holderNameCtrl.text = card['cardholderName'] ?? '';
+    
+    // Format date d'expiration
+    final month = card['expiryMonth'] ?? '';
+    final year = card['expiryYear'] ?? '';
+    if (month.isNotEmpty && year.isNotEmpty) {
+      _expiryCtrl.text = '$month/${year.substring(2)}';
+    }
+    
+    // Définir le type de carte
+    _cardType = card['cardType'] ?? 'unknown';
+    
+    // Le CVV n'est pas stocké pour des raisons de sécurité
+    _cvvCtrl.text = '';
   }
 
   // ── Détection type de carte ───────────────────────────────────
@@ -155,51 +191,88 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
       final rawCvv    = _cvvCtrl.text.trim();
       final expiry    = _expiryCtrl.text.trim().split('/');
 
-      // Chiffrement des données sensibles
-      final encryptedNumber = CardEncryption.encrypt(rawNumber);
-      final encryptedCvv    = CardEncryption.encrypt(rawCvv);
-
-      // Vérifier si c'est la première carte (→ défaut)
-      final existingCards = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('payment_methods')
-          .get();
-      final isFirst = existingCards.docs.isEmpty;
-
-      // Si on veut cette carte par défaut → retirer le défaut des autres
-      if (isFirst) {
-        for (final doc in existingCards.docs) {
-          await doc.reference.update({'isDefault': false});
+      // En mode édition, utiliser le numéro original si non modifié
+      String finalCardNumber = rawNumber;
+      if (_isEditMode && rawNumber.startsWith('****')) {
+        // Récupérer le numéro original depuis la base de données
+        final cardDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('payment_methods')
+            .doc(widget.cardData!['docId'])
+            .get();
+        
+        if (cardDoc.exists) {
+          final encryptedNumber = cardDoc.data()!['encryptedCardNumber'] as String;
+          finalCardNumber = CardEncryption.decrypt(encryptedNumber);
         }
       }
 
-      // Créer le document
-      final docRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('payment_methods')
-          .doc();
+      // Chiffrement des données sensibles
+      final encryptedNumber = CardEncryption.encrypt(finalCardNumber);
+      final encryptedCvv    = CardEncryption.encrypt(rawCvv);
 
-      await docRef.set({
-        'id':                  docRef.id,
-        'userId':              user.uid,
-        'type':                'card',
-        'cardType':            _cardType,
-        'lastFourDigits':      rawNumber.substring(rawNumber.length - 4),
-        'cardholderName':      _holderNameCtrl.text.trim(),
-        'expiryMonth':         expiry[0].trim(),
-        'expiryYear':          expiry.length > 1 ? expiry[1].trim() : '',
-        'isDefault':           isFirst,
-        'encryptedCardNumber': encryptedNumber,
-        'encryptedCvv':        encryptedCvv,
-        'createdAt':           Timestamp.now(),
-        'updatedAt':           null,
-      });
+      if (_isEditMode) {
+        // Mode édition : mettre à jour le document existant
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('payment_methods')
+            .doc(widget.cardData!['docId'])
+            .update({
+          'cardType':            _cardType,
+          'lastFourDigits':      finalCardNumber.substring(finalCardNumber.length - 4),
+          'cardholderName':      _holderNameCtrl.text.trim(),
+          'expiryMonth':         expiry[0].trim(),
+          'expiryYear':          expiry.length > 1 ? expiry[1].trim() : '',
+          'encryptedCardNumber': encryptedNumber,
+          'encryptedCvv':        encryptedCvv,
+          'updatedAt':           Timestamp.now(),
+        });
+      } else {
+        // Mode ajout : créer un nouveau document
+        // Vérifier si c'est la première carte (→ défaut)
+        final existingCards = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('payment_methods')
+            .get();
+        final isFirst = existingCards.docs.isEmpty;
+
+        // Si on veut cette carte par défaut → retirer le défaut des autres
+        if (isFirst) {
+          for (final doc in existingCards.docs) {
+            await doc.reference.update({'isDefault': false});
+          }
+        }
+
+        // Créer le document
+        final docRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('payment_methods')
+            .doc();
+
+        await docRef.set({
+          'id':                  docRef.id,
+          'userId':              user.uid,
+          'type':                'card',
+          'cardType':            _cardType,
+          'lastFourDigits':      finalCardNumber.substring(finalCardNumber.length - 4),
+          'cardholderName':      _holderNameCtrl.text.trim(),
+          'expiryMonth':         expiry[0].trim(),
+          'expiryYear':          expiry.length > 1 ? expiry[1].trim() : '',
+          'isDefault':           isFirst,
+          'encryptedCardNumber': encryptedNumber,
+          'encryptedCvv':        encryptedCvv,
+          'createdAt':           Timestamp.now(),
+          'updatedAt':           null,
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_t('payment_card_added_success')),
+          content: Text(_isEditMode ? _t('payment_card_updated_success') : _t('payment_card_added_success')),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
@@ -240,7 +313,7 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
             ),
           ),
           title: Text(
-            _t('payment_add_card_title'),
+            _isEditMode ? _t('payment_edit_card_title') : _t('payment_add_card_title'),
             style: TextStyle(
               color: Colors.black87,
               fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
@@ -280,7 +353,7 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
                       inputFormatters: [
                         TextInputFormatter.withFunction((oldValue, newValue) {
                           return newValue.copyWith(
-                            text: newValue.text.toUpperCase(), // ✅ majuscule à chaque frappe
+                            text: newValue.text.toUpperCase(), // majuscule à chaque frappe
                             selection: newValue.selection,
                           );
                         }),
@@ -802,7 +875,7 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
             const Icon(Icons.add_card, size: 20),
             const SizedBox(width: 10),
             Text(
-              _t('payment_add_card_btn'),
+              _isEditMode ? _t('payment_update_card_btn') : _t('payment_add_card_btn'),
               style: TextStyle(
                 fontSize: isDesktop ? 17 : isTablet ? 16 : 15,
                 fontWeight: FontWeight.w700,

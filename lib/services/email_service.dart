@@ -64,6 +64,64 @@ class EmailService {
     }
   }
 
+  // Envoyer un email de support automatiquement
+  Future<bool> sendSupportEmail({
+    required String issueDescription,
+    String? userName,
+    String? userEmail,
+  }) async {
+    try {
+      // Récupérer les informations de l'utilisateur connecté si non fournies
+      final user = FirebaseAuth.instance.currentUser;
+      
+      final finalUserName = userName ?? user?.displayName ?? 'Utilisateur Winzy';
+      final finalUserEmail = userEmail ?? user?.email ?? 'non_fourni@winzy.com';
+      final userId = user?.uid;
+
+      // 1. Enregistrer la demande dans Firestore pour suivi
+      final docRef = await FirebaseFirestore.instance.collection('support_requests').add({
+        'userId': userId,
+        'userName': finalUserName,
+        'userEmail': finalUserEmail,
+        'issueDescription': issueDescription,
+        'status': 'pending',
+        'createdAt': Timestamp.now(),
+        'emailType': 'support_request',
+        'processed': false,
+      });
+
+      // 2. Essayer d'envoyer l'email avec EmailJS si configuré
+      if (_emailJSService.isConfigured) {
+        final emailSent = await _emailJSService.sendSupportEmail(
+          userName: finalUserName,
+          userEmail: finalUserEmail,
+          issueDescription: issueDescription,
+          userId: userId,
+        );
+
+        if (emailSent) {
+          await docRef.update({'processed': true});
+          print('✅ Email de support envoyé avec EmailJS');
+          return true;
+        } else {
+          print('⚠️ Échec de l\'envoi EmailJS, demande enregistrée dans Firestore');
+          return false;
+        }
+      } else {
+        print('⚠️ EmailJS non configuré - La demande est enregistrée dans Firestore');
+        print('📧 Instructions EmailJS:');
+        print('1. Créez un compte sur https://www.emailjs.com/');
+        print('2. Créez un service email et un template pour le support');
+        print('3. Mettez à jour les constantes dans emailjs_service.dart');
+        return false;
+      }
+      
+    } catch (e) {
+      print('❌ Erreur lors de l\'envoi de l\'email de support: $e');
+      throw Exception('Failed to send support email: $e');
+    }
+  }
+
   // Générer un token de réactivation unique
   String _generateReactivationToken() {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
