@@ -168,23 +168,24 @@ class AuthProvider with ChangeNotifier {
       print('🔄 AuthProvider: Début de la connexion pour $email (rememberMe: $rememberMe)');
       _setLoading(true);
       _clearError();
-      
-      // Vérifier si le compte est désactivé avant de permettre la connexion
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email.toLowerCase().trim())
-          .limit(1)
-          .get();
-      
-      if (userDoc.docs.isNotEmpty) {
-        final userData = userDoc.docs.first.data() as Map<String, dynamic>;
-        final status = userData['status'] as String? ?? 'active';
-        
-        if (status == 'deactivated') {
-          print('❌ AuthProvider: Compte désactivé, connexion refusée pour $email');
-          _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
-          notifyListeners();
-          return false;
+
+      // ✅ Après le signIn, on a le uid
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(firebaseUser.uid)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data()!;
+          final status = userData['status'] as String? ?? 'active';
+          if (status == 'deactivated') {
+            await _auth.signOut();
+            _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
+            notifyListeners();
+            return false;
+          }
         }
       }
       
@@ -227,23 +228,22 @@ class AuthProvider with ChangeNotifier {
     try {
       _setLoading(true);
       _clearError();
-      
+
       _user = await _authService.signInWithGoogle();
-      
-      // Vérifier si le compte est désactivé après connexion Google
+
       if (_user != null) {
+        // ✅ Utiliser uid directement au lieu de where('email', ...)
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .where('email', isEqualTo: _user!.email.toLowerCase().trim())
-            .limit(1)
+            .doc(_user!.uid) // ← uid connu directement
             .get();
-        
-        if (userDoc.docs.isNotEmpty) {
-          final userData = userDoc.docs.first.data();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data()!;
           final status = userData['status'] as String? ?? 'active';
-          
+
           if (status == 'deactivated') {
-            print('❌ AuthProvider: Compte Google désactivé, déconnexion forcée pour ${_user!.email}');
+            print('❌ Compte Google désactivé pour ${_user!.email}');
             await _auth.signOut();
             _user = null;
             _setError(AppLocalizations.get('account_deactivated_error'));
@@ -252,9 +252,9 @@ class AuthProvider with ChangeNotifier {
           }
         }
       }
-      
+
       notifyListeners();
-      return true;
+      return _user != null;
     } catch (e) {
       _setError(e.toString());
       notifyListeners();

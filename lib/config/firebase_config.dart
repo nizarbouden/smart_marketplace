@@ -102,7 +102,7 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /profile_photos/{userId}.jpg {
       allow read: if request.auth != null;
-      allow write, delete: if request.auth != null
+      allow write, delete: if request.auth != null 
                            && request.auth.uid == userId
                            && request.resource.size < 5 * 1024 * 1024;
     }
