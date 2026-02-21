@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'package:smart_marketplace/models/paypal_account_model.dart';
 import 'package:smart_marketplace/services/encryption_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AddPayPalAccountPage extends StatefulWidget {
   final Map<String, dynamic>? paypalAccount; // Pour l'édition
@@ -148,21 +149,14 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
               color: Colors.black87,
             ),
           ),
-          title: Row(
-            children: [
-              Text(
-                '💙',
-                style: TextStyle(fontSize: 24),
-              ),
-              SizedBox(width: 8),
-              Text(
-                widget.paypalAccount != null ? 'Modifier le compte PayPal' : 'Ajouter un compte PayPal',
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          title: Text(
+            widget.paypalAccount != null
+                ? _t('paypal_edit_title')
+                : _t('paypal_page_title'),
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           centerTitle: true,
         ),
@@ -231,9 +225,13 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
 
                     Center(
                       child: TextButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.open_in_new,
-                            size: 16, color: Color(0xFF003087)),
+                        onPressed: () async {
+                          final url = Uri.parse('https://www.paypal.com/signin/create-account');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF003087)),
                         label: Text(
                           _t('paypal_no_account'),
                           style: const TextStyle(

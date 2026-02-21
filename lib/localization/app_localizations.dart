@@ -391,6 +391,7 @@ class AppLocalizations {
     'main_add_to_cart': 'Ajouter des articles pour commencer vos achats',
 
     // ── Notifications page ────────────────────────────────────────
+    'notifications': 'Notifications',
     'notif_page_mark_all_read': 'Tout marquer comme lu',
     'notif_page_delete_all': 'Tout supprimer',
     'notif_page_empty_title': 'Aucune notification',
@@ -563,6 +564,36 @@ class AppLocalizations {
     'paypal_holder_label':    'Nom du titulaire PayPal',
     'paypal_holder_hint':     'Prénom Nom',
     'paypal_holder_required': 'Le nom du titulaire est requis',
+    'paypal_edit_title': 'Modifier le compte PayPal',
+
+    'wallet_page_title':           'Portefeuille numérique',
+    'wallet_already_added':        'Ce portefeuille est déjà ajouté',
+    'wallet_already_configured':   'Déjà configuré ✓',
+    'wallet_added_success':        'Portefeuille ajouté avec succès !',
+    'wallet_how_to_use':           'Comment configurer ?',
+    'wallet_activate_btn':         'Activer ce portefeuille',
+    'wallet_security_title':       'Paiement sécurisé',
+    'wallet_security_desc':        'Vos informations bancaires ne sont jamais partagées. Chaque transaction est protégée par tokenisation et authentification biométrique.',
+
+    // Apple Pay
+    'apple_pay_subtitle':          'Payez avec votre iPhone ou Apple Watch en toute sécurité',
+    'apple_pay_compatibility':     'Compatible iPhone 6 et plus, Apple Watch Series 1 et plus',
+    'apple_pay_step1_title':       'Ouvrez Réglages',
+    'apple_pay_step1_desc':        'Allez dans Réglages → Portefeuille et Apple Pay sur votre iPhone.',
+    'apple_pay_step2_title':       'Ajoutez une carte',
+    'apple_pay_step2_desc':        'Appuyez sur "Ajouter une carte" et suivez les instructions de votre banque.',
+    'apple_pay_step3_title':       'Authentifiez avec Face ID',
+    'apple_pay_step3_desc':        'Confirmez votre identité avec Face ID, Touch ID ou votre code.',
+
+    // Google Pay
+    'google_pay_subtitle':         'Payez rapidement avec votre Android via NFC ou en ligne',
+    'google_pay_compatibility':    'Compatible Android 5.0+ avec NFC activé',
+    'google_pay_step1_title':      'Connectez votre compte Google',
+    'google_pay_step1_desc':       'Assurez-vous d\'être connecté avec votre compte Google sur votre appareil.',
+    'google_pay_step2_title':      'Ajoutez une carte de paiement',
+    'google_pay_step2_desc':       'Ouvrez l\'app Google Wallet et ajoutez votre carte bancaire.',
+    'google_pay_step3_title':      'Payez sans contact',
+    'google_pay_step3_desc':       'Approchez votre téléphone du terminal NFC pour payer instantanément.',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -953,6 +984,7 @@ class AppLocalizations {
     'main_add_to_cart': 'Add items to start shopping',
 
     // ── Notifications page ────────────────────────────────────────
+    'notifications': 'Notifications',
     'notif_page_mark_all_read': 'Mark all as read',
     'notif_page_delete_all': 'Delete all',
     'notif_page_empty_title': 'No notifications',
@@ -1131,6 +1163,36 @@ class AppLocalizations {
     'paypal_holder_label':    'PayPal account holder name',
     'paypal_holder_hint':     'First Last',
     'paypal_holder_required': 'Holder name is required',
+    'paypal_edit_title': 'Edit PayPal account',
+
+    'wallet_page_title':           'Digital Wallet',
+    'wallet_already_added':        'This wallet is already added',
+    'wallet_already_configured':   'Already configured ✓',
+    'wallet_added_success':        'Wallet added successfully!',
+    'wallet_how_to_use':           'How to set up?',
+    'wallet_activate_btn':         'Activate this wallet',
+    'wallet_security_title':       'Secure payment',
+    'wallet_security_desc':        'Your banking details are never shared. Every transaction is protected by tokenization and biometric authentication.',
+
+    // Apple Pay
+    'apple_pay_subtitle':          'Pay securely with your iPhone or Apple Watch',
+    'apple_pay_compatibility':     'Compatible with iPhone 6 and later, Apple Watch Series 1 and later',
+    'apple_pay_step1_title':       'Open Settings',
+    'apple_pay_step1_desc':        'Go to Settings → Wallet & Apple Pay on your iPhone.',
+    'apple_pay_step2_title':       'Add a card',
+    'apple_pay_step2_desc':        'Tap "Add Card" and follow your bank\'s instructions.',
+    'apple_pay_step3_title':       'Authenticate with Face ID',
+    'apple_pay_step3_desc':        'Confirm your identity with Face ID, Touch ID, or your passcode.',
+
+    // Google Pay
+    'google_pay_subtitle':         'Pay quickly with your Android via NFC or online',
+    'google_pay_compatibility':    'Compatible with Android 5.0+ with NFC enabled',
+    'google_pay_step1_title':      'Sign in to your Google account',
+    'google_pay_step1_desc':       'Make sure you are signed in with your Google account on your device.',
+    'google_pay_step2_title':      'Add a payment card',
+    'google_pay_step2_desc':       'Open the Google Wallet app and add your bank card.',
+    'google_pay_step3_title':      'Tap to pay',
+    'google_pay_step3_desc':       'Hold your phone near an NFC terminal to pay instantly.',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1518,6 +1580,7 @@ class AppLocalizations {
     'main_add_to_cart': 'أضف منتجات لبدء التسوق',
 
     // ── صفحة الإشعارات ───────────────────────────────────────────
+    'notifications': 'الإشعارات',
     'notif_page_mark_all_read': 'تحديد الكل كمقروء',
     'notif_page_delete_all': 'حذف الكل',
     'notif_page_empty_title': 'لا توجد إشعارات',
@@ -1696,6 +1759,36 @@ class AppLocalizations {
     'paypal_holder_label':    'اسم صاحب حساب PayPal',
     'paypal_holder_hint':     'الاسم الأول واسم العائلة',
     'paypal_holder_required': 'اسم صاحب الحساب مطلوب',
+    'paypal_edit_title': 'تعديل حساب PayPal',
+
+
+    'wallet_page_title':           'المحفظة الرقمية',
+    'wallet_already_added':        'هذه المحفظة مضافة بالفعل',
+    'wallet_already_configured':   'تمت الإعداد مسبقاً ✓',
+    'wallet_added_success':        'تمت إضافة المحفظة بنجاح!',
+    'wallet_how_to_use':           'كيفية الإعداد؟',
+    'wallet_activate_btn':         'تفعيل هذه المحفظة',
+    'wallet_security_title':       'دفع آمن',
+    'wallet_security_desc':        'لا تتم مشاركة بياناتك المصرفية مطلقاً. كل معاملة محمية بالترميز والمصادقة البيومترية.',
+
+    // Apple Pay
+    'apple_pay_subtitle':          'ادفع بأمان باستخدام iPhone أو Apple Watch',
+    'apple_pay_compatibility':     'متوافق مع iPhone 6 وما بعده و Apple Watch الإصدار الأول وما بعده',
+    'apple_pay_step1_title':       'افتح الإعدادات',
+    'apple_pay_step1_desc':        'انتقل إلى الإعدادات ← المحفظة و Apple Pay على جهاز iPhone.',
+    'apple_pay_step2_title':       'أضف بطاقة',
+    'apple_pay_step2_desc':        'اضغط على "إضافة بطاقة" واتبع تعليمات البنك.',
+    'apple_pay_step3_title':       'المصادقة بـ Face ID',
+    'apple_pay_step3_desc':        'أكد هويتك باستخدام Face ID أو Touch ID أو رمز المرور.',
+    // Google Pay
+    'google_pay_subtitle':         'ادفع بسرعة باستخدام Android عبر NFC أو عبر الإنترنت',
+    'google_pay_compatibility':    'متوافق مع Android 5.0+ مع تفعيل NFC',
+    'google_pay_step1_title':      'سجّل الدخول إلى حساب Google',
+    'google_pay_step1_desc':       'تأكد من تسجيل الدخول بحساب Google الخاص بك على جهازك.',
+    'google_pay_step2_title':      'أضف بطاقة دفع',
+    'google_pay_step2_desc':       'افتح تطبيق Google Wallet وأضف بطاقتك البنكية.',
+    'google_pay_step3_title':      'الدفع بدون تلامس',
+    'google_pay_step3_desc':       'أقرب هاتفك من جهاز NFC للدفع فوراً.',
 
   };
 

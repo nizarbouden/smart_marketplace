@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'add_card_page.dart';
+import 'add_digital_wallet_page.dart';
 import 'add_paypal_account_page.dart';
 
 
@@ -18,6 +19,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   bool _isLoading         = true;
   bool _hasCashOnDelivery = false;
   bool _hasPaypal         = false;
+  bool _hasApplePay  = false;
+  bool _hasGooglePay = false;
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -48,6 +51,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         _methods           = methods;
         _hasCashOnDelivery = methods.any((m) => m['type'] == 'cash');
         _hasPaypal         = methods.any((m) => m['type'] == 'paypal');
+        _hasApplePay  = methods.any((m) => m['type'] == 'apple_pay');
+        _hasGooglePay = methods.any((m) => m['type'] == 'google_pay');
       });
     } catch (e) {
       print('❌ Erreur chargement: $e');
@@ -114,26 +119,121 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(_t('payment_delete_title')),
-          content: Text(_t('payment_delete_confirm')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(_t('cancel')),
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600;
+
+        return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
+              ),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red, foregroundColor: Colors.white),
-              child: Text(_t('delete')),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                    ),
+                    child: const Icon(Icons.credit_card_off_rounded, color: Colors.white, size: 32),
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _t('payment_delete_title'),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDC2626),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _t('payment_delete_confirm'),
+                        style: const TextStyle(
+                            fontSize: 16, color: Color(0xFF64748B), height: 1.4),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: Text(_t('cancel'),
+                                    style: const TextStyle(
+                                        color: Color(0xFFDC2626),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  foregroundColor: Colors.white,
+                                  shadowColor: const Color(0xFFDC2626).withOpacity(0.3),
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: FittedBox(
+                                  child: Text(_t('delete'),
+                                      style: const TextStyle(
+                                          fontSize: 15, fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -241,6 +341,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ..._methods.map((m) {
                   if (m['type'] == 'cash')   return _buildCashItem(m, isMobile);
                   if (m['type'] == 'paypal') return _buildPaypalItem(m, isMobile);
+                  if (m['type'] == 'apple_pay')  return _buildWalletItem(m, isMobile, isApple: true);
+                  if (m['type'] == 'google_pay') return _buildWalletItem(m, isMobile, isApple: false);
                   return _buildCardItem(m, isMobile);
                 }),
                 SizedBox(height: isMobile ? 100 : 120),
@@ -467,6 +569,75 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
+// ── Apple Pay / Google Pay ────────────────────────────────────
+  Widget _buildWalletItem(Map<String, dynamic> wallet, bool isMobile,
+      {required bool isApple}) {
+    final isDefault = wallet['isDefault'] == true;
+    final docId     = wallet['docId'] as String;
+    final color     = isApple ? Colors.black : const Color(0xFF4285F4);
+    final label     = isApple ? 'Apple Pay' : 'Google Pay';
+
+    return _buildMethodContainer(
+      isDefault: isDefault,
+      isMobile: isMobile,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isApple ? Icons.apple : Icons.android,
+              color: color,
+              size: isMobile ? 22 : 24,
+            ),
+          ),
+          SizedBox(width: isMobile ? 12 : 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: isMobile ? 14 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+                const SizedBox(height: 2),
+                Text(
+                  _t('wallet_security_title'),
+                  style: TextStyle(
+                      fontSize: isMobile ? 12 : 13,
+                      color: Colors.grey[500]),
+                ),
+                if (isDefault) ...[
+                  const SizedBox(height: 4),
+                  _buildDefaultBadge(),
+                ],
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.grey[500]),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) async {
+              if (value == 'setDefault') await _setDefault(docId);
+              if (value == 'delete')     await _delete(docId);
+            },
+            itemBuilder: (_) => [
+              if (!isDefault)
+                _menuItem('setDefault', Icons.star_outline,
+                    Colors.amber, _t('payment_set_default')),
+              _menuItem('delete', Icons.delete_outline,
+                  Colors.red, _t('delete'), isRed: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
   // ── Container commun ──────────────────────────────────────────
   Widget _buildMethodContainer({
     required bool isDefault,
@@ -682,16 +853,15 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
               // Apple Pay / Google Pay
               _buildAddOption(
-                _t('payment_applepay_option_title'),
-                _t('payment_applepay_option_subtitle'),
+                _t('wallet_page_title'),
+                _t('apple_pay_subtitle'),
                 Icons.phone_iphone, Colors.black87,
                     () {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(_t('payment_coming_soon')),
-                    backgroundColor: Colors.black87,
-                    behavior: SnackBarBehavior.floating,
-                  ));
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(
+                      builder: (_) => const AddDigitalWalletPage()))
+                      .then((_) => _loadMethods());
                 },
               ),
             ],

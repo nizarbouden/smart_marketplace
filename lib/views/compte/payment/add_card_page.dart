@@ -86,7 +86,13 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
       }
     });
 
-    _cardNumberCtrl.addListener(_detectCardType);
+    _cardNumberCtrl.addListener(() {
+      _detectCardType();
+      setState(() {});
+    });
+    _holderNameCtrl.addListener(() => setState(() {}));
+    _expiryCtrl.addListener(() => setState(() {}));
+    _cvvCtrl.addListener(() => setState(() {}));
   }
 
   @override
@@ -267,12 +273,23 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
                     // Nom du titulaire
                     _buildLabel(_t('payment_cardholder_label')),
                     const SizedBox(height: 8),
-                    _buildTextField(
-                      controller: _holderNameCtrl,
-                      focusNode:  _holderNameFocus,
-                      hint:       _t('payment_cardholder_hint'),
-                      icon:       Icons.person_outline,
+                    TextFormField(
+                      controller:  _holderNameCtrl,
+                      focusNode:   _holderNameFocus,
                       textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          return newValue.copyWith(
+                            text: newValue.text.toUpperCase(), // ✅ majuscule à chaque frappe
+                            selection: newValue.selection,
+                          );
+                        }),
+                      ],
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                      decoration: _inputDecoration(
+                        hint: _t('payment_cardholder_hint'),
+                        icon: Icons.person_outline,
+                      ),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? _t('payment_cardholder_required') : null,
                       onFieldSubmitted: (_) =>

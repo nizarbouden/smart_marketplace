@@ -873,7 +873,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 
   String _getAppBarTitle() {
-    if (_showNotifications) return AppLocalizations.get('history');
+    if (_showNotifications) return AppLocalizations.get('notifications');
     switch (_currentIndex) {
       case 0: return 'Smart Market';
       case 1: return '${AppLocalizations.get('cart')} ($_totalCartItems)';
