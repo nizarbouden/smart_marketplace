@@ -778,38 +778,43 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true, // Permet au bottom sheet de s'adapter au contenu
       builder: (ctx) => Directionality(
         textDirection:
         AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85, // Limite à 85% de l'écran
+          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2)),
-              ),
-              Text(_t('payment_add_sheet_title'),
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87)),
-              const SizedBox(height: 20),
+          padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+          child: SingleChildScrollView( // Ajout du scroll pour éviter l'overflow
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                Text(_t('payment_add_sheet_title'),
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87)),
+                const SizedBox(height: 20),
 
-              // Carte bancaire — toujours visible
-              _buildAddOption(
-                _t('payment_card_option_title'),
-                _t('payment_card_option_subtitle'),
-                Icons.credit_card, Colors.blue,
+                // Carte bancaire — toujours visible
+                _buildAddOption(
+                  _t('payment_card_option_title'),
+                  _t('payment_card_option_subtitle'),
+                  Icons.credit_card, Colors.blue,
                     () {
                   Navigator.pop(ctx);
                   Navigator.of(context)
@@ -817,45 +822,45 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       builder: (_) => const AddCardPage()))
                       .then((_) => _loadMethods());
                 },
-              ),
-              const SizedBox(height: 10),
-
-              // PayPal — caché si déjà ajouté
-              if (!_hasPaypal) ...[
-                _buildAddOption(
-                  _t('payment_paypal_option_title'),
-                  _t('payment_paypal_option_subtitle'),
-                  Icons.account_balance_wallet, Colors.indigo,
-                      () {
-                    Navigator.pop(ctx);
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(
-                        builder: (_) => const AddPayPalAccountPage()))
-                        .then((_) => _loadMethods());
-                  },
                 ),
                 const SizedBox(height: 10),
-              ],
 
-              // Cash on delivery — caché si déjà ajouté
-              if (!_hasCashOnDelivery) ...[
+                // PayPal — caché si déjà ajouté
+                if (!_hasPaypal) ...[
+                  _buildAddOption(
+                    _t('payment_paypal_option_title'),
+                    _t('payment_paypal_option_subtitle'),
+                    Icons.account_balance_wallet, Colors.indigo,
+                        () {
+                      Navigator.pop(ctx);
+                      Navigator.of(context)
+                          .push(MaterialPageRoute(
+                          builder: (_) => const AddPayPalAccountPage()))
+                          .then((_) => _loadMethods());
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+
+                // Cash on delivery — caché si déjà ajouté
+                if (!_hasCashOnDelivery) ...[
+                  _buildAddOption(
+                    _t('payment_cash_delivery_title'),
+                    _t('payment_cash_delivery_desc'),
+                    Icons.local_shipping_outlined, Colors.green,
+                        () {
+                      Navigator.pop(ctx);
+                      _addCashOnDelivery();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+
+                // Apple Pay / Google Pay
                 _buildAddOption(
-                  _t('payment_cash_delivery_title'),
-                  _t('payment_cash_delivery_desc'),
-                  Icons.local_shipping_outlined, Colors.green,
-                      () {
-                    Navigator.pop(ctx);
-                    _addCashOnDelivery();
-                  },
-                ),
-                const SizedBox(height: 10),
-              ],
-
-              // Apple Pay / Google Pay
-              _buildAddOption(
-                _t('wallet_page_title'),
-                _t('apple_pay_subtitle'),
-                Icons.phone_iphone, Colors.black87,
+                  _t('wallet_page_title'),
+                  _t('apple_pay_subtitle'),
+                  Icons.phone_iphone, Colors.black87,
                     () {
                   Navigator.pop(ctx);
                   Navigator.of(context)
@@ -864,10 +869,12 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       .then((_) => _loadMethods());
                 },
               ),
+              const SizedBox(height: 20), // Espace supplémentaire en bas
             ],
           ),
         ),
       ),
+    ),
     );
   }
 

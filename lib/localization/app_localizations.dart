@@ -44,6 +44,15 @@ class AppLocalizations {
     'understand': 'OK, j\'ai compris',
     'signing_up': 'Inscription en cours...',
     'account_deactivated_error': 'Ce compte a été désactivé et sera supprimé dans 30 jours.',
+    // ── role page──────────────────────────────────────
+    'role_page_title': 'Choisir un rôle',
+    'role_page_subtitle': 'Comment souhaitez-vous utiliser Winzy ?',
+    'role_welcome': 'Bienvenue',
+    'role_buyer_title': 'Acheteur',
+    'role_buyer_desc': 'Parcourez et achetez des produits facilement.',
+    'role_seller_title': 'Vendeur',
+    'role_seller_desc': 'Publiez et vendez vos produits en ligne.',
+    'role_continue': 'Continuer',
 
     // ── Termes et Conditions ──────────────────────────────────────
     'terms_title': 'Termes et Conditions d\'Utilisation',
@@ -289,6 +298,19 @@ class AppLocalizations {
     'payment_deleted_success': 'Moyen de paiement supprimé',
     'payment_set_default_success': 'Moyen de paiement défini par défaut',
     'payment_cash_description': 'Payer en espèces ou par carte lors de la livraison',
+
+    // ── Rôles utilisateur ─────────────────────────────────────────────
+    'user_role_title': 'Choisissez votre rôle',
+    'user_role_subtitle': 'Sélectionnez le rôle qui correspond à vos besoins',
+    'user_role_buyer': 'Acheteur',
+    'user_role_seller': 'Vendeur',
+    'user_role_both': 'Vendeur & Acheteur',
+    'user_role_buyer_desc': 'Je veux acheter des produits',
+    'user_role_seller_desc': 'Je veux vendre des produits',
+    'user_role_both_desc': 'Je veux acheter et vendre des produits',
+    'user_role_selected': 'Rôle sélectionné',
+    'user_role_continue': 'Continuer',
+    'user_role_change_later': 'Ce rôle ne pourra pas être modifié ultérieurement',
 
     // ── Modifier le profil ────────────────────────────────────────
     'edit_profile_title': 'Modifier le profil',
@@ -661,6 +683,15 @@ class AppLocalizations {
   'reactivation_email_sent': 'Reactivation email sent',
   'reactivation_email_error': 'Error sending reactivation email',
 
+    // ── role page──────────────────────────────────────
+    'role_page_title': 'Choose a role',
+    'role_page_subtitle': 'How would you like to use Winzy ?',
+    'role_welcome': 'Welcome',
+    'role_buyer_title': 'Buyer',
+    'role_buyer_desc': 'Browse and purchase products easily.',
+    'role_seller_title': 'Seller',
+    'role_seller_desc': 'List and sell your products online.',
+    'role_continue': 'Continue',
     // ── Terms and Conditions ──────────────────────────────────────
     'terms_title': 'Terms and Conditions of Use',
     'terms_description': 'Please read these terms and conditions carefully before using the Winzy application.',
@@ -905,6 +936,19 @@ class AppLocalizations {
     'payment_deleted_success': 'Payment method deleted',
     'payment_set_default_success': 'Payment method set as default',
     'payment_cash_description': 'Pay in cash or by card upon delivery',
+
+    // ── User Roles ───────────────────────────────────────────────
+    'user_role_title': 'Choose your role',
+    'user_role_subtitle': 'Select the role that suits your needs',
+    'user_role_buyer': 'Buyer',
+    'user_role_seller': 'Seller',
+    'user_role_both': 'Seller & Buyer',
+    'user_role_buyer_desc': 'I want to buy products',
+    'user_role_seller_desc': 'I want to sell products',
+    'user_role_both_desc': 'I want to buy and sell products',
+    'user_role_selected': 'Role selected',
+    'user_role_continue': 'Continue',
+    'user_role_change_later': 'This role cannot be changed later',
 
     // ── Edit Profile ──────────────────────────────────────────────
     'edit_profile_title': 'Edit Profile',
@@ -1277,6 +1321,19 @@ class AppLocalizations {
     'account_deactivated_message': 'تم تعطيل حسابك وسيتم حذفه نهائياً خلال 30 يوماً. تم إرسال بريد إلكتروني لإعادة التنشيط.',
     'reactivation_email_sent': 'تم إرسال بريد إلكتروني لإعادة التنشيط',
     'reactivation_email_error': 'خطأ في إرسال بريد إلكتروني لإعادة التنشيط',
+    // ── role page──────────────────────────────────────
+    'role_page_title': 'اختر دورًا',
+    'role_page_subtitle': 'كيف تريد استخدام Winzy ؟',
+    'role_welcome': 'مرحباً',
+    'role_buyer_title': 'مشتري',
+    'role_buyer_desc': 'تصفح المنتجات واشترِ بسهولة.',
+    'role_seller_title': 'بائع',
+    'role_seller_desc': 'انشر منتجاتك وبِعها عبر الإنترنت.',
+    'role_continue': 'متابعة',
+
+
+
+
     // ── الشروط والأحكام ───────────────────────────────────────────
     'terms_title': 'شروط وأحكام الاستخدام',
     'terms_description': 'يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام تطبيق Winzy.',
@@ -1512,6 +1569,20 @@ class AppLocalizations {
     'payment_cash_option_title': 'الدفع عند التسليم',
     'payment_cash_option_subtitle': 'تفعيل الدفع عند التسليم',
     'payment_cash_activated': 'تم تفعيل الدفع عند التسليم!',
+
+    // ── أدوار المستخدم ─────────────────────────────────────────────
+    'user_role_title': 'اختر دورك',
+    'user_role_subtitle': 'حدد الدور الذي يناسب احتياجاتك',
+    'user_role_buyer': 'مشتري',
+    'user_role_seller': 'بائع',
+    'user_role_both': 'بائع ومشتري',
+    'user_role_buyer_desc': 'أريد شراء المنتجات',
+    'user_role_seller_desc': 'أريد بيع المنتجات',
+    'user_role_both_desc': 'أريد شراء وبيع المنتجات',
+    'user_role_selected': 'الدور المحدد',
+    'user_role_continue': 'متابعة',
+    'user_role_change_later': 'لا يمكن تغيير هذا الدور لاحقاً',
+  
     'payment_add_card_title': 'إضافة بطاقة بنكية',
     'payment_add_card_content': 'نموذج إضافة البطاقة سيتم تطبيقه مع خدمة الدفع.',
     'payment_edit_coming_soon': 'تعديل طريقة الدفع سيتم تطبيقه قريباً.',

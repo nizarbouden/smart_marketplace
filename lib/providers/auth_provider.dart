@@ -28,8 +28,6 @@ class AuthProvider with ChangeNotifier {
   String? get countryCode => _user?.countryCode;
   String? get fullName => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
   int get points => _user?.points ?? 0;
-  List<String> get favorites => _user?.favoris ?? [];
-  List<String> get orders => _user?.commandes ?? [];
 
   // Constructeur - écouter les changements d'état
   AuthProvider() {
@@ -374,68 +372,6 @@ class AuthProvider with ChangeNotifier {
     await _loadUserData();
   }
 
-  // Ajouter un produit favori
-  Future<bool> addFavorite(String productId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      await _authService.addFavorite(productId);
-      
-      // Recharger les données utilisateur pour mettre à jour les favoris
-      await _loadUserData();
-      
-      return true;
-    } catch (e) {
-      _setError(e.toString());
-      notifyListeners();
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Supprimer un produit favori
-  Future<bool> removeFavorite(String productId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      await _authService.removeFavorite(productId);
-      
-      // Recharger les données utilisateur pour mettre à jour les favoris
-      await _loadUserData();
-      
-      return true;
-    } catch (e) {
-      _setError(e.toString());
-      notifyListeners();
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Ajouter une commande
-  Future<bool> addOrder(String orderId) async {
-    try {
-      _setLoading(true);
-      _clearError();
-      
-      await _authService.addOrder(orderId);
-      
-      // Recharger les données utilisateur pour mettre à jour les commandes
-      await _loadUserData();
-      
-      return true;
-    } catch (e) {
-      _setError(e.toString());
-      notifyListeners();
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
 
   // Méthodes privées pour gérer l'état
   void _setLoading(bool loading) {

@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/views/auth/role_selection_page.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/language_provider.dart';
 import '../../widgets/terms_and_conditions_dialog.dart';
@@ -286,32 +290,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             }
                             return null;
                           },
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Message d'information
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info, color: Colors.blue[700], size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  langProvider.translate('profile_complete_later'),
-                                  style: TextStyle(
-                                    color: Colors.blue[700],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -616,22 +594,86 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _handleGoogleSignIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     bool success = await authProvider.signInWithGoogle();
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (success) {
-      print('✅ SignUpScreen: Connexion Google réussie, navigation vers /home');
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        // ✅ Vérifier si l'utilisateur a déjà un rôle
+        bool hasRole = await _checkUserRole(currentUser);
+        if (hasRole) {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          await _navigateToRoleSelection(currentUser);
+        }
+      }
+    }
+  }
+
+// ✅ Copier ces méthodes depuis LoginScreen dans SignUpScreen
+  Future<bool> _checkUserRole(User currentUser) async {
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        final role = data['role'] as String?;
+        return role != null && role.isNotEmpty && role != 'null';
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> _navigateToRoleSelection(User currentUser) async {
+    try {
+      final displayName = currentUser.displayName ?? '';
+      final nameParts = displayName.split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      final userModel = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => RoleSelectionPage(
+            firstName: firstName,
+            lastName: lastName,
+            email: currentUser.email ?? '',
+            phoneNumber: currentUser.phoneNumber ?? '',
+            photoUrl: currentUser.photoURL,
+            isGoogleUser: true,
+            isEmailVerified: currentUser.emailVerified,
+          ),
+        ),
+      );
+
+      if (userModel != null && userModel is UserModel) {
+        await _saveUserRole(userModel);
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
       Navigator.pushReplacementNamed(context, '/home');
-      print('✅ SignUpScreen: Navigation vers /home effectuée');
-    } else {
-      print('❌ SignUpScreen: Échec de la connexion Google');
+    }
+  }
+
+  Future<void> _saveUserRole(UserModel userModel) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .set(userModel.toMap(), SetOptions(merge: true));
+      }
+    } catch (e) {
+      print('❌ Erreur sauvegarde rôle: $e');
     }
   }
 }

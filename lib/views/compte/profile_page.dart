@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../providers/language_provider.dart';
@@ -25,14 +26,64 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuthService _authService = FirebaseAuthService();
   final AutoLogoutService _autoLogoutService = AutoLogoutService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _dialogShown = false;
+  int _ordersCount = 0;
+  int _favoritesCount = 0;
 
   @override
   void initState() {
     super.initState();
     _syncEmailIfNeeded();
     _setupListeners();
+    _loadUserStats();
+  }
+
+  Future<void> _loadUserStats() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        int orders = 0;
+        int favorites = 0;
+        
+        try {
+          // Essayer de récupérer les commandes depuis la sous-collection
+          final ordersSnapshot = await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('commandes')
+              .get();
+          orders = ordersSnapshot.docs.length;
+        } catch (e) {
+          print('⚠️ Impossible d\'accéder aux commandes: $e');
+          orders = 0; // Valeur par défaut si erreur de permissions
+        }
+        
+        try {
+          // Essayer de récupérer les favoris depuis la sous-collection
+          final favoritesSnapshot = await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('favoris')
+              .get();
+          favorites = favoritesSnapshot.docs.length;
+        } catch (e) {
+          print('⚠️ Impossible d\'accéder aux favoris: $e');
+          favorites = 0; // Valeur par défaut si erreur de permissions
+        }
+        
+        if (mounted) {
+          setState(() {
+            _ordersCount = orders;
+            _favoritesCount = favorites;
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Erreur lors du chargement des statistiques: $e');
+      // Garder les valeurs à 0 en cas d'erreur générale
+    }
   }
 
   void _setupListeners() {
@@ -211,13 +262,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       _statItem(
                         langProvider.translate('orders'),
-                        '${authProvider.orders.length}',
+                        '$_ordersCount',
                         isDesktop,
                         isTablet,
                       ),
                       _statItem(
                         langProvider.translate('favorites'),
-                        '${authProvider.favorites.length}',
+                        '$_favoritesCount',
                         isDesktop,
                         isTablet,
                       ),

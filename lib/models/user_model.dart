@@ -1,5 +1,52 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Énumération des rôles utilisateur — seulement buyer et seller
+enum UserRole {
+  buyer,  // Acheteur
+  seller, // Vendeur
+}
+
+extension UserRoleExtension on UserRole {
+  String get displayName {
+    switch (this) {
+      case UserRole.buyer:
+        return 'Acheteur';
+      case UserRole.seller:
+        return 'Vendeur';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case UserRole.buyer:
+        return 'Je veux acheter des produits';
+      case UserRole.seller:
+        return 'Je veux vendre des produits';
+    }
+  }
+
+  // ✅ Retourne null si rôle absent ou inconnu — plus de défaut buyer
+  static UserRole? fromString(String? role) {
+    switch (role) {
+      case 'buyer':
+        return UserRole.buyer;
+      case 'seller':
+        return UserRole.seller;
+      default:
+        return null; // ✅ null = l'utilisateur n'a pas encore choisi
+    }
+  }
+
+  String toJson() {
+    switch (this) {
+      case UserRole.buyer:
+        return 'buyer';
+      case UserRole.seller:
+        return 'seller';
+    }
+  }
+}
+
 class UserModel {
   final String uid;
   final String email;
@@ -15,11 +62,8 @@ class UserModel {
   final bool isActive;
   final bool isGoogleUser;
   final bool isEmailVerified;
-  final List<String>? addresses;
-  final List<String>? favoris; // Liste des produits favoris
-  final List<String>? commandes; // Liste des IDs de commandes
-  final Map<String, dynamic>? preferences;
-  final int points; // Points de fidélité
+  final UserRole? role; // ✅ nullable — null = pas encore choisi
+  final int points;
 
   UserModel({
     required this.uid,
@@ -36,10 +80,7 @@ class UserModel {
     this.isActive = true,
     this.isGoogleUser = false,
     this.isEmailVerified = false,
-    this.addresses,
-    this.favoris,
-    this.commandes,
-    this.preferences,
+    this.role, // ✅ pas de valeur par défaut
     this.points = 0,
   });
 
@@ -60,10 +101,7 @@ class UserModel {
       isActive: map['isActive'] ?? true,
       isGoogleUser: map['isGoogleUser'] ?? false,
       isEmailVerified: map['isEmailVerified'] ?? map['emailVerified'] ?? false,
-      addresses: map['addresses'] != null ? List<String>.from(map['addresses']) : null,
-      favoris: map['favoris'] != null ? List<String>.from(map['favoris']) : null,
-      commandes: map['commandes'] != null ? List<String>.from(map['commandes']) : null,
-      preferences: map['preferences'],
+      role: UserRoleExtension.fromString(map['role']), // ✅ null si absent
       points: map['points'] ?? 0,
     );
   }
@@ -85,10 +123,7 @@ class UserModel {
       'isActive': isActive,
       'isGoogleUser': isGoogleUser,
       'isEmailVerified': isEmailVerified,
-      'addresses': addresses ?? [],
-      'favoris': favoris ?? [],
-      'commandes': commandes ?? [],
-      'preferences': preferences ?? {},
+      'role': role?.toJson(), // ✅ null si pas encore choisi
       'points': points,
     };
   }
@@ -109,10 +144,7 @@ class UserModel {
     bool? isActive,
     bool? isGoogleUser,
     bool? isEmailVerified,
-    List<String>? addresses,
-    List<String>? favoris,
-    List<String>? commandes,
-    Map<String, dynamic>? preferences,
+    UserRole? role,
     int? points,
   }) {
     return UserModel(
@@ -130,34 +162,47 @@ class UserModel {
       isActive: isActive ?? this.isActive,
       isGoogleUser: isGoogleUser ?? this.isGoogleUser,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
-      addresses: addresses ?? this.addresses,
-      favoris: favoris ?? this.favoris,
-      commandes: commandes ?? this.commandes,
-      preferences: preferences ?? this.preferences,
+      role: role ?? this.role,
       points: points ?? this.points,
     );
   }
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber, points: $points)';
+    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber, role: $role, points: $points)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
     return other is UserModel &&
-      other.uid == uid &&
-      other.email == email &&
-      other.nom == nom &&
-      other.prenom == prenom &&
-      other.phoneNumber == phoneNumber &&
-      other.points == points;
+        other.uid == uid &&
+        other.email == email &&
+        other.nom == nom &&
+        other.prenom == prenom &&
+        other.phoneNumber == phoneNumber &&
+        other.role == role &&
+        other.points == points;
   }
 
   @override
   int get hashCode {
-    return uid.hashCode ^ email.hashCode ^ nom.hashCode ^ prenom.hashCode ^ phoneNumber.hashCode ^ points.hashCode;
+    return uid.hashCode ^
+    email.hashCode ^
+    nom.hashCode ^
+    prenom.hashCode ^
+    phoneNumber.hashCode ^
+    role.hashCode ^
+    points.hashCode;
   }
+
+  // ✅ Méthodes utilitaires — sans "both"
+  bool get isBuyer => role == UserRole.buyer;
+  bool get isSeller => role == UserRole.seller;
+  bool get hasRole => role != null; // ✅ vérifier si le rôle a été choisi
+
+  bool canBuy() => isBuyer;
+  bool canSell() => isSeller;
+  bool canAccessSellerDashboard() => isSeller;
+  bool canAccessBuyerFeatures() => isBuyer;
 }

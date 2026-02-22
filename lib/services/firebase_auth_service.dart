@@ -477,9 +477,6 @@ class FirebaseAuthService {
             'updatedAt': Timestamp.fromDate(DateTime.now()),
             'isActive': true,
             'isGoogleUser': false,
-            'favoris': [],
-            'commandes': [],
-            'preferences': {},
             'points': 0,
           };
           
@@ -799,9 +796,6 @@ class FirebaseAuthService {
             createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             lastLoginAt: (data['lastLoginAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             isActive: data['isActive'] ?? true,
-            favoris: List<String>.from(data['favoris'] ?? []),
-            commandes: List<String>.from(data['commandes'] ?? []),
-            preferences: Map<String, dynamic>.from(data['preferences'] ?? {}),
             points: data['points'] ?? 0,
           );
         }
@@ -828,81 +822,6 @@ class FirebaseAuthService {
     }
   }
 
-  // AJOUTER UN PRODUIT FAVORI
-  Future<void> addFavorite(String productId) async {
-    try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await _firestore.collection('users').doc(user.uid).update({
-          'favoris': FieldValue.arrayUnion([productId])
-        });
-      }
-    } catch (e) {
-      throw 'Erreur lors de l\'ajout aux favoris';
-    }
-  }
-
-  // SUPPRIMER UN PRODUIT FAVORI
-  Future<void> removeFavorite(String productId) async {
-    try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await _firestore.collection('users').doc(user.uid).update({
-          'favoris': FieldValue.arrayRemove([productId])
-        });
-      }
-    } catch (e) {
-      throw 'Erreur lors de la suppression des favoris';
-    }
-  }
-
-  // AJOUTER UNE COMMANDE
-  Future<void> addOrder(String orderId) async {
-    try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await _firestore.collection('users').doc(user.uid).update({
-          'commandes': FieldValue.arrayUnion([orderId])
-        });
-      }
-    } catch (e) {
-      throw 'Erreur lors de l\'ajout de la commande';
-    }
-  }
-
-  // RÉCUPÉRER LES FAVORIS
-  Future<List<String>> getFavorites() async {
-    try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          return List<String>.from(data['favoris'] ?? []);
-        }
-      }
-      return [];
-    } catch (e) {
-      throw 'Erreur lors de la récupération des favoris';
-    }
-  }
-
-  // RÉCUPÉRER LES COMMANDES
-  Future<List<String>> getOrders() async {
-    try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          return List<String>.from(data['commandes'] ?? []);
-        }
-      }
-      return [];
-    } catch (e) {
-      throw 'Erreur lors de la récupération des commandes';
-    }
-  }
   Future<String> uploadProfilePhoto(File imageFile) async {
     try {
       User? user = _auth.currentUser;

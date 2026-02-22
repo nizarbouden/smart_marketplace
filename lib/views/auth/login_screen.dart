@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/language_provider.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../models/user_model.dart';
+import 'role_selection_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -450,9 +453,23 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (success) {
-        print('✅ LoginScreen: Connexion réussie, navigation vers /home');
-        Navigator.pushReplacementNamed(context, '/home');
-        print('✅ LoginScreen: Navigation vers /home effectuée');
+        print('✅ LoginScreen: Connexion réussie');
+        
+        // Vérifier si l'utilisateur a déjà un rôle
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          bool hasRole = await _checkUserRole(currentUser);
+          
+          if (hasRole) {
+            // L'utilisateur a déjà un rôle, aller directement au main layout
+            print('✅ LoginScreen: Utilisateur avec rôle existant, navigation vers /home');
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            // L'utilisateur n'a pas de rôle, aller à la sélection de rôle
+            print('🔄 LoginScreen: Utilisateur sans rôle, navigation vers la sélection');
+            await _navigateToRoleSelection(currentUser);
+          }
+        }
       } else {
         print('❌ LoginScreen: Connexion échouée');
       }
@@ -475,63 +492,122 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
-
-      print('❌ LoginScreen: Erreur de vérification email affichée: ${e.toString()}');
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
 
-      String errorMessage = e.toString();
-      bool isEmailVerificationError = errorMessage.contains('vérifier votre email');
-
+      print('❌ LoginScreen: Erreur inattendue: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(errorMessage),
+          content: Text('Une erreur est survenue: $e'),
           backgroundColor: Colors.red,
-          duration: isEmailVerificationError
-              ? Duration(seconds: 15)
-              : Duration(seconds: 5),
-          action: isEmailVerificationError
-              ? SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          )
-              : SnackBarAction(
-            label: 'OK',
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
         ),
       );
-
-      print('❌ LoginScreen: Erreur affichée: $errorMessage');
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     bool success = await authProvider.signInWithGoogle();
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
 
     if (success) {
-      print('✅ LoginScreen: Connexion Google réussie, navigation vers /home');
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        bool hasRole = await _checkUserRole(currentUser);
+        if (hasRole) {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          await _navigateToRoleSelection(currentUser);
+        }
+      }
+    }
+  }
+
+  // Méthode pour naviguer vers la sélection de rôle
+  Future<void> _navigateToRoleSelection(User currentUser) async {
+    try {
+      // Extraire les informations de l'utilisateur
+      final displayName = currentUser.displayName ?? '';
+      final nameParts = displayName.split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+      
+      final userModel = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => RoleSelectionPage(
+            firstName: firstName,
+            lastName: lastName,
+            email: currentUser.email ?? '',
+            phoneNumber: currentUser.phoneNumber ?? '',
+            countryCode: null, // À extraire si nécessaire
+            genre: null, // À extraire si nécessaire
+            photoUrl: currentUser.photoURL,
+            isGoogleUser: true,
+            isEmailVerified: currentUser.emailVerified ?? false,
+          ),
+        ),
+      );
+
+      if (userModel != null && userModel is UserModel) {
+        // Sauvegarder le rôle dans Firestore
+        await _saveUserRole(userModel);
+        
+        // Naviguer vers la page d'accueil
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      print(' LoginScreen: Erreur lors de la sélection de rôle: $e');
+      // En cas d'erreur, naviguer directement vers l'accueil
       Navigator.pushReplacementNamed(context, '/home');
-      print('✅ LoginScreen: Navigation vers /home effectuée');
-    } else {
-      print('❌ LoginScreen: Connexion Google échouée');
+    }
+  }
+
+  // Méthode pour vérifier si l'utilisateur a déjà un rôle
+  Future<bool> _checkUserRole(User currentUser) async {
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+      
+      if (userDoc.exists) {
+        Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+        String? role = userData['role'];
+        
+        print(' Vérification rôle pour ${currentUser.email}: role = $role');
+        
+        // Vérifier si le rôle existe et n'est pas null ou vide
+        return role != null && role.isNotEmpty && role != 'null';
+      } else {
+        print(' Document utilisateur non trouvé pour ${currentUser.uid}');
+        return false; // Nouvel utilisateur, pas de document = pas de rôle
+      }
+    } catch (e) {
+      print(' Erreur lors de la vérification du rôle: $e');
+      return false; // En cas d'erreur, considérer qu'il n'a pas de rôle
+    }
+  }
+
+  // Méthode pour sauvegarder le rôle de l'utilisateur dans Firestore
+  Future<void> _saveUserRole(UserModel userModel) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .set(userModel.toMap(), SetOptions(merge: true));
+        
+        print('✅ Rôle utilisateur sauvegardé: ${userModel.role}');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de la sauvegarde du rôle: $e');
     }
   }
 }
