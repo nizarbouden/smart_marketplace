@@ -14,7 +14,7 @@ import 'notifications/notification_settings_page.dart';
 import 'security/security_settings_page.dart';
 import 'help/help_page.dart';
 import 'payment/payment_methods_page.dart';
-import 'terms_conditions_page.dart';
+import 'terms&conditions/terms_conditions_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

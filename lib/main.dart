@@ -10,6 +10,7 @@ import 'package:smart_marketplace/views/compte/profile_page.dart';
 import 'package:smart_marketplace/views/compte/notifications/notification_settings_page.dart';
 import 'package:smart_marketplace/views/compte/adress/address_page.dart';
 import 'package:smart_marketplace/views/compte/payment/payment_methods_page.dart';
+import 'package:smart_marketplace/views/layout/seller_main_layout.dart';
 import 'package:smart_marketplace/views/payment/checkout_page.dart';
 import 'package:smart_marketplace/views/layout/main_layout.dart';
 import 'package:smart_marketplace/views/cart/cart_page.dart';
@@ -85,7 +86,14 @@ class MyApp extends StatelessWidget {
               // ✅ MainLayout EST enveloppé par ActivityRecorderWrapper
               '/home': (context) => ActivityRecorderWrapper(
                 child: const MainLayout(),
+
               ),
+
+              // ✅ Seller MainLayout
+              '/seller-home': (context) => ActivityRecorderWrapper(
+                child: const SellerMainLayout(),
+              ),
+
 
               // ✅ TOUTES les pages enfants enveloppées
               '/panier': (context) => ActivityRecorderWrapper(

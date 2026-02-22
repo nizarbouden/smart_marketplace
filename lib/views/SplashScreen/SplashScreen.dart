@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../localization/app_localizations.dart';
 
 
@@ -91,13 +92,64 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   // ✅ MODIFIÉ: Ne pas initialiser l'auto-logout ici
-  void _checkAuthAfterDelay() async {
+  Future<void> _checkAuthAfterDelay() async {
     print('🔄 SplashScreen: Démarrage de la vérification de connexion...');
 
     await Future.delayed(const Duration(seconds: 2));
 
     if (mounted) {
       await _forceAuthCheck();
+    }
+  }
+
+  // ✅ AJOUT: Vérifier le rôle et rediriger selon le rôle
+  Future<void> _navigateByRole(User user) async {
+    try {
+      // Récupérer le rôle depuis Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        final role = data['role'] as String?;
+        
+        print('🔍 SplashScreen: Rôle trouvé pour ${user.email}: $role');
+
+        if (role != null && role.isNotEmpty && role != 'null') {
+          if (role == 'seller') {
+            // Vendeur → SellerMainLayout
+            print('✅ SplashScreen: Redirection vers /seller-home');
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/seller-home');
+            }
+          } else {
+            // Acheteur → MainLayout
+            print('✅ SplashScreen: Redirection vers /home');
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          }
+        } else {
+          // Pas de rôle → page de sélection
+          print('🔄 SplashScreen: Pas de rôle, redirection vers /login');
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        }
+      } else {
+        // Document non trouvé → page de login
+        print('❌ SplashScreen: Document utilisateur non trouvé, redirection vers /login');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      }
+    } catch (e) {
+      print('❌ SplashScreen: Erreur vérification rôle: $e');
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
     }
   }
 
@@ -120,10 +172,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
           if (idToken != null && idToken.isNotEmpty) {
             print('✅ SplashScreen: Utilisateur connecté avec token valide');
-            // ✅ NE PAS initialiser le timer ici
-            // Le timer sera initialisé dans MainLayout
+            // ✅ Utiliser la nouvelle méthode de navigation selon le rôle
             if (mounted) {
-              Navigator.of(context).pushReplacementNamed('/home');
+              await _navigateByRole(user);
             }
             return;
           } else {

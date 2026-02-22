@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../localization/app_localizations.dart';
-import '../../providers/language_provider.dart';
+import '../../../localization/app_localizations.dart';
+import '../../../providers/language_provider.dart';
 import 'package:provider/provider.dart';
 
 class TermsConditionsPage extends StatelessWidget {

@@ -637,6 +637,84 @@ class AppLocalizations {
     'chat_close_title': 'Fermer la conversation ?',
     'chat_close_subtitle': 'La conversation sera archivée.',
     'chat_close_confirm': 'Fermer',
+
+    // Navigation seller
+    'seller_nav_dashboard':       'Tableau de bord',
+    'seller_nav_products':        'Produits',
+    'seller_nav_orders':          'Commandes',
+    'seller_nav_profile':         'Profil',
+
+    // Orders page seller
+    'seller_orders_title':        'Mes Commandes',
+    'seller_no_orders':           'Aucune commande trouvée',
+    'seller_buyer':               'Acheteur',
+    'seller_product':             'Produit',
+    'seller_quantity':            'Quantité',
+    'seller_order_date':          'Date de commande',
+    'seller_total':               'Total',
+    'seller_mark_shipping':       'En livraison',
+    'seller_cancel_order':        'Annuler',
+    'seller_mark_delivered':      'Marquer livré',
+    'seller_unknown_buyer':       'Acheteur inconnu',
+
+    // Order statuses seller
+    'seller_status_all':          'Tous',
+    'seller_status_pending':      'En attente',
+    'seller_status_shipping':     'En livraison',
+    'seller_status_delivered':    'Livré',
+    'seller_status_cancelled':    'Annulé',
+
+    // Products page seller
+    'seller_products_title':      'Mes Produits',
+    'seller_add_product':         'Ajouter un produit',
+    'seller_edit_product':        'Modifier le produit',
+    'seller_no_products':         'Aucun produit',
+    'seller_no_products_subtitle':'Ajoutez votre premier produit pour commencer à vendre',
+    'seller_add_first_product':   'Ajouter mon premier produit',
+    'seller_product_active':      'Actif',
+    'seller_product_inactive':    'Inactif',
+    'seller_stock':               'Stock',
+    'seller_product_name':        'Nom du produit',
+    'seller_product_price':       'Prix (TND)',
+    'seller_product_stock':       'Stock',
+    'seller_product_description': 'Description',
+    'seller_save_changes':        'Enregistrer',
+    'seller_delete_product_title':'Supprimer le produit',
+    'seller_delete_product_confirm':'Êtes-vous sûr de vouloir supprimer ce produit ?',
+
+    // Profile page seller
+    'seller_profile_title':       'Mon Profil',
+    'seller_default_name':        'Vendeur',
+    'seller_role_label':          'Vendeur',
+    'seller_account_info':        'Informations du compte',
+    'seller_phone':               'Téléphone',
+    'seller_member_since':        'Membre depuis',
+    'seller_email_verified':      'Email vérifié',
+    'seller_yes':                 'Oui',
+    'seller_no':                  'Non',
+    'seller_edit_profile':        'Modifier le profil',
+    'seller_language':            'Langue',
+    'seller_help':                'Aide & Support',
+    'seller_logout':              'Se déconnecter',
+    'seller_firstname':           'Prénom',
+    'seller_lastname':            'Nom',
+
+    //──── sellerdashboard page ──────────────────────────────────────
+
+    'seller_dashboard_title':       'Tableau de bord',
+    'seller_welcome':               'Bienvenue',
+    'seller_welcome_subtitle':      'Gérez vos produits et commandes facilement',
+    'seller_stats_title':           'Aperçu des statistiques',
+    'seller_stat_products':         'Produits',
+    'seller_stat_orders':           'Commandes',
+    'seller_stat_revenue':          'Revenus',
+    'seller_stat_pending':          'En attente',
+    'seller_recent_activity':       'Activité récente',
+    'seller_no_orders_yet':         'Aucune commande pour le moment',
+    'seller_order_status_pending':  'En attente',
+    'seller_order_status_shipping': 'En livraison',
+    'seller_order_status_delivered':'Livré',
+    'seller_order_status_cancelled':'Annulé',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1278,6 +1356,83 @@ class AppLocalizations {
     'chat_close_title': 'Close conversation?',
     'chat_close_subtitle': 'The conversation will be archived.',
     'chat_close_confirm': 'Close',
+
+    // Navigation seller
+    'seller_nav_dashboard':       'Dashboard',
+    'seller_nav_products':        'Products',
+    'seller_nav_orders':          'Orders',
+    'seller_nav_profile':         'Profile',
+
+    // Orders page seller
+    'seller_orders_title':        'My Orders',
+    'seller_no_orders':           'No orders found',
+    'seller_buyer':               'Buyer',
+    'seller_product':             'Product',
+    'seller_quantity':            'Quantity',
+    'seller_order_date':          'Order date',
+    'seller_total':               'Total',
+    'seller_mark_shipping':       'Mark Shipping',
+    'seller_cancel_order':        'Cancel',
+    'seller_mark_delivered':      'Mark Delivered',
+    'seller_unknown_buyer':       'Unknown buyer',
+
+    // Order statuses seller
+    'seller_status_all':          'All',
+    'seller_status_pending':      'Pending',
+    'seller_status_shipping':     'Shipping',
+    'seller_status_delivered':    'Delivered',
+    'seller_status_cancelled':    'Cancelled',
+
+    // Products page seller
+    'seller_products_title':      'My Products',
+    'seller_add_product':         'Add product',
+    'seller_edit_product':        'Edit product',
+    'seller_no_products':         'No products yet',
+    'seller_no_products_subtitle':'Add your first product to start selling',
+    'seller_add_first_product':   'Add my first product',
+    'seller_product_active':      'Active',
+    'seller_product_inactive':    'Inactive',
+    'seller_stock':               'Stock',
+    'seller_product_name':        'Product name',
+    'seller_product_price':       'Price (TND)',
+    'seller_product_stock':       'Stock',
+    'seller_product_description': 'Description',
+    'seller_save_changes':        'Save changes',
+    'seller_delete_product_title':'Delete product',
+    'seller_delete_product_confirm':'Are you sure you want to delete this product?',
+
+    // Profile page seller
+    'seller_profile_title':       'My Profile',
+    'seller_default_name':        'Seller',
+    'seller_role_label':          'Seller',
+    'seller_account_info':        'Account information',
+    'seller_phone':               'Phone',
+    'seller_member_since':        'Member since',
+    'seller_email_verified':      'Email verified',
+    'seller_yes':                 'Yes',
+    'seller_no':                  'No',
+    'seller_edit_profile':        'Edit profile',
+    'seller_language':            'Language',
+    'seller_help':                'Help & Support',
+    'seller_logout':              'Log out',
+    'seller_firstname':           'First name',
+    'seller_lastname':            'Last name',
+
+    //──── sellerdashboard page ──────────────────────────────────────
+    'seller_dashboard_title':       'Dashboard',
+    'seller_welcome':               'Welcome',
+    'seller_welcome_subtitle':      'Manage your products and orders easily',
+    'seller_stats_title':           'Statistics overview',
+    'seller_stat_products':         'Products',
+    'seller_stat_orders':           'Orders',
+    'seller_stat_revenue':          'Revenue',
+    'seller_stat_pending':          'Pending',
+    'seller_recent_activity':       'Recent activity',
+    'seller_no_orders_yet':         'No orders yet',
+    'seller_order_status_pending':  'Pending',
+    'seller_order_status_shipping': 'Shipping',
+    'seller_order_status_delivered':'Delivered',
+    'seller_order_status_cancelled':'Cancelled',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1330,9 +1485,6 @@ class AppLocalizations {
     'role_seller_title': 'بائع',
     'role_seller_desc': 'انشر منتجاتك وبِعها عبر الإنترنت.',
     'role_continue': 'متابعة',
-
-
-
 
     // ── الشروط والأحكام ───────────────────────────────────────────
     'terms_title': 'شروط وأحكام الاستخدام',
@@ -1921,6 +2073,85 @@ class AppLocalizations {
     'chat_close_title': 'إغلاق المحادثة؟',
     'chat_close_subtitle': 'سيتم أرشفة المحادثة.',
     'chat_close_confirm': 'إغلاق',
+
+
+    // Navigation seller
+    'seller_nav_dashboard':       'لوحة التحكم',
+    'seller_nav_products':        'المنتجات',
+    'seller_nav_orders':          'الطلبات',
+    'seller_nav_profile':         'الملف الشخصي',
+
+    // Orders page seller
+    'seller_orders_title':        'طلباتي',
+    'seller_no_orders':           'لا توجد طلبات',
+    'seller_buyer':               'المشتري',
+    'seller_product':             'المنتج',
+    'seller_quantity':            'الكمية',
+    'seller_order_date':          'تاريخ الطلب',
+    'seller_total':               'الإجمالي',
+    'seller_mark_shipping':       'قيد التوصيل',
+    'seller_cancel_order':        'إلغاء',
+    'seller_mark_delivered':      'تم التسليم',
+    'seller_unknown_buyer':       'مشتري غير معروف',
+
+    // Order statuses seller
+    'seller_status_all':          'الكل',
+    'seller_status_pending':      'قيد الانتظار',
+    'seller_status_shipping':     'قيد الشحن',
+    'seller_status_delivered':    'تم التسليم',
+    'seller_status_cancelled':    'ملغى',
+
+    // Products page seller
+    'seller_products_title':      'منتجاتي',
+    'seller_add_product':         'إضافة منتج',
+    'seller_edit_product':        'تعديل المنتج',
+    'seller_no_products':         'لا توجد منتجات',
+    'seller_no_products_subtitle':'أضف منتجك الأول لتبدأ البيع',
+    'seller_add_first_product':   'إضافة أول منتج',
+    'seller_product_active':      'نشط',
+    'seller_product_inactive':    'غير نشط',
+    'seller_stock':               'المخزون',
+    'seller_product_name':        'اسم المنتج',
+    'seller_product_price':       'السعر (TND)',
+    'seller_product_stock':       'المخزون',
+    'seller_product_description': 'الوصف',
+    'seller_save_changes':        'حفظ التغييرات',
+    'seller_delete_product_title':'حذف المنتج',
+    'seller_delete_product_confirm':'هل أنت متأكد من حذف هذا المنتج؟',
+
+    // Profile page seller
+    'seller_profile_title':       'ملفي الشخصي',
+    'seller_default_name':        'بائع',
+    'seller_role_label':          'بائع',
+    'seller_account_info':        'معلومات الحساب',
+    'seller_phone':               'الهاتف',
+    'seller_member_since':        'عضو منذ',
+    'seller_email_verified':      'البريد الإلكتروني مُتحقق منه',
+    'seller_yes':                 'نعم',
+    'seller_no':                  'لا',
+    'seller_edit_profile':        'تعديل الملف الشخصي',
+    'seller_language':            'اللغة',
+    'seller_help':                'المساعدة والدعم',
+    'seller_logout':              'تسجيل الخروج',
+    'seller_firstname':           'الاسم الأول',
+    'seller_lastname':            'اسم العائلة',
+
+    //──── sellerdashboard page ──────────────────────────────────────
+    'seller_dashboard_title':       'لوحة التحكم',
+    'seller_welcome':               'مرحباً',
+
+    'seller_welcome_subtitle':      'أدر منتجاتك وطلباتك بكل سهولة',
+    'seller_stats_title':           'نظرة عامة على الإحصائيات',
+    'seller_stat_products':         'المنتجات',
+    'seller_stat_orders':           'الطلبات',
+    'seller_stat_revenue':          'الإيرادات',
+    'seller_stat_pending':          'قيد الانتظار',
+    'seller_recent_activity':       'النشاط الأخير',
+    'seller_no_orders_yet':         'لا توجد طلبات بعد',
+    'seller_order_status_pending':  'قيد الانتظار',
+    'seller_order_status_shipping': 'قيد الشحن',
+    'seller_order_status_delivered':'تم التسليم',
+    'seller_order_status_cancelled':'ملغى',
   };
 
   // ════════════════════════════════════════════════════════════════
