@@ -716,6 +716,34 @@ class AppLocalizations {
     'seller_order_status_shipping': 'En livraison',
     'seller_order_status_delivered':'Livré',
     'seller_order_status_cancelled':'Annulé',
+
+    //──── add product page ──────────────────────────────────────
+    'add_product_section_images'     : 'Photos du produit',
+    'add_product_section_info'       : 'Informations',
+    'add_product_pick_images'        : 'Ajouter des photos',
+    'add_product_tap_to_add'         : 'Appuyer pour ajouter',
+    'add_product_multiple_hint'      : 'Plusieurs images possibles',
+    'add_product_max_images'         : 'Maximum 8 images',
+    'add_product_reward_title'       : 'Reward / Cadeau',
+    'add_product_reward_subtitle'    : 'Les acheteurs participent à un tirage au sort',
+    'add_product_reward_name_hint'   : 'Nom du reward',
+    'add_product_reward_image_hint'  : 'Photo du reward',
+    'add_product_reward_info'        : 'Chaque acheteur entre dans un tirage au sort pour gagner ce reward',
+    'add_product_reward_name_required': 'Nom du reward obligatoire',
+    'add_product_save'               : 'Publier le produit',
+    'add_product_saved'              : 'Produit enregistré !',
+    'add_product_error'              : 'Erreur lors de l\'enregistrement',
+    'add_product_fill_required'      : 'Remplissez tous les champs obligatoires',
+    'add_product_image_too_large'    : 'Image trop grande',
+    'add_product_required_legend'      : 'Champ obligatoire',
+    'add_product_name_required'        : 'Le nom est obligatoire',
+    'add_product_price_required'       : 'Le prix est obligatoire',
+    'add_product_price_invalid'        : 'Prix invalide (doit être supérieur à 0)',
+    'add_product_stock_required'       : 'Le stock est obligatoire',
+    'add_product_stock_invalid'        : 'Stock invalide (doit être un nombre entier)',
+    'add_product_reward_image_required': 'La photo du reward est obligatoire',
+    'add_product_min_image'            : 'Ajoutez au moins 1 photo pour le produit',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1435,6 +1463,33 @@ class AppLocalizations {
     'seller_order_status_shipping': 'Shipping',
     'seller_order_status_delivered':'Delivered',
     'seller_order_status_cancelled':'Cancelled',
+
+    //──── add product page ──────────────────────────────────────
+    'add_product_section_images'     : 'Product photos',
+    'add_product_section_info'       : 'Information',
+    'add_product_pick_images'        : 'Add photos',
+    'add_product_tap_to_add'         : 'Tap to add',
+    'add_product_multiple_hint'      : 'Multiple images allowed',
+    'add_product_max_images'         : 'Maximum 8 images',
+    'add_product_reward_title'       : 'Reward',
+    'add_product_reward_subtitle'    : 'Buyers enter a lucky draw',
+    'add_product_reward_name_hint'   : 'Reward name',
+    'add_product_reward_image_hint'  : 'Reward photo',
+    'add_product_reward_info'        : 'Each buyer enters a lucky draw to win this reward',
+    'add_product_reward_name_required': 'Reward name required',
+    'add_product_save'               : 'Publish product',
+    'add_product_saved'              : 'Product saved!',
+    'add_product_error'              : 'Error saving product',
+    'add_product_fill_required'      : 'Fill all required fields',
+    'add_product_image_too_large'    : 'Image too large',
+    'add_product_required_legend'      : 'Required field',
+    'add_product_name_required'        : 'Name is required',
+    'add_product_price_required'       : 'Price is required',
+    'add_product_price_invalid'        : 'Invalid price (must be greater than 0)',
+    'add_product_stock_required'       : 'Stock is required',
+    'add_product_stock_invalid'        : 'Invalid stock (must be a whole number)',
+    'add_product_reward_image_required': 'Reward photo is required',
+    'add_product_min_image'            : 'Add at least 1 photo for the product',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -2155,6 +2210,34 @@ class AppLocalizations {
     'seller_order_status_shipping': 'قيد الشحن',
     'seller_order_status_delivered':'تم التسليم',
     'seller_order_status_cancelled':'ملغى',
+
+    //──── add product page ──────────────────────────────────────
+    'add_product_section_images'     : 'صور المنتج',
+    'add_product_section_info'       : 'المعلومات',
+    'add_product_pick_images'        : 'إضافة صور',
+    'add_product_tap_to_add'         : 'اضغط للإضافة',
+    'add_product_multiple_hint'      : 'يمكن إضافة عدة صور',
+    'add_product_max_images'         : 'الحد الأقصى 8 صور',
+    'add_product_reward_title'       : 'المكافأة',
+    'add_product_reward_subtitle'    : 'المشترون يدخلون سحبًا على الجوائز',
+    'add_product_reward_name_hint'   : 'اسم المكافأة',
+    'add_product_reward_image_hint'  : 'صورة المكافأة',
+    'add_product_reward_info'        : 'كل مشترٍ يدخل سحبًا عشوائيًا للفوز بهذه المكافأة',
+    'add_product_reward_name_required': 'اسم المكافأة مطلوب',
+    'add_product_save'               : 'نشر المنتج',
+    'add_product_saved'              : 'تم حفظ المنتج!',
+    'add_product_error'              : 'خطأ في الحفظ',
+    'add_product_fill_required'      : 'املأ جميع الحقول المطلوبة',
+    'add_product_image_too_large'    : 'الصورة كبيرة جداً',
+    'add_product_required_legend'      : 'حقل إلزامي',
+    'add_product_name_required'        : 'الاسم مطلوب',
+    'add_product_price_required'       : 'السعر مطلوب',
+    'add_product_price_invalid'        : 'سعر غير صالح (يجب أن يكون أكبر من 0)',
+    'add_product_stock_required'       : 'المخزون مطلوب',
+    'add_product_stock_invalid'        : 'مخزون غير صالح (يجب أن يكون عدداً صحيحاً)',
+    'add_product_reward_image_required': 'صورة المكافأة مطلوبة',
+    'add_product_min_image'            : 'أضف صورة واحدة على الأقل للمنتج',
+
   };
 
   // ════════════════════════════════════════════════════════════════
