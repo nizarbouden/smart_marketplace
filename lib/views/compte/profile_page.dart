@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -32,13 +34,97 @@ class _ProfilePageState extends State<ProfilePage> {
   int _ordersCount = 0;
   int _favoritesCount = 0;
 
+  // ── Base64 avatar ──────────────────────────────────────────
+  String? _photoBase64;
+  bool _loadingPhoto = true;
+
   @override
   void initState() {
     super.initState();
     _syncEmailIfNeeded();
     _setupListeners();
     _loadUserStats();
+    _loadPhotoBase64();
   }
+
+  // ── Charger photo Base64 depuis Firestore ──────────────────
+
+  Future<void> _loadPhotoBase64() async {
+    setState(() => _loadingPhoto = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _photoBase64 = doc.data()?['photoBase64'] as String?;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingPhoto = false);
+  }
+
+  // ── Avatar widget ──────────────────────────────────────────
+
+  Widget _buildAvatar({
+    required double radius,
+    required app_auth.AuthProvider authProvider,
+  }) {
+    if (_loadingPhoto) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.deepPurple[100],
+        child: SizedBox(
+          width: radius,
+          height: radius,
+          child: const CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Colors.deepPurple,
+          ),
+        ),
+      );
+    }
+
+    // Priorité : Base64 Firestore > photoUrl réseau > icône
+    if (_photoBase64 != null && _photoBase64!.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.deepPurple[100],
+        child: ClipOval(
+          child: Image.memory(
+            base64Decode(_photoBase64!),
+            width:  radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackIcon(radius),
+          ),
+        ),
+      );
+    }
+
+    if (authProvider.user?.photoUrl != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.deepPurple[100],
+        backgroundImage: NetworkImage(authProvider.user!.photoUrl!),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.deepPurple[100],
+      child: _fallbackIcon(radius),
+    );
+  }
+
+  Widget _fallbackIcon(double radius) => Icon(
+    Icons.person,
+    size: radius,
+    color: Colors.deepPurple,
+  );
+
+  // ── Stats & listeners (inchangés) ─────────────────────────
 
   Future<void> _loadUserStats() async {
     try {
@@ -46,79 +132,58 @@ class _ProfilePageState extends State<ProfilePage> {
       if (user != null) {
         int orders = 0;
         int favorites = 0;
-        
+
         try {
-          // Essayer de récupérer les commandes depuis la sous-collection
           final ordersSnapshot = await _firestore
               .collection('users')
               .doc(user.uid)
               .collection('commandes')
               .get();
           orders = ordersSnapshot.docs.length;
-        } catch (e) {
-          print('⚠️ Impossible d\'accéder aux commandes: $e');
-          orders = 0; // Valeur par défaut si erreur de permissions
-        }
-        
+        } catch (_) {}
+
         try {
-          // Essayer de récupérer les favoris depuis la sous-collection
           final favoritesSnapshot = await _firestore
               .collection('users')
               .doc(user.uid)
               .collection('favoris')
               .get();
           favorites = favoritesSnapshot.docs.length;
-        } catch (e) {
-          print('⚠️ Impossible d\'accéder aux favoris: $e');
-          favorites = 0; // Valeur par défaut si erreur de permissions
-        }
-        
+        } catch (_) {}
+
         if (mounted) {
           setState(() {
-            _ordersCount = orders;
+            _ordersCount   = orders;
             _favoritesCount = favorites;
           });
         }
       }
-    } catch (e) {
-      print('❌ Erreur lors du chargement des statistiques: $e');
-      // Garder les valeurs à 0 en cas d'erreur générale
-    }
+    } catch (_) {}
   }
 
   void _setupListeners() {
     _autoLogoutService.addWarningListener((event) {
-      if (mounted) {
-        _showAutoLogoutWarning(event.remainingSeconds);
-      }
+      if (mounted) _showAutoLogoutWarning(event.remainingSeconds);
     });
 
     _autoLogoutService.addLogoutListener((event) {
       if (mounted) {
-        final langProvider = Provider.of<LanguageProvider>(context, listen: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(langProvider.translate('session_expired')),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-
+        final langProvider =
+        Provider.of<LanguageProvider>(context, listen: false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(langProvider.translate('session_expired')),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ));
         _autoLogoutService.stopAutoLogout();
-
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login',
-              (route) => false,
-        );
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/login', (route) => false);
       }
     });
   }
 
   void _showAutoLogoutWarning(int remainingSeconds) {
-    if (_dialogShown) {
-      return;
-    }
-
+    if (_dialogShown) return;
     _dialogShown = true;
 
     showDialog(
@@ -129,55 +194,46 @@ class _ProfilePageState extends State<ProfilePage> {
           remainingSeconds: remainingSeconds,
           onStayLoggedIn: () {
             _dialogShown = false;
-
             if (mounted && Navigator.of(dialogContext).canPop()) {
               Navigator.of(dialogContext).pop();
             }
-
             _autoLogoutService.recordActivity();
           },
           onLogout: () {
             _dialogShown = false;
-
             if (mounted && Navigator.of(dialogContext).canPop()) {
               Navigator.of(dialogContext).pop();
             }
-
             _autoLogoutService.stopAutoLogout();
             FirebaseAuth.instance.signOut();
-
             if (mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/login',
-                    (route) => false,
-              );
+              Navigator.of(context)
+                  .pushNamedAndRemoveUntil('/login', (route) => false);
             }
           },
         );
       },
-    ).then((_) {
-      _dialogShown = false;
-    });
+    ).then((_) => _dialogShown = false);
   }
 
   Future<void> _syncEmailIfNeeded() async {
     try {
       String? authEmail = _authService.getCurrentEmail();
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-
+      final authProvider =
+      Provider.of<app_auth.AuthProvider>(context, listen: false);
       if (authEmail != null && authEmail != authProvider.user?.email) {
         await _authService.syncEmailFromAuth();
       }
-    } catch (e) {
-      print('❌ Erreur lors de la synchronisation du email: $e');
-    }
+    } catch (_) {}
   }
 
   String _getCorrectEmail() {
     String? authEmail = _authService.getCurrentEmail();
-    final authProvider = Provider.of<app_auth.AuthProvider>(context);
-
-    return authEmail ?? authProvider.user?.email ?? 'email@example.com';
+    final authProvider =
+    Provider.of<app_auth.AuthProvider>(context);
+    return authEmail ??
+        authProvider.user?.email ??
+        'email@example.com';
   }
 
   @override
@@ -185,11 +241,13 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
+  // ── Build ────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isMobile  = screenWidth < 600;
+    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
@@ -197,140 +255,164 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
-        child: Column(
-          children: [
-            SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
+      body: RefreshIndicator(
+        // Pull-to-refresh pour recharger la photo après retour de l'édition
+        color: Colors.deepPurple,
+        onRefresh: () async {
+          await _loadPhotoBase64();
+          await _loadUserStats();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding:
+          EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
+          child: Column(
+            children: [
+              SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
-            Container(
-              padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(isDesktop ? 20 : 12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: isDesktop ? 80 : isTablet ? 60 : 50,
-                        backgroundColor: Colors.deepPurple[100],
-                        backgroundImage: authProvider.user?.photoUrl != null
-                            ? NetworkImage(authProvider.user!.photoUrl!)
-                            : null,
-                        child: authProvider.user?.photoUrl == null
-                            ? Icon(
-                          Icons.person,
-                          size: isDesktop ? 80 : isTablet ? 60 : 50,
-                          color: Colors.deepPurple,
-                        )
-                            : null,
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
-
-                  Text(
-                    authProvider.fullName ?? 'User',
-                    style: TextStyle(
-                      fontSize: isDesktop ? 28 : isTablet ? 24 : 20,
-                      fontWeight: FontWeight.bold,
+              // ── Carte profil ─────────────────────────────────
+              Container(
+                padding: EdgeInsets.all(
+                    isDesktop ? 32 : isTablet ? 24 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                  BorderRadius.circular(isDesktop ? 20 : 12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-                  SizedBox(height: isDesktop ? 8 : isTablet ? 6 : 4),
-                  Text(
-                    _getCorrectEmail(),
-                    style: TextStyle(
-                      fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
-                      color: Colors.grey[600],
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Avatar avec reload automatique
+                    _buildAvatar(
+                      radius: isDesktop ? 80 : isTablet ? 60 : 50,
+                      authProvider: authProvider,
                     ),
-                  ),
 
-                  SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
+                    SizedBox(
+                        height: isDesktop ? 24 : isTablet ? 20 : 16),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _statItem(
-                        langProvider.translate('orders'),
-                        '$_ordersCount',
-                        isDesktop,
-                        isTablet,
+                    Text(
+                      authProvider.fullName ?? 'User',
+                      style: TextStyle(
+                        fontSize: isDesktop
+                            ? 28
+                            : isTablet
+                            ? 24
+                            : 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      _statItem(
-                        langProvider.translate('favorites'),
-                        '$_favoritesCount',
-                        isDesktop,
-                        isTablet,
+                    ),
+                    SizedBox(
+                        height: isDesktop ? 8 : isTablet ? 6 : 4),
+                    Text(
+                      _getCorrectEmail(),
+                      style: TextStyle(
+                        fontSize: isDesktop
+                            ? 18
+                            : isTablet
+                            ? 16
+                            : 14,
+                        color: Colors.grey[600],
                       ),
-                      _statItem(
-                        langProvider.translate('points'),
-                        '${authProvider.points}',
-                        isDesktop,
-                        isTablet,
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+
+                    SizedBox(
+                        height: isDesktop ? 32 : isTablet ? 24 : 20),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _statItem(
+                          langProvider.translate('orders'),
+                          '$_ordersCount',
+                          isDesktop,
+                          isTablet,
+                        ),
+                        _statItem(
+                          langProvider.translate('favorites'),
+                          '$_favoritesCount',
+                          isDesktop,
+                          isTablet,
+                        ),
+                        _statItem(
+                          langProvider.translate('points'),
+                          '${authProvider.points}',
+                          isDesktop,
+                          isTablet,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
+              SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
 
-            Container(
-              padding: EdgeInsets.all(isDesktop ? 24 : isTablet ? 20 : 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(isDesktop ? 20 : 12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+              // ── Menu ─────────────────────────────────────────
+              Container(
+                padding: EdgeInsets.all(
+                    isDesktop ? 24 : isTablet ? 20 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                  BorderRadius.circular(isDesktop ? 20 : 12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _menuTile('personal_info', Icons.person,
+                        isDesktop, isTablet, langProvider, context),
+                    _menuTile('addresses', Icons.location_on,
+                        isDesktop, isTablet, langProvider, context),
+                    _menuTile('payment_methods', Icons.credit_card,
+                        isDesktop, isTablet, langProvider, context),
+                    _menuTile('notification_settings',
+                        Icons.notifications, isDesktop, isTablet,
+                        langProvider, context),
+                    _menuTile('security', Icons.security, isDesktop,
+                        isTablet, langProvider, context),
+                    _languageTile(
+                        isDesktop, isTablet, langProvider, context),
+                    _menuTile('help', Icons.help, isDesktop, isTablet,
+                        langProvider, context),
+                    _menuTile('terms_conditions', Icons.description,
+                        isDesktop, isTablet, langProvider, context),
+                    _menuTile('logout', Icons.logout, isDesktop,
+                        isTablet, langProvider, context,
+                        isLast: true),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  _menuTile('personal_info', Icons.person, isDesktop, isTablet, langProvider, context),
-                  _menuTile('addresses', Icons.location_on, isDesktop, isTablet, langProvider, context),
-                  _menuTile('payment_methods', Icons.credit_card, isDesktop, isTablet, langProvider, context),
-                  _menuTile('notification_settings', Icons.notifications, isDesktop, isTablet, langProvider, context),
-                  _menuTile('security', Icons.security, isDesktop, isTablet, langProvider, context),
 
-                  // ✅ LANGUE ENTRE SÉCURITÉ ET AIDE
-                  _languageTile(isDesktop, isTablet, langProvider, context),
-
-                  _menuTile('help', Icons.help, isDesktop, isTablet, langProvider, context),
-                  _menuTile('terms_conditions', Icons.description, isDesktop, isTablet, langProvider, context),
-                  _menuTile('logout', Icons.logout, isDesktop, isTablet, langProvider, context, isLast: true),
-                ],
-              ),
-            ),
-
-            SizedBox(height: isTablet ? 30 : 20),
-          ],
+              SizedBox(height: isTablet ? 30 : 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _statItem(String label, String value, bool isDesktop, bool isTablet) {
+  Widget _statItem(
+      String label, String value, bool isDesktop, bool isTablet) {
     return Column(
       children: [
         Text(
           value,
           style: TextStyle(
-            fontSize: isDesktop ? 32 : isTablet ? 28 : 24,
+            fontSize:
+            isDesktop ? 32 : isTablet ? 28 : 24,
             fontWeight: FontWeight.bold,
             color: Colors.deepPurple,
           ),
@@ -347,25 +429,18 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ✅ WIDGET POUR LA LANGUE
-  Widget _languageTile(
-      bool isDesktop,
-      bool isTablet,
-      LanguageProvider langProvider,
-      BuildContext context,
-      ) {
+  Widget _languageTile(bool isDesktop, bool isTablet,
+      LanguageProvider langProvider, BuildContext context) {
     return Column(
       children: [
         ListTile(
-          leading: Icon(
-            Icons.language,
-            color: Colors.deepPurple,
-            size: isDesktop ? 28 : isTablet ? 24 : 20,
-          ),
+          leading: Icon(Icons.language,
+              color: Colors.deepPurple,
+              size: isDesktop ? 28 : isTablet ? 24 : 20),
           title: Text(
             langProvider.translate('language'),
             style: TextStyle(
-              fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
+              fontSize:   isDesktop ? 18 : isTablet ? 16 : 14,
               fontWeight: FontWeight.w500,
               color: Colors.black,
             ),
@@ -373,12 +448,13 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: PopupMenuButton<String>(
             onSelected: (String languageCode) async {
               await langProvider.setLanguage(languageCode);
-              // ✅ Notifier pour mettre à jour tout l'écran
               setState(() {});
             },
             itemBuilder: (BuildContext context) {
-              return langProvider.supportedLanguages.entries.map((entry) {
-                final isSelected = entry.key == langProvider.currentLanguageCode;
+              return langProvider.supportedLanguages.entries
+                  .map((entry) {
+                final isSelected =
+                    entry.key == langProvider.currentLanguageCode;
                 return PopupMenuItem<String>(
                   value: entry.key,
                   child: Row(
@@ -387,18 +463,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       Text(
                         entry.value,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? Colors.deepPurple : Colors.black,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.deepPurple
+                              : Colors.black,
                         ),
                       ),
                       if (isSelected)
                         const Padding(
                           padding: EdgeInsets.only(left: 12.0),
-                          child: Icon(
-                            Icons.check_circle,
-                            color: Colors.deepPurple,
-                            size: 20,
-                          ),
+                          child: Icon(Icons.check_circle,
+                              color: Colors.deepPurple, size: 20),
                         ),
                     ],
                   ),
@@ -408,7 +485,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: isDesktop ? 12 : 8,
-                vertical: isDesktop ? 6 : 4,
+                vertical:   isDesktop ? 6  : 4,
               ),
               decoration: BoxDecoration(
                 color: Colors.deepPurple.withOpacity(0.1),
@@ -417,39 +494,35 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    langProvider.currentLanguageFlag,
-                    style: TextStyle(fontSize: isDesktop ? 18 : 16),
-                  ),
+                  Text(langProvider.currentLanguageFlag,
+                      style:
+                      TextStyle(fontSize: isDesktop ? 18 : 16)),
                   SizedBox(width: isDesktop ? 8 : 4),
                   Text(
                     langProvider.currentLanguageCode.toUpperCase(),
                     style: TextStyle(
-                      fontSize: isDesktop ? 14 : 12,
+                      fontSize:   isDesktop ? 14 : 12,
                       fontWeight: FontWeight.w600,
                       color: Colors.deepPurple,
                     ),
                   ),
                   SizedBox(width: isDesktop ? 8 : 4),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    color: Colors.deepPurple,
-                    size: isDesktop ? 20 : 16,
-                  ),
+                  Icon(Icons.arrow_drop_down,
+                      color: Colors.deepPurple,
+                      size: isDesktop ? 20 : 16),
                 ],
               ),
             ),
           ),
           contentPadding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 8 : isTablet ? 4 : 0,
-            vertical: isDesktop ? 4 : isTablet ? 2 : 0,
+            vertical:   isDesktop ? 4 : isTablet ? 2 : 0,
           ),
         ),
         Divider(
-          height: 1,
-          thickness: 0.5,
+          height: 1, thickness: 0.5,
           color: Colors.grey[300],
-          indent: isDesktop ? 68 : isTablet ? 64 : 60,
+          indent:    isDesktop ? 68 : isTablet ? 64 : 60,
           endIndent: isDesktop ? 20 : isTablet ? 16 : 12,
         ),
       ],
@@ -468,81 +541,76 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         ListTile(
-          leading: Icon(
-            icon,
-            color: isLast ? Colors.red : Colors.deepPurple,
-            size: isDesktop ? 28 : isTablet ? 24 : 20,
-          ),
+          leading: Icon(icon,
+              color: isLast ? Colors.red : Colors.deepPurple,
+              size: isDesktop ? 28 : isTablet ? 24 : 20),
           title: Text(
-            // ✅ UTILISER LA TRADUCTION
             langProvider.translate(titleKey),
             style: TextStyle(
-              fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
+              fontSize:   isDesktop ? 18 : isTablet ? 16 : 14,
               fontWeight: FontWeight.w500,
               color: isLast ? Colors.red : Colors.black,
             ),
           ),
-          trailing: Icon(
-            Icons.arrow_forward_ios,
-            color: Colors.grey[400],
-            size: isDesktop ? 20 : isTablet ? 16 : 12,
-          ),
+          trailing: Icon(Icons.arrow_forward_ios,
+              color: Colors.grey[400],
+              size: isDesktop ? 20 : isTablet ? 16 : 12),
           contentPadding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 8 : isTablet ? 4 : 0,
-            vertical: isDesktop ? 4 : isTablet ? 2 : 0,
+            vertical:   isDesktop ? 4 : isTablet ? 2 : 0,
           ),
-          onTap: () {
+          onTap: () async {
             if (titleKey == 'logout') {
               _showLogoutDialog(langProvider);
             } else if (titleKey == 'personal_info') {
-              final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
-              Navigator.push(
+              final authProvider = Provider.of<app_auth.AuthProvider>(
+                  context, listen: false);
+              // ✅ Attendre le retour et recharger la photo
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => EditProfilePage(
-                    user: authProvider.user,
-                  ),
+                  builder: (context) =>
+                      EditProfilePage(user: authProvider.user),
                 ),
               );
+              // Recharger la photo Base64 après retour de l'édition
+              await _loadPhotoBase64();
             } else if (titleKey == 'addresses') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddressPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) => const AddressPage()));
             } else if (titleKey == 'notification_settings') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const NotificationSettingsPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                      const NotificationSettingsPage()));
             } else if (titleKey == 'security') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SecuritySettingsPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                      const SecuritySettingsPage()));
             } else if (titleKey == 'terms_conditions') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TermsConditionsPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                      const TermsConditionsPage()));
             } else if (titleKey == 'help') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const HelpPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) => const HelpPage()));
             } else if (titleKey == 'payment_methods') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PaymentMethodsPage()),
-              );
+              Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                      const PaymentMethodsPage()));
             }
           },
         ),
         if (!isLast)
           Divider(
-            height: 1,
-            thickness: 0.5,
+            height: 1, thickness: 0.5,
             color: Colors.grey[300],
-            indent: isDesktop ? 68 : isTablet ? 64 : 60,
+            indent:    isDesktop ? 68 : isTablet ? 64 : 60,
             endIndent: isDesktop ? 20 : isTablet ? 16 : 12,
           ),
       ],
@@ -558,19 +626,18 @@ class _ProfilePageState extends State<ProfilePage> {
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+              borderRadius: BorderRadius.circular(24)),
           elevation: 20,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6366F1),
-                  const Color(0xFF8B5CF6),
-                  const Color(0xFFA855F7),
+                  Color(0xFF6366F1),
+                  Color(0xFF8B5CF6),
+                  Color(0xFFA855F7),
                 ],
               ),
             ),
@@ -580,21 +647,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 Container(
                   padding: const EdgeInsets.all(28),
                   child: Container(
-                    width: 70,
-                    height: 70,
+                    width: 70, height: 70,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color:
+                      Colors.white.withOpacity(0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 2,
-                      ),
+                          color: Colors.white.withOpacity(0.3),
+                          width: 2),
                     ),
-                    child: const Icon(
-                      Icons.logout_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                    child: const Icon(Icons.logout_rounded,
+                        color: Colors.white, size: 32),
                   ),
                 ),
                 Container(
@@ -603,7 +666,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
+                      bottomLeft:  Radius.circular(24),
                       bottomRight: Radius.circular(24),
                     ),
                   ),
@@ -633,21 +696,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       Row(
                         children: [
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
+                                onPressed: () =>
+                                    Navigator.of(context).pop(),
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
-                                    color: Color(0xFF6366F1),
-                                    width: 1.5,
-                                  ),
+                                      color: Color(0xFF6366F1),
+                                      width: 1.5),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  backgroundColor: Colors.transparent,
+                                      borderRadius:
+                                      BorderRadius.circular(16)),
                                 ),
                                 child: Text(
                                   langProvider.translate('cancel'),
@@ -662,30 +722,32 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Container(
+                            child: SizedBox(
                               height: 48,
                               child: ElevatedButton(
                                 onPressed: () async {
                                   try {
-                                    _autoLogoutService.stopAutoLogout();
-                                    await FirebaseAuth.instance.signOut();
-
+                                    _autoLogoutService
+                                        .stopAutoLogout();
+                                    await FirebaseAuth.instance
+                                        .signOut();
                                     Navigator.of(context).pop();
-                                    Navigator.pushReplacementNamed(context, '/login');
-                                  } catch (e) {
-                                    print('❌ Erreur lors de la déconnexion: $e');
+                                    Navigator.pushReplacementNamed(
+                                        context, '/login');
+                                  } catch (_) {
                                     Navigator.of(context).pop();
-                                    Navigator.pushReplacementNamed(context, '/login');
+                                    Navigator.pushReplacementNamed(
+                                        context, '/login');
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF6366F1),
+                                  backgroundColor:
+                                  const Color(0xFF6366F1),
                                   foregroundColor: Colors.white,
-                                  shadowColor: const Color(0xFF6366F1).withOpacity(0.3),
                                   elevation: 4,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                      borderRadius:
+                                      BorderRadius.circular(16)),
                                 ),
                                 child: FittedBox(
                                   child: Text(
