@@ -58,23 +58,30 @@ class AppLocalizations {
     'terms_title': 'Termes et Conditions d\'Utilisation',
     'terms_description': 'Veuillez lire attentivement ces termes et conditions avant d\'utiliser notre application Winzy.',
     'terms_last_updated': 'Dernière mise à jour : 18 février 2026',
-
-    'terms_section_1_title': '1. Acceptation des Conditions',
+    'terms_section_1_title': 'Acceptation des Conditions',
     'terms_section_1_content': 'En accédant et en utilisant l\'application Winzy, vous acceptez d\'être lié par ces conditions générales d\'utilisation. Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser notre service. L\'utilisation continue de l\'application après toute modification constitue votre acceptation des nouvelles conditions.',
-
-    'terms_section_2_title': '2. Utilisation du Service',
+    'terms_section_2_title': 'Utilisation du Service',
     'terms_section_2_content': 'Winzy est une plateforme de commerce électronique qui vous permet d\'acheter et de vendre des produits. Vous vous engagez à utiliser le service de manière légale et éthique, à ne pas publier de contenu frauduleux ou trompeur, à respecter les droits des autres utilisateurs et à ne pas tenter de compromettre la sécurité de la plateforme.',
-
-    'terms_section_3_title': '3. Confidentialité et Données Personnelles',
+    'terms_section_3_title': 'Confidentialité et Données Personnelles',
     'terms_section_3_content': 'Nous collectons et traitons vos données personnelles conformément à notre politique de confidentialité. Vos informations sont utilisées uniquement pour améliorer votre expérience sur la plateforme et traiter vos commandes. Nous ne vendons jamais vos données à des tiers. Vous pouvez demander la suppression de vos données à tout moment.',
-
-    'terms_section_4_title': '4. Paiements et Remboursements',
+    'terms_section_4_title': 'Paiements et Remboursements',
     'terms_section_4_content': 'Tous les paiements sont traités de manière sécurisée. Les prix affichés incluent toutes les taxes applicables. En cas de litige concernant une commande, notre équipe de support est disponible pour vous aider. Les remboursements sont traités dans un délai de 5 à 10 jours ouvrables selon votre mode de paiement.',
-
-    'terms_section_5_title': '5. Limitation de Responsabilité',
+    'terms_section_5_title': 'Limitation de Responsabilité',
     'terms_section_5_content': 'Winzy s\'efforce de garantir la disponibilité et la fiabilité du service, mais ne peut être tenu responsable des interruptions temporaires de service, des erreurs de contenu, des dommages indirects résultant de l\'utilisation du service, ni des actions des vendeurs tiers sur la plateforme.',
     'terms_conditions': 'Conditions Générales d\'Utilisation',
-
+    'terms_seller_notice'            : 'Ces CGU incluent des conditions spécifiques aux vendeurs de la plateforme',
+    'terms_seller_section_label'     : 'Conditions Vendeur',
+    'terms_seller_section_1_title'   : 'Responsabilité des produits',
+    'terms_seller_section_1_content' : 'Le vendeur est seul responsable de l\'exactitude des informations de ses produits (description, prix, photos, stock). Tout produit non conforme à sa description peut entraîner la suspension du compte vendeur. Winzy se réserve le droit de retirer tout produit jugé inapproprié ou illégal.',
+    'terms_seller_section_2_title'   : 'Commission et paiements',
+    'terms_seller_section_2_content' : 'Une commission est prélevée sur chaque vente réalisée via la plateforme. Le montant de cette commission est défini dans votre contrat vendeur. Les paiements sont versés sur votre compte dans un délai de 7 jours ouvrables après confirmation de la livraison par l\'acheteur.',
+    'terms_seller_section_3_title'   : 'Délais d\'expédition',
+    'terms_seller_section_3_content' : 'Le vendeur s\'engage à expédier les commandes dans un délai maximum de 48 heures après confirmation du paiement. Tout retard non signalé peut entraîner une dégradation de la note vendeur. En cas d\'impossibilité d\'expédier, le vendeur doit annuler la commande et en informer l\'acheteur immédiatement.',
+    'terms_seller_section_4_title'   : 'Politique de retour',
+    'terms_seller_section_4_content' : 'Le vendeur doit accepter les retours dans un délai de 14 jours après réception par l\'acheteur si le produit est défectueux ou non conforme. Les frais de retour sont à la charge du vendeur en cas de produit défectueux. Winzy peut intervenir en cas de litige entre vendeur et acheteur.',
+    'terms_seller_section_5_title'   : 'Suspension de compte',
+    'terms_seller_section_5_content' : 'Tout manquement aux règles de la plateforme (produits frauduleux, faux avis, non-respect des délais répété, comportement abusif envers les acheteurs) peut entraîner la suspension temporaire ou définitive du compte vendeur sans préavis. Les fonds en attente peuvent être retenus pendant la durée de l\'enquête.',
+    'buyer_role_label' : 'Acheteur',
     'close': 'Fermer',
     'i_agree': 'J\'accepte',
 
@@ -341,6 +348,10 @@ class AppLocalizations {
     'edit_profile_image_error':    'Erreur lors de l\'upload de la photo',
     'photo_removed_success': 'Photo de profil supprimée',
     'edit_profile_image_too_large': 'Image trop lourde, veuillez en choisir une plus petite',
+    'seller_store_section'       : 'Mon magasin',
+    'seller_store_name'          : 'Nom du magasin',
+    'seller_store_name_hint'     : 'Ex : Ma Boutique',
+    'seller_store_name_required' : 'Le nom du magasin est obligatoire',
 
     // ── Sécurité ──────────────────────────────────────────────────
     'security_title': 'Sécurité',
@@ -743,7 +754,19 @@ class AppLocalizations {
     'add_product_stock_invalid'        : 'Stock invalide (doit être un nombre entier)',
     'add_product_reward_image_required': 'La photo du reward est obligatoire',
     'add_product_min_image'            : 'Ajoutez au moins 1 photo pour le produit',
-
+    'seller_stat_delivered'   : 'Livrées',
+    'add_product_category'         : 'Catégorie',
+    'add_product_category_hint'    : 'Sélectionner une catégorie',
+    'add_product_category_search'  : 'Rechercher...',
+    'add_product_category_required': 'Catégorie requise',
+    //──── seller product page ──────────────────────────────────────
+    'add_product_pending'          : 'Produit soumis, en attente de validation',
+    'add_product_validation_title' : 'Validation requise',
+    'add_product_validation_desc'  : 'Votre produit sera visible après validation par notre équipe (24-48h)',
+    'seller_product_pending'       : 'En attente',
+    'seller_product_rejected'      : 'Refusé',
+    'seller_product_pending_info'  : 'En cours de vérification par l\'admin',
+    'seller_product_rejected_info' : 'Votre produit a été refusé',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -803,24 +826,30 @@ class AppLocalizations {
     'terms_title': 'Terms and Conditions of Use',
     'terms_description': 'Please read these terms and conditions carefully before using the Winzy application.',
     'terms_last_updated': 'Last updated: 18 february 2026',
-
-    'terms_section_1_title': '1. Acceptance of Terms',
+    'terms_section_1_title': 'Acceptance of Terms',
     'terms_section_1_content': 'By accessing and using the Winzy application, you agree to be bound by these terms and conditions. If you do not accept these terms, please do not use our service. Continued use of the application after any changes constitutes your acceptance of the new terms.',
-
-    'terms_section_2_title': '2. Use of Service',
+    'terms_section_2_title': 'Use of Service',
     'terms_section_2_content': 'Winzy is an e-commerce platform that allows you to buy and sell products. You agree to use the service lawfully and ethically, not to post fraudulent or misleading content, to respect the rights of other users, and not to attempt to compromise the security of the platform.',
-
-    'terms_section_3_title': '3. Privacy and Personal Data',
+    'terms_section_3_title': 'Privacy and Personal Data',
     'terms_section_3_content': 'We collect and process your personal data in accordance with our privacy policy. Your information is used solely to enhance your experience on the platform and to process your orders. We never sell your data to third parties. You may request deletion of your data at any time.',
-
-    'terms_section_4_title': '4. Payments and Refunds',
+    'terms_section_4_title': 'Payments and Refunds',
     'terms_section_4_content': 'All payments are processed securely. Displayed prices include all applicable taxes. In case of a dispute regarding an order, our support team is available to assist you. Refunds are processed within 5 to 10 business days depending on your payment method.',
-
-    'terms_section_5_title': '5. Limitation of Liability',
+    'terms_section_5_title': 'Limitation of Liability',
     'terms_section_5_content': 'Winzy strives to ensure the availability and reliability of the service, but cannot be held responsible for temporary service interruptions, content errors, indirect damages resulting from the use of the service, or the actions of third-party sellers on the platform.',
-
     'terms_conditions': 'Terms and Conditions',
-
+    'terms_seller_notice'            : 'These terms include specific conditions for platform sellers',
+    'terms_seller_section_label'     : 'Seller Terms',
+    'terms_seller_section_1_title'   : 'Product Responsibility',
+    'terms_seller_section_1_content' : 'The seller is solely responsible for the accuracy of their product information (description, price, photos, stock). Any product that does not match its description may result in account suspension. Winzy reserves the right to remove any product deemed inappropriate or illegal.',
+    'terms_seller_section_2_title'   : 'Commission & Payments',
+    'terms_seller_section_2_content' : 'A commission is deducted from each sale made through the platform. The commission amount is defined in your seller agreement. Payments are transferred to your account within 7 business days after delivery confirmation by the buyer.',
+    'terms_seller_section_3_title'   : 'Shipping Deadlines',
+    'terms_seller_section_3_content' : 'The seller agrees to ship orders within a maximum of 48 hours after payment confirmation. Any unreported delay may result in a lower seller rating. If shipping is not possible, the seller must cancel the order and notify the buyer immediately.',
+    'terms_seller_section_4_title'   : 'Return Policy',
+    'terms_seller_section_4_content' : 'The seller must accept returns within 14 days of receipt by the buyer if the product is defective or does not match its description. Return shipping costs are the seller\'s responsibility in case of a defective product. Winzy may intervene in disputes between sellers and buyers.',
+    'terms_seller_section_5_title'   : 'Account Suspension',
+    'terms_seller_section_5_content' : 'Any violation of platform rules (fraudulent products, fake reviews, repeated shipping delays, abusive behavior toward buyers) may result in temporary or permanent account suspension without notice. Pending funds may be withheld during the investigation period.',
+    'buyer_role_label' : 'Buyer',
     'close': 'Close',
     'i_agree': 'I Agree',
 
@@ -1086,6 +1115,10 @@ class AppLocalizations {
     'edit_profile_image_error':    'Error uploading photo',
     'photo_removed_success': 'Profile photo removed',
     'edit_profile_image_too_large': 'Image too large, please choose a smaller one',
+    'seller_store_section'       : 'My Store',
+    'seller_store_name'          : 'Store name',
+    'seller_store_name_hint'     : 'E.g.: My Store',
+    'seller_store_name_required' : 'Store name is required',
 
     // ── Security ──────────────────────────────────────────────────
     'security_title': 'Security',
@@ -1490,6 +1523,21 @@ class AppLocalizations {
     'add_product_stock_invalid'        : 'Invalid stock (must be a whole number)',
     'add_product_reward_image_required': 'Reward photo is required',
     'add_product_min_image'            : 'Add at least 1 photo for the product',
+    'seller_stat_delivered'   :'Delivered',
+    'add_product_category'         : 'Category',
+    'add_product_category_hint'    : 'Select a category',
+    'add_product_category_search'  : 'Search...',
+    'add_product_category_required': 'Category required',
+
+    //──── seller product page ──────────────────────────────────────
+    'add_product_pending'          : 'Product submitted, awaiting review',
+    'add_product_validation_title' : 'Validation required',
+    'add_product_validation_desc'  : 'Your product will be visible after review by our team (24-48h)',
+    'seller_product_pending'       : 'Pending',
+    'seller_product_rejected'      : 'Rejected',
+    'seller_product_pending_info'  : 'Being reviewed by admin',
+    'seller_product_rejected_info' : 'Your product was rejected',
+
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1547,24 +1595,30 @@ class AppLocalizations {
     'terms_title': 'شروط وأحكام الاستخدام',
     'terms_description': 'يرجى قراءة هذه الشروط والأحكام بعناية قبل استخدام تطبيق Winzy.',
     'terms_last_updated': 'آخر تحديث :18 فبراير 2026',
-
-    'terms_section_1_title': '1. قبول الشروط',
+    'terms_section_1_title': 'قبول الشروط',
     'terms_section_1_content': 'بالوصول إلى تطبيق Winzy واستخدامه، فإنك توافق على الالتزام بهذه الشروط والأحكام العامة للاستخدام. إذا لم توافق على هذه الشروط، يرجى عدم استخدام خدمتنا. يُعدّ استمرارك في استخدام التطبيق بعد أي تعديل قبولاً منك للشروط الجديدة.',
-
-    'terms_section_2_title': '2. استخدام الخدمة',
+    'terms_section_2_title': 'استخدام الخدمة',
     'terms_section_2_content': 'Winzy هي منصة تجارة إلكترونية تتيح لك شراء المنتجات وبيعها. تلتزم باستخدام الخدمة بشكل قانوني وأخلاقي، وعدم نشر محتوى احتيالي أو مضلل، واحترام حقوق المستخدمين الآخرين، وعدم محاولة المساس بأمن المنصة.',
-
-    'terms_section_3_title': '3. الخصوصية والبيانات الشخصية',
+    'terms_section_3_title': 'الخصوصية والبيانات الشخصية',
     'terms_section_3_content': 'نقوم بجمع بياناتك الشخصية ومعالجتها وفقاً لسياسة الخصوصية الخاصة بنا. تُستخدم معلوماتك فقط لتحسين تجربتك على المنصة ومعالجة طلباتك. لا نبيع بياناتك أبداً لأطراف ثالثة. يمكنك طلب حذف بياناتك في أي وقت.',
-
-    'terms_section_4_title': '4. المدفوعات والمبالغ المستردة',
+    'terms_section_4_title': 'المدفوعات والمبالغ المستردة',
     'terms_section_4_content': 'تتم معالجة جميع المدفوعات بشكل آمن. تشمل الأسعار المعروضة جميع الضرائب المطبقة. في حالة وجود نزاع بشأن طلبية، يتوفر فريق الدعم لمساعدتك. تتم معالجة المبالغ المستردة في غضون 5 إلى 10 أيام عمل وفقاً لطريقة الدفع الخاصة بك.',
-
-    'terms_section_5_title': '5. تحديد المسؤولية',
+    'terms_section_5_title': 'تحديد المسؤولية',
     'terms_section_5_content': 'يسعى Winzy  لضمان توفر الخدمة وموثوقيتها، إلا أنه لا يمكن مساءلته عن انقطاعات الخدمة المؤقتة، أو أخطاء المحتوى، أو الأضرار غير المباشرة الناجمة عن استخدام الخدمة، أو تصرفات البائعين الأطراف الثالثة على المنصة.',
-
     'terms_conditions': 'الشروط والأحكام',
-
+    'terms_seller_notice'            : 'تتضمن هذه الشروط أحكاماً خاصة بالبائعين على المنصة',
+    'terms_seller_section_label'     : 'شروط البائع',
+    'terms_seller_section_1_title'   : 'مسؤولية المنتجات',
+    'terms_seller_section_1_content' : 'يتحمل البائع وحده مسؤولية دقة معلومات منتجاته (الوصف، السعر، الصور، المخزون). قد يؤدي أي منتج لا يطابق وصفه إلى تعليق حساب البائع. تحتفظ Winzy بالحق في إزالة أي منتج يُعدّ غير لائق أو مخالفاً للقانون.',
+    'terms_seller_section_2_title'   : 'العمولة والمدفوعات',
+    'terms_seller_section_2_content' : 'يُخصم مبلغ عمولة من كل عملية بيع تتم عبر المنصة. يُحدَّد مقدار العمولة في عقد البائع الخاص بك. تُحوَّل المدفوعات إلى حسابك في غضون 7 أيام عمل بعد تأكيد التسليم من قِبل المشتري.',
+    'terms_seller_section_3_title'   : 'مواعيد الشحن',
+    'terms_seller_section_3_content' : 'يلتزم البائع بشحن الطلبات في غضون 48 ساعة كحدٍّ أقصى بعد تأكيد الدفع. قد يؤدي أي تأخير غير مُبلَّغ عنه إلى خفض تقييم البائع. في حال تعذّر الشحن، يجب على البائع إلغاء الطلب وإخطار المشتري فوراً.',
+    'terms_seller_section_4_title'   : 'سياسة الإرجاع',
+    'terms_seller_section_4_content' : 'يجب على البائع قبول المرتجعات خلال 14 يوماً من استلام المشتري إذا كان المنتج معيباً أو لا يطابق وصفه. تقع تكاليف الشحن العكسي على عاتق البائع في حالة المنتجات المعيبة. يمكن لـ Winzy التدخل في النزاعات بين البائعين والمشترين.',
+    'terms_seller_section_5_title'   : 'تعليق الحساب',
+    'terms_seller_section_5_content' : 'قد يؤدي أي انتهاك لقواعد المنصة (منتجات احتيالية، تقييمات مزيفة، تأخيرات متكررة في الشحن، سلوك مسيء تجاه المشترين) إلى تعليق الحساب مؤقتاً أو نهائياً دون إشعار مسبق. قد يتم تجميد الأموال المعلقة طوال فترة التحقيق.',
+    'buyer_role_label' : 'مشترٍ',
     'close': 'إغلاق',
     'i_agree': 'أوافق',
 
@@ -1831,6 +1885,10 @@ class AppLocalizations {
     'edit_profile_image_error':    'خطأ في رفع الصورة',
     'photo_removed_success': 'تم حذف صورة الملف الشخصي',
     'edit_profile_image_too_large': 'الصورة كبيرة جداً، يرجى اختيار صورة أصغر',
+    'seller_store_section'       : 'متجري',
+    'seller_store_name'          : 'اسم المتجر',
+    'seller_store_name_hint'     : 'مثال: متجري',
+    'seller_store_name_required' : 'اسم المتجر مطلوب',
 
     // ── الأمان ────────────────────────────────────────────────────
     'security_title': 'الأمان',
@@ -2237,6 +2295,21 @@ class AppLocalizations {
     'add_product_stock_invalid'        : 'مخزون غير صالح (يجب أن يكون عدداً صحيحاً)',
     'add_product_reward_image_required': 'صورة المكافأة مطلوبة',
     'add_product_min_image'            : 'أضف صورة واحدة على الأقل للمنتج',
+    'add_product_category'         : 'الفئة',
+    'add_product_category_hint'    : 'اختر فئة',
+    'add_product_category_search'  : 'بحث...',
+    'add_product_category_required': 'الفئة مطلوبة',
+
+    //──── seller product page ──────────────────────────────────────
+    'seller_stat_delivered'   :'تم التسليم',
+    'add_product_pending'          : 'تم إرسال المنتج، في انتظار المراجعة',
+    'add_product_validation_title' : 'مطلوب التحقق',
+    'add_product_validation_desc'  : 'سيكون منتجك مرئياً بعد مراجعة فريقنا (24-48 ساعة)',
+    'seller_product_pending'       : 'قيد الانتظار',
+    'seller_product_rejected'      : 'مرفوض',
+    'seller_product_pending_info'  : 'قيد المراجعة من قبل المشرف',
+    'seller_product_rejected_info' : 'تم رفض منتجك',
+
 
   };
 

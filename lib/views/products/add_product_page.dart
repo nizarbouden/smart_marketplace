@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
+
+
+import '../../models/product_categories.dart'; // ✅ import catégories
 
 class AddProductPage extends StatefulWidget {
   final String? docId;
@@ -26,30 +28,33 @@ class _AddProductPageState extends State<AddProductPage>
   String _t(String key) => AppLocalizations.get(key);
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
-  // Controllers
   final _nameCtrl       = TextEditingController();
   final _priceCtrl      = TextEditingController();
   final _stockCtrl      = TextEditingController();
   final _descCtrl       = TextEditingController();
   final _rewardNameCtrl = TextEditingController();
 
-  bool _hasReward = false;
+  // ✅ Catégorie sélectionnée
+  String? _selectedCategory;
 
-  // Images
+  bool _hasReward = false;
   final List<String> _productImages = [];
   String? _rewardImageBase64;
 
-  // State
-  bool _isSaving   = false;
-  bool _submitted  = false;
+  bool _isSaving  = false;
+  bool _submitted = false;
   int  _currentImageIndex = 0;
   late PageController      _pageController;
   late AnimationController _fadeCtrl;
   late Animation<double>   _fadeAnim;
 
-  bool get _isEditing    => widget.docId != null;
-  bool get _imageError   => _submitted && _productImages.isEmpty;
-  bool get _rewardImgErr => _submitted && _hasReward && _rewardImageBase64 == null;
+  bool get _isEditing      => widget.docId != null;
+  bool get _imageError     => _submitted && _productImages.isEmpty;
+  bool get _rewardImgErr   => _submitted && _hasReward && _rewardImageBase64 == null;
+  bool get _categoryError  => _submitted && _selectedCategory == null;
+
+  // ── Langue courante pour les labels de catégorie ──────────────
+  String get _langCode => AppLocalizations.getLanguage();
 
   @override
   void initState() {
@@ -64,10 +69,13 @@ class _AddProductPageState extends State<AddProductPage>
 
   void _populateExisting() {
     final d = widget.existing!;
-    _nameCtrl.text  = d['name']             as String? ?? '';
+    _nameCtrl.text  = d['name']              as String? ?? '';
     _priceCtrl.text = d['price']?.toString() ?? '';
     _stockCtrl.text = d['stock']?.toString() ?? '';
-    _descCtrl.text  = d['description']      as String? ?? '';
+    _descCtrl.text  = d['description']       as String? ?? '';
+
+    // ✅ Restore category
+    _selectedCategory = d['category'] as String?;
 
     final imgs = (d['images'] as List<dynamic>?)
         ?.map((e) => e.toString())
@@ -148,18 +156,21 @@ class _AddProductPageState extends State<AddProductPage>
     });
   }
 
-  // ── Save with full validation ─────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────
 
   Future<void> _save() async {
     setState(() => _submitted = true);
 
-    final formValid = _formKey.currentState?.validate() ?? false;
-    final hasImage  = _productImages.isNotEmpty;
-    final rewardOk  = !_hasReward || _rewardImageBase64 != null;
+    final formValid  = _formKey.currentState?.validate() ?? false;
+    final hasImage   = _productImages.isNotEmpty;
+    final hasCategory = _selectedCategory != null;
+    final rewardOk   = !_hasReward || _rewardImageBase64 != null;
 
-    if (!formValid || !hasImage || !rewardOk) {
+    if (!formValid || !hasImage || !hasCategory || !rewardOk) {
       if (!hasImage) {
         _showSnack(_t('add_product_min_image'), color: Colors.red);
+      } else if (!hasCategory) {
+        _showSnack(_t('add_product_category_required'), color: Colors.red);
       } else if (!rewardOk) {
         _showSnack(_t('add_product_reward_image_required'), color: Colors.red);
       }
@@ -177,8 +188,10 @@ class _AddProductPageState extends State<AddProductPage>
         'stock':       int.parse(_stockCtrl.text.trim()),
         'description': _descCtrl.text.trim(),
         'images':      _productImages,
+        'category':    _selectedCategory,       // ✅ sauvegarde catégorie
         'sellerId':    uid,
-        'isActive':    true,
+        'isActive':    false,
+        'status':      'pending',
         'updatedAt':   Timestamp.now(),
       };
 
@@ -202,7 +215,7 @@ class _AddProductPageState extends State<AddProductPage>
       }
 
       if (mounted) {
-        _showSnack(_t('add_product_saved'), color: Colors.green);
+        _showSnack(_t('add_product_pending'), color: const Color(0xFFF59E0B));
         await Future.delayed(const Duration(milliseconds: 600));
         if (mounted) Navigator.pop(context);
       }
@@ -218,8 +231,7 @@ class _AddProductPageState extends State<AddProductPage>
       content: Text(msg),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
   }
 
@@ -246,15 +258,16 @@ class _AddProductPageState extends State<AddProductPage>
                     children: [
                       _buildImageSection(),
                       const SizedBox(height: 28),
-                      _buildSectionLabel(
-                          _t('add_product_section_info')),
+                      _buildSectionLabel(_t('add_product_section_info')),
                       const SizedBox(height: 14),
                       _buildInfoFields(),
                       const SizedBox(height: 28),
                       _buildRewardSection(),
                       const SizedBox(height: 16),
                       _buildRequiredLegend(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+                      _buildValidationNoticeBanner(),
+                      const SizedBox(height: 16),
                       _buildSaveButton(),
                     ],
                   ),
@@ -278,13 +291,9 @@ class _AddProductPageState extends State<AddProductPage>
             color: Colors.white, size: 20),
       ),
       title: Text(
-        _isEditing
-            ? _t('seller_edit_product')
-            : _t('seller_add_product'),
+        _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
         style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18),
+            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
       ),
       centerTitle: true,
     );
@@ -296,7 +305,6 @@ class _AddProductPageState extends State<AddProductPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Titre avec *
         Row(
           children: [
             Container(
@@ -307,13 +315,11 @@ class _AddProductPageState extends State<AddProductPage>
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              _t('add_product_section_images'),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B)),
-            ),
+            Text(_t('add_product_section_images'),
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B))),
             const SizedBox(width: 4),
             const Text('*',
                 style: TextStyle(
@@ -324,7 +330,6 @@ class _AddProductPageState extends State<AddProductPage>
         ),
         const SizedBox(height: 14),
 
-        // Carousel
         Container(
           height: 260,
           decoration: BoxDecoration(
@@ -352,60 +357,51 @@ class _AddProductPageState extends State<AddProductPage>
                   itemCount: _productImages.length,
                   onPageChanged: (i) =>
                       setState(() => _currentImageIndex = i),
-                  itemBuilder: (context, index) {
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.memory(
-                          base64Decode(_productImages[index]),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                          const Center(
-                              child: Icon(
-                                  Icons.broken_image_rounded,
-                                  color: Colors.grey)),
-                        ),
-                        Positioned(
-                          top: 10, right: 10,
-                          child: GestureDetector(
-                            onTap: () => _removeImage(index),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.black
-                                    .withOpacity(0.55),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                  Icons.close_rounded,
-                                  color: Colors.white,
-                                  size: 16),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 10, left: 10,
+                  itemBuilder: (context, index) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(
+                        base64Decode(_productImages[index]),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(Icons.broken_image_rounded,
+                                color: Colors.grey)),
+                      ),
+                      Positioned(
+                        top: 10, right: 10,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(index),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color:
-                              Colors.black.withOpacity(0.45),
-                              borderRadius:
-                              BorderRadius.circular(20),
+                              color: Colors.black.withOpacity(0.55),
+                              shape: BoxShape.circle,
                             ),
-                            child: Text(
-                              '${index + 1}/${_productImages.length}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
-                            ),
+                            child: const Icon(Icons.close_rounded,
+                                color: Colors.white, size: 16),
                           ),
                         ),
-                      ],
-                    );
-                  },
+                      ),
+                      Positioned(
+                        top: 10, left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.45),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${index + 1}/${_productImages.length}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (_productImages.length > 1)
@@ -416,12 +412,9 @@ class _AddProductPageState extends State<AddProductPage>
                     children: List.generate(
                       _productImages.length,
                           (i) => AnimatedContainer(
-                        duration:
-                        const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 3),
-                        width:
-                        _currentImageIndex == i ? 20 : 7,
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width:  _currentImageIndex == i ? 20 : 7,
                         height: 7,
                         decoration: BoxDecoration(
                           color: _currentImageIndex == i
@@ -467,19 +460,15 @@ class _AddProductPageState extends State<AddProductPage>
                 const Icon(Icons.add_photo_alternate_rounded,
                     color: Color(0xFF16A34A), size: 22),
                 const SizedBox(width: 8),
-                Text(
-                  _t('add_product_pick_images'),
-                  style: const TextStyle(
-                      color: Color(0xFF16A34A),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14),
-                ),
+                Text(_t('add_product_pick_images'),
+                    style: const TextStyle(
+                        color: Color(0xFF16A34A),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14)),
                 const SizedBox(width: 6),
-                Text(
-                  '(${_productImages.length}/8)',
-                  style: TextStyle(
-                      color: Colors.grey[500], fontSize: 13),
-                ),
+                Text('(${_productImages.length}/8)',
+                    style: TextStyle(
+                        color: Colors.grey[500], fontSize: 13)),
               ],
             ),
           ),
@@ -503,30 +492,24 @@ class _AddProductPageState extends State<AddProductPage>
                     : const Color(0xFF16A34A).withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.add_photo_alternate_rounded,
-                color: _imageError
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFF16A34A),
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _t('add_product_tap_to_add'),
-              style: TextStyle(
+              child: Icon(Icons.add_photo_alternate_rounded,
                   color: _imageError
                       ? const Color(0xFFEF4444)
                       : const Color(0xFF16A34A),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15),
+                  size: 30),
             ),
+            const SizedBox(height: 12),
+            Text(_t('add_product_tap_to_add'),
+                style: TextStyle(
+                    color: _imageError
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF16A34A),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15)),
             const SizedBox(height: 4),
-            Text(
-              _t('add_product_multiple_hint'),
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8), fontSize: 12),
-            ),
+            Text(_t('add_product_multiple_hint'),
+                style: const TextStyle(
+                    color: Color(0xFF94A3B8), fontSize: 12)),
           ],
         ),
       ),
@@ -538,11 +521,11 @@ class _AddProductPageState extends State<AddProductPage>
   Widget _buildInfoFields() {
     return Column(
       children: [
-        // Nom *
+        // Nom du produit
         _buildValidatedField(
-          ctrl:     _nameCtrl,
-          label:    _t('seller_product_name'),
-          icon:     Icons.label_rounded,
+          ctrl: _nameCtrl,
+          label: _t('seller_product_name'),
+          icon: Icons.label_rounded,
           required: true,
           validator: (v) {
             if (v == null || v.trim().isEmpty)
@@ -552,18 +535,21 @@ class _AddProductPageState extends State<AddProductPage>
         ),
         const SizedBox(height: 14),
 
+        // ✅ Sélecteur de catégorie
+        _buildCategoryPicker(),
+        const SizedBox(height: 14),
+
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Prix * — chiffres + un seul point décimal
             Expanded(
               child: _buildValidatedField(
-                ctrl:         _priceCtrl,
-                label:        _t('seller_product_price'),
-                icon:         Icons.sell_rounded,
-                required:     true,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
+                ctrl: _priceCtrl,
+                label: _t('seller_product_price'),
+                icon: Icons.sell_rounded,
+                required: true,
+                keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                       RegExp(r'^\d*\.?\d*')),
@@ -579,18 +565,14 @@ class _AddProductPageState extends State<AddProductPage>
               ),
             ),
             const SizedBox(width: 14),
-
-            // Stock * — chiffres uniquement, pas de point
             Expanded(
               child: _buildValidatedField(
-                ctrl:         _stockCtrl,
-                label:        _t('seller_product_stock'),
-                icon:         Icons.layers_rounded,
-                required:     true,
+                ctrl: _stockCtrl,
+                label: _t('seller_product_stock'),
+                icon: Icons.layers_rounded,
+                required: true,
                 keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty)
                     return _t('add_product_stock_required');
@@ -605,17 +587,289 @@ class _AddProductPageState extends State<AddProductPage>
         ),
         const SizedBox(height: 14),
 
-        // Description (optionnel)
         _buildValidatedField(
-          ctrl:     _descCtrl,
-          label:    _t('seller_product_description'),
-          icon:     Icons.notes_rounded,
+          ctrl: _descCtrl,
+          label: _t('seller_product_description'),
+          icon: Icons.notes_rounded,
           required: false,
           maxLines: 4,
         ),
       ],
     );
   }
+
+  // ── ✅ Sélecteur de catégorie ─────────────────────────────────
+
+  Widget _buildCategoryPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label + *
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _t('add_product_category'),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 2),
+              const Text('*',
+                  style: TextStyle(
+                      color: Color(0xFFEF4444),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+
+        // Dropdown avec recherche — on ouvre un bottom sheet
+        GestureDetector(
+          onTap: _showCategoryBottomSheet,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _categoryError
+                    ? const Color(0xFFEF4444)
+                    : _selectedCategory != null
+                    ? const Color(0xFF16A34A)
+                    : Colors.transparent,
+                width: _categoryError || _selectedCategory != null ? 1.5 : 0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Icône
+                Text(
+                  _selectedCategory != null
+                      ? ProductCategories.iconFromId(_selectedCategory!)
+                      : '📦',
+                  style: const TextStyle(fontSize: 20),
+                ),
+                const SizedBox(width: 12),
+                // Texte
+                Expanded(
+                  child: Text(
+                    _selectedCategory != null
+                        ? ProductCategories.labelFromId(
+                        _selectedCategory!, _langCode)
+                        : _t('add_product_category_hint'),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _selectedCategory != null
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                ),
+                // Flèche
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: _categoryError
+                      ? const Color(0xFFEF4444)
+                      : Colors.grey[400],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Message erreur catégorie
+        if (_categoryError)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              _t('add_product_category_required'),
+              style: const TextStyle(
+                  color: Color(0xFFEF4444), fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── Bottom sheet catégories avec recherche ───────────────────
+
+  void _showCategoryBottomSheet() {
+    String _searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = ProductCategories.filter(_searchQuery, _langCode);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.80,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Titre
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.category_rounded,
+                            color: Color(0xFF16A34A), size: 22),
+                        const SizedBox(width: 10),
+                        Text(
+                          _t('add_product_category'),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Barre de recherche
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    child: TextField(
+                      onChanged: (v) => setSheetState(() => _searchQuery = v),
+                      decoration: InputDecoration(
+                        hintText: _t('add_product_category_search'),
+                        hintStyle: const TextStyle(
+                            color: Color(0xFFCBD5E1), fontSize: 14),
+                        prefixIcon: const Icon(Icons.search_rounded,
+                            color: Color(0xFF16A34A), size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFFF0F4F8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // Liste des catégories
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final cat = filtered[index];
+                        final id    = cat['id']!;
+                        final icon  = cat['icon']!;
+                        final label = cat[_langCode] ?? cat['fr']!;
+                        final isSelected = _selectedCategory == id;
+
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _selectedCategory = id);
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF16A34A).withOpacity(0.08)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: isSelected
+                                  ? Border.all(
+                                  color: const Color(0xFF16A34A)
+                                      .withOpacity(0.3),
+                                  width: 1.5)
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                // Emoji icône
+                                Container(
+                                  width: 40, height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF16A34A)
+                                        .withOpacity(0.12)
+                                        : const Color(0xFFF0F4F8),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(icon,
+                                        style: const TextStyle(fontSize: 20)),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                // Label
+                                Expanded(
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isSelected
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                ),
+                                // Checkmark
+                                if (isSelected)
+                                  const Icon(Icons.check_circle_rounded,
+                                      color: Color(0xFF16A34A), size: 20),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── Champ validé ─────────────────────────────────────────────
 
   Widget _buildValidatedField({
     required TextEditingController ctrl,
@@ -630,19 +884,16 @@ class _AddProductPageState extends State<AddProductPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label + *
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B)),
-              ),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B))),
               if (required) ...[
                 const SizedBox(width: 2),
                 const Text('*',
@@ -654,62 +905,67 @@ class _AddProductPageState extends State<AddProductPage>
             ],
           ),
         ),
-
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+        Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: TextFormField(
+              controller:      ctrl,
+              keyboardType:    keyboardType,
+              inputFormatters: inputFormatters,
+              maxLines:        maxLines,
+              validator:       validator,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              style: const TextStyle(
+                  fontSize: 14, color: Color(0xFF1E293B)),
+              decoration: InputDecoration(
+                hintText:  label,
+                hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+                prefixIcon: Icon(icon,
+                    color: const Color(0xFF16A34A), size: 20),
+                filled:    true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                      color: Color(0xFF16A34A), width: 1.5),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                      color: Color(0xFFEF4444), width: 1.5),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                      color: Color(0xFFEF4444), width: 1.5),
+                ),
+                errorStyle: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFFEF4444),
+                ),
+                errorMaxLines: 2,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
               ),
-            ],
-          ),
-          child: TextFormField(
-            controller:       ctrl,
-            keyboardType:     keyboardType,
-            inputFormatters:  inputFormatters,
-            maxLines:         maxLines,
-            validator:        validator,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            style: const TextStyle(
-                fontSize: 14, color: Color(0xFF1E293B)),
-            decoration: InputDecoration(
-              hintText:  label,
-              hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
-              prefixIcon:
-              Icon(icon, color: const Color(0xFF16A34A), size: 20),
-              filled:    true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                    color: Color(0xFF16A34A), width: 1.5),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                    color: Color(0xFFEF4444), width: 1.5),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                    color: Color(0xFFEF4444), width: 1.5),
-              ),
-              errorStyle: const TextStyle(
-                  fontSize: 11, color: Color(0xFFEF4444)),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
             ),
           ),
         ),
@@ -749,10 +1005,7 @@ class _AddProductPageState extends State<AddProductPage>
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFFBBF24),
-                            Color(0xFFF59E0B)
-                          ],
+                          colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -766,25 +1019,21 @@ class _AddProductPageState extends State<AddProductPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _t('add_product_reward_title'),
-                            style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B)),
-                          ),
+                          Text(_t('add_product_reward_title'),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B))),
                           const SizedBox(height: 2),
-                          Text(
-                            _t('add_product_reward_subtitle'),
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF94A3B8)),
-                          ),
+                          Text(_t('add_product_reward_subtitle'),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF94A3B8))),
                         ],
                       ),
                     ),
                     Switch(
-                      value:     _hasReward,
+                      value: _hasReward,
                       onChanged: (v) => setState(() => _hasReward = v),
                       activeColor: const Color(0xFFF59E0B),
                     ),
@@ -800,19 +1049,16 @@ class _AddProductPageState extends State<AddProductPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Reward image *
                     Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 8),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            _t('add_product_reward_image_hint'),
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B)),
-                          ),
+                          Text(_t('add_product_reward_image_hint'),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B))),
                           const SizedBox(width: 2),
                           const Text('*',
                               style: TextStyle(
@@ -833,21 +1079,18 @@ class _AddProductPageState extends State<AddProductPage>
                           border: Border.all(
                             color: _rewardImgErr
                                 ? const Color(0xFFEF4444)
-                                : const Color(0xFFFBBF24)
-                                .withOpacity(0.5),
+                                : const Color(0xFFFBBF24).withOpacity(0.5),
                             width: _rewardImgErr ? 2 : 1.5,
                           ),
                         ),
                         child: _rewardImageBase64 != null
                             ? ClipRRect(
-                          borderRadius:
-                          BorderRadius.circular(13),
+                          borderRadius: BorderRadius.circular(13),
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
                               Image.memory(
-                                base64Decode(
-                                    _rewardImageBase64!),
+                                base64Decode(_rewardImageBase64!),
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     _rewardImageHint(),
@@ -855,34 +1098,29 @@ class _AddProductPageState extends State<AddProductPage>
                               Positioned(
                                 top: 8, right: 8,
                                 child: GestureDetector(
-                                  onTap: () => setState(() =>
-                                  _rewardImageBase64 = null),
+                                  onTap: () => setState(
+                                          () => _rewardImageBase64 = null),
                                   child: Container(
-                                    padding:
-                                    const EdgeInsets.all(5),
+                                    padding: const EdgeInsets.all(5),
                                     decoration: BoxDecoration(
-                                      color: Colors.black
-                                          .withOpacity(0.55),
+                                      color: Colors.black.withOpacity(0.55),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                        Icons.close_rounded,
-                                        color: Colors.white,
-                                        size: 14),
+                                    child: const Icon(Icons.close_rounded,
+                                        color: Colors.white, size: 14),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         )
-                            : _rewardImageHint(
-                            hasError: _rewardImgErr),
+                            : _rewardImageHint(hasError: _rewardImgErr),
                       ),
                     ),
+
                     if (_rewardImgErr)
                       Padding(
-                        padding:
-                        const EdgeInsets.only(top: 6, left: 4),
+                        padding: const EdgeInsets.only(top: 6, left: 4),
                         child: Text(
                           _t('add_product_reward_image_required'),
                           style: const TextStyle(
@@ -892,23 +1130,19 @@ class _AddProductPageState extends State<AddProductPage>
 
                     const SizedBox(height: 16),
 
-                    // Reward name *
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(
-                              left: 4, bottom: 6),
+                          padding: const EdgeInsets.only(left: 4, bottom: 6),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                _t('add_product_reward_name_hint'),
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF64748B)),
-                              ),
+                              Text(_t('add_product_reward_name_hint'),
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B))),
                               const SizedBox(width: 2),
                               const Text('*',
                                   style: TextStyle(
@@ -918,77 +1152,57 @@ class _AddProductPageState extends State<AddProductPage>
                             ],
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFBEB),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                                color: const Color(0xFFFBBF24)
-                                    .withOpacity(0.4)),
-                          ),
-                          child: TextFormField(
-                            controller: _rewardNameCtrl,
-                            autovalidateMode:
-                            AutovalidateMode.onUserInteraction,
-                            validator: (v) {
-                              if (!_hasReward) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return _t(
-                                    'add_product_reward_name_required');
-                              return null;
-                            },
-                            style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF1E293B)),
-                            decoration: InputDecoration(
-                              hintText:
-                              _t('add_product_reward_name_hint'),
-                              hintStyle: const TextStyle(
-                                  color: Color(0xFFCBD5E1)),
-                              prefixIcon: const Icon(
-                                  Icons.emoji_events_rounded,
-                                  color: Color(0xFFF59E0B),
-                                  size: 20),
-                              filled:    true,
-                              fillColor: Colors.transparent,
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                    color: Color(0xFFF59E0B),
-                                    width: 1.5),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                    color: Color(0xFFEF4444),
-                                    width: 1.5),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                    color: Color(0xFFEF4444),
-                                    width: 1.5),
-                              ),
-                              errorStyle: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFFEF4444)),
-                              contentPadding:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
+                        TextFormField(
+                          controller: _rewardNameCtrl,
+                          autovalidateMode:
+                          AutovalidateMode.onUserInteraction,
+                          validator: (v) {
+                            if (!_hasReward) return null;
+                            if (v == null || v.trim().isEmpty)
+                              return _t('add_product_reward_name_required');
+                            return null;
+                          },
+                          style: const TextStyle(
+                              fontSize: 14, color: Color(0xFF1E293B)),
+                          decoration: InputDecoration(
+                            hintText: _t('add_product_reward_name_hint'),
+                            hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E1)),
+                            prefixIcon: const Icon(
+                                Icons.emoji_events_rounded,
+                                color: Color(0xFFF59E0B),
+                                size: 20),
+                            filled:    true,
+                            fillColor: const Color(0xFFFFFBEB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
                             ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFFBBF24), width: 0.8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFF59E0B), width: 1.5),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFEF4444), width: 1.5),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFEF4444), width: 1.5),
+                            ),
+                            errorStyle: const TextStyle(
+                                fontSize: 11, color: Color(0xFFEF4444)),
+                            errorMaxLines: 2,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                           ),
                         ),
                       ],
@@ -996,7 +1210,6 @@ class _AddProductPageState extends State<AddProductPage>
 
                     const SizedBox(height: 14),
 
-                    // Info banner
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -1011,12 +1224,10 @@ class _AddProductPageState extends State<AddProductPage>
                               color: Color(0xFFF59E0B), size: 16),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              _t('add_product_reward_info'),
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF92400E)),
-                            ),
+                            child: Text(_t('add_product_reward_info'),
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF92400E))),
                           ),
                         ],
                       ),
@@ -1035,28 +1246,22 @@ class _AddProductPageState extends State<AddProductPage>
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          Icons.add_photo_alternate_outlined,
-          color: hasError
-              ? const Color(0xFFEF4444)
-              : const Color(0xFFFBBF24),
-          size: 32,
-        ),
+        Icon(Icons.add_photo_alternate_outlined,
+            color: hasError
+                ? const Color(0xFFEF4444)
+                : const Color(0xFFFBBF24),
+            size: 32),
         const SizedBox(height: 8),
-        Text(
-          _t('add_product_reward_image_hint'),
-          style: TextStyle(
-              color: hasError
-                  ? const Color(0xFFEF4444)
-                  : const Color(0xFFF59E0B),
-              fontSize: 13,
-              fontWeight: FontWeight.w600),
-        ),
+        Text(_t('add_product_reward_image_hint'),
+            style: TextStyle(
+                color: hasError
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFFF59E0B),
+                fontSize: 13,
+                fontWeight: FontWeight.w600)),
       ],
     );
   }
-
-  // ── Légende * obligatoire ─────────────────────────────────────
 
   Widget _buildRequiredLegend() {
     return Row(
@@ -1067,11 +1272,9 @@ class _AddProductPageState extends State<AddProductPage>
                 fontSize: 14,
                 fontWeight: FontWeight.bold)),
         const SizedBox(width: 4),
-        Text(
-          _t('add_product_required_legend'),
-          style: const TextStyle(
-              fontSize: 12, color: Color(0xFF94A3B8)),
-        ),
+        Text(_t('add_product_required_legend'),
+            style: const TextStyle(
+                fontSize: 12, color: Color(0xFF94A3B8))),
       ],
     );
   }
@@ -1087,18 +1290,65 @@ class _AddProductPageState extends State<AddProductPage>
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B)),
-        ),
+        Text(text,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B))),
       ],
     );
   }
 
-  // ── Save button ───────────────────────────────────────────────
+  Widget _buildValidationNoticeBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: const Color(0xFFF59E0B).withOpacity(0.5), width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEF3C7),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.access_time_rounded,
+                color: Color(0xFFF59E0B), size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _t('add_product_validation_title'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _t('add_product_validation_desc'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFB45309),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSaveButton() {
     return SizedBox(
@@ -1110,17 +1360,15 @@ class _AddProductPageState extends State<AddProductPage>
           backgroundColor: const Color(0xFF16A34A),
           foregroundColor: Colors.white,
           elevation: 6,
-          shadowColor:
-          const Color(0xFF16A34A).withOpacity(0.4),
+          shadowColor: const Color(0xFF16A34A).withOpacity(0.4),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16)),
         ),
         child: _isSaving
             ? const SizedBox(
-          width: 24, height: 24,
-          child: CircularProgressIndicator(
-              strokeWidth: 2.5, color: Colors.white),
-        )
+            width: 24, height: 24,
+            child: CircularProgressIndicator(
+                strokeWidth: 2.5, color: Colors.white))
             : Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

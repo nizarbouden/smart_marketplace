@@ -13,6 +13,7 @@ class PhoneFieldWidget extends StatelessWidget {
   final String? Function(String?)? validator;
   final bool isDesktop;
   final bool isTablet;
+  final Color iconColor; // ✅ nouveau paramètre
 
   const PhoneFieldWidget({
     super.key,
@@ -26,6 +27,7 @@ class PhoneFieldWidget extends StatelessWidget {
     this.validator,
     required this.isDesktop,
     required this.isTablet,
+    this.iconColor = Colors.deepPurple, // ✅ violet par défaut (buyer)
   });
 
   @override
@@ -114,7 +116,7 @@ class PhoneFieldWidget extends StatelessWidget {
                 style: TextStyle(fontSize: isDesktop ? 18 : isTablet ? 16 : 14, color: Colors.black87),
                 decoration: InputDecoration(
                   labelText: AppLocalizations.get('phone_label'),
-                  prefixIcon: const Icon(Icons.phone, color: Colors.deepPurple),
+                  prefixIcon: Icon(Icons.phone, color: iconColor), // ✅
                   border: const OutlineInputBorder(
                     borderRadius: BorderRadius.only(
                       topRight: Radius.circular(16),
@@ -153,7 +155,6 @@ class PhoneFieldWidget extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -168,23 +169,17 @@ class PhoneFieldWidget extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 20),
-
-                // Barre de recherche
                 TextField(
                   onChanged: onFilterChanged,
                   decoration: InputDecoration(
                     hintText: AppLocalizations.get('phone_search_country'),
-                    prefixIcon: const Icon(Icons.search),
+                    prefixIcon: Icon(Icons.search, color: iconColor), // ✅
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Liste des pays
                 Expanded(
                   child: ListView.builder(
                     itemCount: countries.length,

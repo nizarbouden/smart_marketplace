@@ -25,7 +25,6 @@ extension UserRoleExtension on UserRole {
     }
   }
 
-  // ✅ Retourne null si rôle absent ou inconnu — plus de défaut buyer
   static UserRole? fromString(String? role) {
     switch (role) {
       case 'buyer':
@@ -33,7 +32,7 @@ extension UserRoleExtension on UserRole {
       case 'seller':
         return UserRole.seller;
       default:
-        return null; // ✅ null = l'utilisateur n'a pas encore choisi
+        return null;
     }
   }
 
@@ -62,8 +61,9 @@ class UserModel {
   final bool isActive;
   final bool isGoogleUser;
   final bool isEmailVerified;
-  final UserRole? role; // ✅ nullable — null = pas encore choisi
+  final UserRole? role;
   final int points;
+  final String? storeName; // ✅ Uniquement pour les sellers
 
   UserModel({
     required this.uid,
@@ -80,11 +80,11 @@ class UserModel {
     this.isActive = true,
     this.isGoogleUser = false,
     this.isEmailVerified = false,
-    this.role, // ✅ pas de valeur par défaut
+    this.role,
     this.points = 0,
+    this.storeName, // ✅
   });
 
-  // Créer un utilisateur à partir d'un Map (Firestore)
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: map['uid'] ?? '',
@@ -101,12 +101,12 @@ class UserModel {
       isActive: map['isActive'] ?? true,
       isGoogleUser: map['isGoogleUser'] ?? false,
       isEmailVerified: map['isEmailVerified'] ?? map['emailVerified'] ?? false,
-      role: UserRoleExtension.fromString(map['role']), // ✅ null si absent
+      role: UserRoleExtension.fromString(map['role']),
       points: map['points'] ?? 0,
+      storeName: map['storeName'] as String?, // ✅
     );
   }
 
-  // Convertir l'utilisateur en Map (pour Firestore)
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
@@ -123,12 +123,12 @@ class UserModel {
       'isActive': isActive,
       'isGoogleUser': isGoogleUser,
       'isEmailVerified': isEmailVerified,
-      'role': role?.toJson(), // ✅ null si pas encore choisi
+      'role': role?.toJson(),
       'points': points,
+      if (storeName != null) 'storeName': storeName, // ✅ seulement si présent
     };
   }
 
-  // Créer une copie avec des modifications
   UserModel copyWith({
     String? uid,
     String? email,
@@ -146,6 +146,7 @@ class UserModel {
     bool? isEmailVerified,
     UserRole? role,
     int? points,
+    String? storeName, // ✅
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -164,12 +165,13 @@ class UserModel {
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       role: role ?? this.role,
       points: points ?? this.points,
+      storeName: storeName ?? this.storeName, // ✅
     );
   }
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber, role: $role, points: $points)';
+    return 'UserModel(uid: $uid, email: $email, nom: $nom, prenom: $prenom, phoneNumber: $phoneNumber, role: $role, points: $points, storeName: $storeName)';
   }
 
   @override
@@ -182,7 +184,8 @@ class UserModel {
         other.prenom == prenom &&
         other.phoneNumber == phoneNumber &&
         other.role == role &&
-        other.points == points;
+        other.points == points &&
+        other.storeName == storeName;
   }
 
   @override
@@ -193,16 +196,16 @@ class UserModel {
     prenom.hashCode ^
     phoneNumber.hashCode ^
     role.hashCode ^
-    points.hashCode;
+    points.hashCode ^
+    storeName.hashCode;
   }
 
-  // ✅ Méthodes utilitaires — sans "both"
-  bool get isBuyer => role == UserRole.buyer;
+  bool get isBuyer  => role == UserRole.buyer;
   bool get isSeller => role == UserRole.seller;
-  bool get hasRole => role != null; // ✅ vérifier si le rôle a été choisi
+  bool get hasRole  => role != null;
 
-  bool canBuy() => isBuyer;
-  bool canSell() => isSeller;
-  bool canAccessSellerDashboard() => isSeller;
-  bool canAccessBuyerFeatures() => isBuyer;
+  bool canBuy()                    => isBuyer;
+  bool canSell()                   => isSeller;
+  bool canAccessSellerDashboard()  => isSeller;
+  bool canAccessBuyerFeatures()    => isBuyer;
 }

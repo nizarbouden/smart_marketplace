@@ -7,6 +7,7 @@ class GenderFieldWidget extends StatelessWidget {
   final Function(String) onGenderSelected;
   final bool isDesktop;
   final bool isTablet;
+  final Color iconColor; // ✅
 
   const GenderFieldWidget({
     super.key,
@@ -15,6 +16,7 @@ class GenderFieldWidget extends StatelessWidget {
     required this.onGenderSelected,
     required this.isDesktop,
     required this.isTablet,
+    this.iconColor = Colors.deepPurple, // ✅ violet par défaut (buyer)
   });
 
   @override
@@ -42,7 +44,7 @@ class GenderFieldWidget extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.person, color: Colors.deepPurple, size: isDesktop ? 24 : isTablet ? 22 : 20),
+              Icon(Icons.person, color: iconColor, size: isDesktop ? 24 : isTablet ? 22 : 20), // ✅
               SizedBox(width: isDesktop ? 16 : isTablet ? 12 : 8),
               Expanded(
                 child: Text(
@@ -73,7 +75,6 @@ class GenderFieldWidget extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -88,10 +89,7 @@ class GenderFieldWidget extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 20),
-
-                // Options
                 ...genders.map((gender) {
                   final isSelected = selectedGender == gender;
                   return InkWell(
@@ -109,17 +107,18 @@ class GenderFieldWidget extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSelected ? Colors.deepPurple : Colors.grey[400]!,
+                                color: isSelected ? iconColor : Colors.grey[400]!, // ✅
                                 width: 2,
                               ),
-                              color: isSelected ? Colors.deepPurple : Colors.transparent,
+                              color: isSelected ? iconColor : Colors.transparent, // ✅
                             ),
                             child: isSelected
                                 ? Center(
                               child: Container(
                                 width: 12,
                                 height: 12,
-                                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                                decoration: const BoxDecoration(
+                                    shape: BoxShape.circle, color: Colors.white),
                               ),
                             )
                                 : null,
@@ -130,7 +129,7 @@ class GenderFieldWidget extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              color: isSelected ? Colors.deepPurple : Colors.black87,
+                              color: isSelected ? iconColor : Colors.black87, // ✅
                             ),
                           ),
                         ],
@@ -138,7 +137,6 @@ class GenderFieldWidget extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-
                 const SizedBox(height: 20),
               ],
             ),

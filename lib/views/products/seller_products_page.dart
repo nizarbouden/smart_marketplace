@@ -200,7 +200,8 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     final name     = data['name']     as String? ?? '';
     final price    = (data['price']   as num? ?? 0).toDouble();
     final stock    = data['stock']    as int?    ?? 0;
-    final isActive = data['isActive'] as bool?   ?? true;
+    final isActive  = data['isActive'] as bool?   ?? true;
+    final status    = data['status']  as String? ?? 'pending'; // pending | approved | rejected
     final hasReward = data['reward']  != null;
 
     // Image : Base64 list ou imageUrl legacy
@@ -255,7 +256,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      _buildStatusBadge(isActive),
+                      _buildStatusBadge(isActive, status),
                     ],
                   ),
 
@@ -323,11 +324,23 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
                             _goToAddProduct(docId: docId, existing: data),
                       ),
                       _buildActionBtn(
-                        icon: isActive
+                        icon: status == 'pending'
+                            ? Icons.hourglass_empty_rounded
+                            : status == 'rejected'
+                            ? Icons.block_rounded
+                            : isActive
                             ? Icons.visibility_off_rounded
                             : Icons.visibility_rounded,
-                        color: const Color(0xFFF59E0B),
-                        onTap: () => _toggleStatus(docId, !isActive),
+                        color: status == 'pending'
+                            ? const Color(0xFFF59E0B)
+                            : status == 'rejected'
+                            ? const Color(0xFFDC2626)
+                            : isActive
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF16A34A),
+                        onTap: status == 'approved'
+                            ? () => _toggleStatus(docId, !isActive)
+                            : () => _showStatusInfo(status),
                       ),
                       _buildActionBtn(
                         icon: Icons.delete_rounded,
@@ -376,24 +389,51 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     );
   }
 
-  Widget _buildStatusBadge(bool isActive) {
+  Widget _buildStatusBadge(bool isActive, String status) {
+    // Priorité : si pending ou rejected, afficher ce statut
+    // Si approved : afficher actif/inactif selon isActive
+    Color bg, textColor;
+    IconData icon;
+    String label;
+
+    if (status == 'pending') {
+      bg        = const Color(0xFFFFFBEB);
+      textColor = const Color(0xFFF59E0B);
+      icon      = Icons.access_time_rounded;
+      label     = _t('seller_product_pending');
+    } else if (status == 'rejected') {
+      bg        = const Color(0xFFFEF2F2);
+      textColor = const Color(0xFFDC2626);
+      icon      = Icons.cancel_rounded;
+      label     = _t('seller_product_rejected');
+    } else {
+      // approved — afficher actif/inactif
+      bg        = isActive ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED);
+      textColor = isActive ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
+      icon      = isActive ? Icons.check_circle_rounded : Icons.pause_circle_rounded;
+      label     = isActive ? _t('seller_product_active') : _t('seller_product_inactive');
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0xFFF0FDF4)
-            : const Color(0xFFFFF7ED),
+        color: bg,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        isActive ? _t('seller_product_active') : _t('seller_product_inactive'),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: isActive
-              ? const Color(0xFF16A34A)
-              : const Color(0xFFF59E0B),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: textColor, size: 10),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -415,6 +455,32 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         child: Icon(icon, color: color, size: 16),
       ),
     );
+  }
+
+  void _showStatusInfo(String status) {
+    final isPending  = status == 'pending';
+    final color      = isPending ? const Color(0xFFF59E0B) : const Color(0xFFDC2626);
+    final icon       = isPending ? Icons.access_time_rounded : Icons.cancel_rounded;
+    final title      = isPending
+        ? _t('seller_product_pending')
+        : _t('seller_product_rejected');
+    final message    = isPending
+        ? _t('seller_product_pending_info')
+        : _t('seller_product_rejected_info');
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text('$title — $message')),
+        ],
+      ),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   Future<void> _toggleStatus(String docId, bool isActive) async {

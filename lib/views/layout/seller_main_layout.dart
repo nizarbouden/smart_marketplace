@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
+import 'package:smart_marketplace/providers/language_provider.dart';
 import '../compte/seller_profile_page.dart';
 import '../dashboard/seller_dashboard_page.dart';
 import '../orders/seller_orders_page.dart';
@@ -15,6 +17,7 @@ class SellerMainLayout extends StatefulWidget {
 class _SellerMainLayoutState extends State<SellerMainLayout> {
   int _currentIndex = 0;
 
+  // ✅ Utilise le provider pour que la langue se mette à jour immédiatement
   String _t(String key) => AppLocalizations.get(key);
 
   final List<Widget> _pages = const [
@@ -24,7 +27,8 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
     SellerProfilePage(),
   ];
 
-  List<_NavItemData> get _navItems => [
+  // ✅ Appelé à chaque rebuild (quand langue change) → labels mis à jour
+  List<_NavItemData> _buildNavItems() => [
     _NavItemData(
       activeIcon: Icons.dashboard_rounded,
       inactiveIcon: Icons.dashboard_outlined,
@@ -49,14 +53,19 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final isRtl = AppLocalizations.isRtl;
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Use side navigation on large screens (tablets/desktops >= 600px)
-    final isWideScreen = screenWidth >= 600;
+    // ✅ Consumer sur LanguageProvider → rebuild immédiat au changement de langue
+    return Consumer<LanguageProvider>(
+      builder: (context, langProvider, _) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isWideScreen = screenWidth >= 600;
 
-    return Directionality(
-      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-      child: isWideScreen ? _buildWideLayout() : _buildNarrowLayout(),
+        // ✅ Directionality avec TextDirection.ltr TOUJOURS
+        // pour garder l'ordre des onglets identique en arabe
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: isWideScreen ? _buildWideLayout() : _buildNarrowLayout(),
+        );
+      },
     );
   }
 
@@ -73,7 +82,7 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
 
   /// Wide layout: side rail navigation (tablets / desktops)
   Widget _buildWideLayout() {
-    final items = _navItems;
+    final items = _buildNavItems();
     return Scaffold(
       body: Row(
         children: [
@@ -96,13 +105,11 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
             indicatorColor:
             const Color(0xFF16A34A).withOpacity(0.12),
             destinations: items
-                .asMap()
-                .entries
                 .map(
                   (e) => NavigationRailDestination(
-                icon: Icon(e.value.inactiveIcon),
-                selectedIcon: Icon(e.value.activeIcon),
-                label: Text(e.value.label),
+                icon: Icon(e.inactiveIcon),
+                selectedIcon: Icon(e.activeIcon),
+                label: Text(e.label),
               ),
             )
                 .toList(),
@@ -120,7 +127,7 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
   }
 
   Widget _buildBottomNav() {
-    final items = _navItems;
+    final items = _buildNavItems(); // ✅ recalculé à chaque rebuild
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -136,6 +143,8 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
+            // ✅ LTR forcé → ordre toujours Dashboard / Produits / Commandes / Profil
+            textDirection: TextDirection.ltr,
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: items
                 .asMap()
@@ -155,8 +164,7 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
         onTap: () => setState(() => _currentIndex = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             color: isActive
                 ? const Color(0xFF16A34A).withOpacity(0.1)
@@ -178,9 +186,8 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
                 item.label,
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight: isActive
-                      ? FontWeight.w700
-                      : FontWeight.normal,
+                  fontWeight:
+                  isActive ? FontWeight.w700 : FontWeight.normal,
                   color: isActive
                       ? const Color(0xFF16A34A)
                       : Colors.grey[400],
@@ -188,6 +195,8 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
+                // ✅ texte arabe centré sans inverser l'ordre
+                textDirection: TextDirection.ltr,
               ),
             ],
           ),

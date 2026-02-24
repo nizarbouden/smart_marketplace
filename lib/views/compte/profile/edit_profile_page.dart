@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_marketplace/viewmodels/profile_viewmodel.dart';
-import 'package:smart_marketplace/widgets/custom_text_field.dart';
 import 'package:smart_marketplace/widgets/phone_field_widget.dart';
 import 'package:smart_marketplace/widgets/gender_field_widget.dart';
 import 'package:smart_marketplace/models/user_model.dart';
@@ -26,16 +24,39 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
+  // ✅ Store name controller (seller only)
+  final TextEditingController _storeNameCtrl = TextEditingController();
+
   // Base64 image state
-  String? _base64Image;      // nouvelle image choisie (en mémoire)
-  String? _existingBase64;   // image déjà enregistrée dans Firestore
+  String? _base64Image;
+  String? _existingBase64;
   bool _isSavingImage = false;
 
+  // ✅ Role detection
+  late bool _isSeller;
+  Color get _iconColor => _isSeller ? const Color(0xFF16A34A) : Colors.deepPurple;
+
   String _t(String key) => AppLocalizations.get(key);
+
+  // ✅ Couleur thème selon le rôle
+  Color get _themeColor =>
+      _isSeller ? const Color(0xFF16A34A) : Colors.deepPurple;
+
+  Color get _themeLightColor =>
+      _isSeller ? const Color(0xFFDCFCE7) : Colors.deepPurple.shade50;
+
+  Color get _themeAccentColor =>
+      _isSeller ? const Color(0xFF15803D) : Colors.deepPurple.shade700;
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ Détection du rôle
+    _isSeller = widget.user?.role == UserRole.seller;
+
+    // ✅ Pré-remplissage du store name
+    _storeNameCtrl.text = widget.user?.storeName ?? '';
 
     final String authEmail = FirebaseAuthService().getCurrentEmail() ?? '';
     final String userEmail = widget.user?.email ?? authEmail;
@@ -50,7 +71,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
       photoUrl:    widget.user?.photoUrl,
     );
 
-    // Charger l'image Base64 déjà stockée dans Firestore
     _loadExistingBase64();
 
     if (authEmail.isNotEmpty && authEmail != widget.user?.email) {
@@ -58,7 +78,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  /// Charge l'image Base64 existante depuis Firestore
+  @override
+  void dispose() {
+    _storeNameCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadExistingBase64() async {
     try {
       final uid = FirebaseAuthService().currentUser?.uid;
@@ -80,21 +105,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } catch (_) {}
   }
 
-  // ── Sélection & conversion image ────────────────────────────
+  // ── Image picking ────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
         source:       source,
-        imageQuality: 50,   // compression qualité
-        maxWidth:     600,  // max largeur en px
+        imageQuality: 50,
+        maxWidth:     600,
       );
       if (picked == null) return;
 
-      final bytes       = await File(picked.path).readAsBytes();
-      final base64Str   = base64Encode(bytes);
+      final bytes     = await File(picked.path).readAsBytes();
+      final base64Str = base64Encode(bytes);
 
-      // Vérification taille (Firestore max 1 MB par doc)
       final sizeKb = bytes.lengthInBytes / 1024;
       if (sizeKb > 900) {
         if (mounted) {
@@ -138,8 +162,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded,
-                    color: Colors.deepPurple),
+                leading: Icon(Icons.photo_library_rounded, color: _themeColor),
                 title: Text(_t('edit_profile_gallery')),
                 onTap: () {
                   Navigator.pop(context);
@@ -147,8 +170,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded,
-                    color: Colors.deepPurple),
+                leading: Icon(Icons.camera_alt_rounded, color: _themeColor),
                 title: Text(_t('edit_profile_camera')),
                 onTap: () {
                   Navigator.pop(context);
@@ -157,14 +179,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               if (_base64Image != null || _existingBase64 != null)
                 ListTile(
-                  leading: const Icon(Icons.delete_rounded,
-                      color: Colors.red),
+                  leading: const Icon(Icons.delete_rounded, color: Colors.red),
                   title: Text(_t('edit_profile_remove_photo'),
                       style: const TextStyle(color: Colors.red)),
                   onTap: () {
                     Navigator.pop(context);
                     setState(() {
-                      _base64Image   = null;
+                      _base64Image    = null;
                       _existingBase64 = null;
                     });
                   },
@@ -231,9 +252,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Avatar avec sélection Base64 ──────────────────
-            _buildAvatarPicker(isDesktop, isTablet),
+            // ✅ Badge rôle au-dessus de l'avatar
 
+
+
+            _buildAvatarPicker(isDesktop, isTablet),
+            const SizedBox(height: 16),
+            _buildRoleBadge(),
             SizedBox(height: isDesktop ? 45 : isTablet ? 37 : 31),
 
             _buildFormFields(context, isDesktop, isTablet),
@@ -247,19 +272,52 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  // ✅ Badge rôle (Vendeur / Acheteur)
+  Widget _buildRoleBadge() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: _themeLightColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _themeColor.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _isSeller ? Icons.storefront_rounded : Icons.shopping_bag_rounded,
+              color: _themeColor,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _isSeller
+                  ? _t('seller_role_label')
+                  : _t('buyer_role_label'),
+              style: TextStyle(
+                color: _themeColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Avatar picker ────────────────────────────────────────────
 
   Widget _buildAvatarPicker(bool isDesktop, bool isTablet) {
     final double radius = isDesktop ? 70 : isTablet ? 55 : 45;
 
-    // Priorité : nouvelle image > image existante Firestore > photoUrl réseau
     Widget avatarChild;
     if (_base64Image != null) {
       avatarChild = ClipOval(
         child: Image.memory(
           base64Decode(_base64Image!),
-          width:  radius * 2,
-          height: radius * 2,
+          width: radius * 2, height: radius * 2,
           fit: BoxFit.cover,
         ),
       );
@@ -267,8 +325,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       avatarChild = ClipOval(
         child: Image.memory(
           base64Decode(_existingBase64!),
-          width:  radius * 2,
-          height: radius * 2,
+          width: radius * 2, height: radius * 2,
           fit: BoxFit.cover,
         ),
       );
@@ -276,22 +333,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
       avatarChild = ClipOval(
         child: Image.network(
           viewModel.profileImageUrl!,
-          width:  radius * 2,
-          height: radius * 2,
+          width: radius * 2, height: radius * 2,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Icon(
-            Icons.person,
-            size: radius,
-            color: Colors.deepPurple,
+            Icons.person, size: radius, color: _themeColor,
           ),
         ),
       );
     } else {
-      avatarChild = Icon(
-        Icons.person,
-        size: radius,
-        color: Colors.deepPurple,
-      );
+      avatarChild = Icon(Icons.person, size: radius, color: _themeColor);
     }
 
     return Center(
@@ -299,7 +349,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         children: [
           CircleAvatar(
             radius: radius,
-            backgroundColor: Colors.deepPurple[100],
+            backgroundColor: _themeLightColor,
             child: avatarChild,
           ),
           Positioned(
@@ -309,8 +359,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               onTap: _showImageSourceSheet,
               child: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Colors.deepPurple,
+                decoration: BoxDecoration(
+                  color: _themeColor,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -326,38 +376,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // ── Form fields (inchangés) ──────────────────────────────────
+  // ── Form fields ──────────────────────────────────────────────
 
   Widget _buildFormFields(BuildContext context, bool isDesktop, bool isTablet) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(_t('edit_profile_section_personal'), isDesktop, isTablet),
+
+        // ✅ Section store name — sellers uniquement
+        if (_isSeller) ...[
+          _buildSectionHeader(
+            _t('seller_store_section'),
+            isDesktop, isTablet,
+          ),
+          SizedBox(height: isDesktop ? 12 : 8),
+          _buildStoreNameField(isDesktop, isTablet),
+          SizedBox(height: isDesktop ? 32 : 24),
+        ],
+
+        // ── Informations personnelles ─────────────────────────
+        _buildSectionHeader(
+          _t('edit_profile_section_personal'),
+          isDesktop, isTablet,
+        ),
         SizedBox(height: isDesktop ? 12 : 8),
 
         Row(
           children: [
             Expanded(
-              child: CustomTextField(
+              child: _buildThemedField(
                 controller: viewModel.firstNameController,
                 label:      _t('edit_profile_first_name'),
-                validator:  (v) => (v == null || v.isEmpty)
+                icon:       Icons.person,
+                isDesktop:  isDesktop,
+                isTablet:   isTablet,
+                validator: (v) => (v == null || v.isEmpty)
                     ? _t('edit_profile_first_name_required') : null,
-                isDesktop: isDesktop,
-                isTablet:  isTablet,
-                prefixIcon: Icons.person,
               ),
             ),
             SizedBox(width: isDesktop ? 20 : isTablet ? 16 : 12),
             Expanded(
-              child: CustomTextField(
+              child: _buildThemedField(
                 controller: viewModel.lastNameController,
                 label:      _t('edit_profile_last_name'),
-                validator:  (v) => (v == null || v.isEmpty)
+                icon:       Icons.person_outline,
+                isDesktop:  isDesktop,
+                isTablet:   isTablet,
+                validator: (v) => (v == null || v.isEmpty)
                     ? _t('edit_profile_last_name_required') : null,
-                isDesktop: isDesktop,
-                isTablet:  isTablet,
-                prefixIcon: Icons.person_outline,
               ),
             ),
           ],
@@ -372,41 +438,48 @@ class _EditProfilePageState extends State<EditProfilePage> {
             onGenderSelected: vm.selectGender,
             isDesktop: isDesktop,
             isTablet:  isTablet,
+            iconColor: _iconColor, // ✅ _iconColor est accessible ici car on est dans le State
           ),
         ),
 
         SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
 
-        _buildSectionHeader(_t('edit_profile_section_contact'), isDesktop, isTablet),
+        // ── Contact ───────────────────────────────────────────
+        _buildSectionHeader(
+          _t('edit_profile_section_contact'),
+          isDesktop, isTablet,
+
+        ),
         SizedBox(height: isDesktop ? 12 : 8),
 
-        CustomTextField(
+        // Email (readonly)
+        _buildThemedField(
           controller:   viewModel.emailController,
           label:        _t('edit_profile_email'),
+          icon:         Icons.email,
           isDesktop:    isDesktop,
           isTablet:     isTablet,
-          prefixIcon:   Icons.email,
           keyboardType: TextInputType.emailAddress,
-          enabled:  false,
-          readOnly: true,
+          enabled:      false,
+          readOnly:     true,
         ),
 
         Container(
           margin:  const EdgeInsets.only(top: 8),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.08),
+            color: _themeColor.withOpacity(0.06),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.withOpacity(0.4)),
+            border: Border.all(color: _themeColor.withOpacity(0.3)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+              Icon(Icons.info_outline, color: _themeColor, size: 16),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _t('edit_profile_email_readonly'),
-                  style: const TextStyle(color: Colors.blue, fontSize: 12),
+                  style: TextStyle(color: _themeColor, fontSize: 12),
                 ),
               ),
             ],
@@ -427,19 +500,166 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ? _t('edit_profile_phone_required') : null,
           isDesktop: isDesktop,
           isTablet:  isTablet,
+          iconColor: _iconColor,
         ),
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title, bool isDesktop, bool isTablet) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize:   isDesktop ? 18 : isTablet ? 17 : 16,
-        fontWeight: FontWeight.bold,
-        color:      Colors.black87,
+  // ✅ Champ store name stylisé
+  Widget _buildStoreNameField(bool isDesktop, bool isTablet) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
+      child: TextFormField(
+        controller: _storeNameCtrl,
+        style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+        decoration: InputDecoration(
+          hintText: _t('seller_store_name_hint'),
+          hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+          prefixIcon: Icon(Icons.storefront_rounded,
+              color: _themeColor, size: 20),
+          filled:    true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: _themeColor, width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 14),
+        ),
+        validator: (v) {
+          if (_isSeller && (v == null || v.trim().isEmpty)) {
+            return _t('seller_store_name_required');
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  // ✅ Champ texte thémé (remplace CustomTextField pour appliquer la couleur)
+  Widget _buildThemedField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isDesktop,
+    required bool isTablet,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+    bool enabled  = true,
+    bool readOnly = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: enabled ? Colors.white : Colors.grey[100],
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: enabled
+            ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ]
+            : [],
+      ),
+      child: TextFormField(
+        controller:   controller,
+        keyboardType: keyboardType,
+        enabled:      enabled,
+        readOnly:     readOnly,
+        validator:    validator,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        style: TextStyle(
+          fontSize: 14,
+          color: enabled ? const Color(0xFF1E293B) : Colors.grey[500],
+        ),
+        decoration: InputDecoration(
+          hintText:  label,
+          hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+          prefixIcon: Icon(icon,
+              color: enabled ? _themeColor : Colors.grey[400], size: 20),
+          filled:    true,
+          fillColor: enabled ? Colors.white : Colors.grey[100],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: _themeColor, width: 1.5),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+          ),
+          errorStyle: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  // ✅ Section header avec icône colorée selon le rôle
+  Widget _buildSectionHeader(
+      String title,
+      bool isDesktop,
+      bool isTablet, {
+        IconData? icon,
+      }) {
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _themeLightColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: _themeColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Text(
+          title,
+          style: TextStyle(
+            fontSize:   isDesktop ? 18 : isTablet ? 17 : 16,
+            fontWeight: FontWeight.bold,
+            color:      Colors.black87,
+          ),
+        ),
+      ],
     );
   }
 
@@ -458,23 +678,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
           setState(() => _isSavingImage = true);
 
           try {
-            // 1. Sauvegarder le profil (via ViewModel existant)
             bool success = await viewModel.saveProfile(context);
 
             if (success) {
-              // 2. Sauvegarder l'image Base64 dans Firestore
               final uid = FirebaseAuthService().currentUser?.uid ?? '';
               if (uid.isNotEmpty) {
                 final updateData = <String, dynamic>{};
 
                 if (_base64Image != null) {
-                  // Nouvelle image sélectionnée
                   updateData['photoBase64'] = _base64Image;
                 } else if (_existingBase64 == null) {
-                  // Image supprimée par l'utilisateur
                   updateData['photoBase64'] = FieldValue.delete();
                 }
-                // Si _existingBase64 != null et pas de nouvelle image → rien à changer
+
+                // ✅ Sauvegarde du store name pour les sellers
+                if (_isSeller) {
+                  final store = _storeNameCtrl.text.trim();
+                  updateData['storeName'] =
+                  store.isNotEmpty ? store : FieldValue.delete();
+                }
 
                 if (updateData.isNotEmpty) {
                   await FirebaseFirestore.instance
@@ -484,7 +706,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 }
               }
 
-              // 3. Notification
               try {
                 await FirebaseAuthService().createNotification(
                   userId: uid,
@@ -497,7 +718,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(_t('edit_profile_success')),
-                  backgroundColor: Colors.green,
+                  backgroundColor: _themeColor,
                 ));
                 Future.delayed(const Duration(seconds: 1), () {
                   if (mounted) Navigator.of(context).pop();
@@ -541,9 +762,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple,
+          backgroundColor: _themeColor,
           foregroundColor: Colors.white,
           elevation: 4,
+          shadowColor: _themeColor.withOpacity(0.4),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12)),
         ),

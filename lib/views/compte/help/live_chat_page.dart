@@ -1008,7 +1008,6 @@ class _LiveChatPageState extends State<LiveChatPage> with TickerProviderStateMix
                     : TextDirection.ltr,
                 maxLines: 4,
                 minLines: 1,
-                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   hintText: _t('chat_input_hint'),
                   hintStyle:
@@ -1021,54 +1020,51 @@ class _LiveChatPageState extends State<LiveChatPage> with TickerProviderStateMix
             ),
           ),
           const SizedBox(width: 10),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: _messageController.text.trim().isNotEmpty
-                  ? const LinearGradient(
-                colors: [Color(0xFF6C63FF), Color(0xFF48CAE4)],
-              )
-                  : null,
-              color: _messageController.text.trim().isEmpty
-                  ? const Color(0xFFE2E8F0)
-                  : null,
-              shape: BoxShape.circle,
-              boxShadow: _messageController.text.trim().isNotEmpty
-                  ? [
-                BoxShadow(
-                  color:
-                  const Color(0xFF6C63FF).withOpacity(0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _messageController,
+            builder: (context, value, _) {
+              final hasText = value.text.trim().isNotEmpty;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: hasText
+                      ? const LinearGradient(
+                    colors: [Color(0xFF6C63FF), Color(0xFF48CAE4)],
+                  )
+                      : null,
+                  color: hasText ? null : const Color(0xFFE2E8F0),
+                  shape: BoxShape.circle,
+                  boxShadow: hasText
+                      ? [
+                    BoxShadow(
+                      color: const Color(0xFF6C63FF).withOpacity(0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                      : [],
                 ),
-              ]
-                  : [],
-            ),
-            child: IconButton(
-              onPressed:
-              _messageController.text.trim().isNotEmpty && !_isSending
-                  ? _sendMessage
-                  : null,
-              icon: _isSending
-                  ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor:
-                  AlwaysStoppedAnimation<Color>(Colors.white),
+                child: IconButton(
+                  onPressed: hasText && !_isSending ? _sendMessage : null,
+                  icon: _isSending
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                      : Icon(
+                    Icons.send_rounded,
+                    color: hasText ? Colors.white : Colors.grey[400],
+                    size: 20,
+                  ),
                 ),
-              )
-                  : Icon(
-                Icons.send_rounded,
-                color: _messageController.text.trim().isNotEmpty
-                    ? Colors.white
-                    : Colors.grey[400],
-                size: 20,
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
