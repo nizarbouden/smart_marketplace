@@ -17,15 +17,24 @@ class HelpPage extends StatefulWidget {
 
 class _HelpPageState extends State<HelpPage> {
   final TextEditingController _searchController = TextEditingController();
-  final FAQService _faqService = FAQService();
-  final EmailService _emailService = EmailService();
-  final TextEditingController _issueController = TextEditingController();
+  final FAQService             _faqService       = FAQService();
+  final EmailService           _emailService     = EmailService();
+  final TextEditingController  _issueController  = TextEditingController();
+
   List<Map<String, dynamic>> _filteredArticles = [];
-  List<Map<String, dynamic>> _allArticles = [];
-  List<String> _categories = [];
-  String _selectedCategory = '';   // initialisé dans initState
-  bool _isLoading = true;
-  bool _isSendingEmail = false;
+  List<Map<String, dynamic>> _allArticles      = [];
+  List<String>               _categories       = [];
+
+  String _selectedCategory = '';
+  bool   _isLoading        = true;
+  bool   _isSendingEmail   = false;
+
+  // ── Rôle & couleur principale ────────────────────────────────
+  String _userRole = 'buyer'; // 'buyer' | 'seller'
+
+  /// Couleur primaire selon le rôle
+  Color get _primary =>
+      _userRole == 'seller' ? const Color(0xFF16A34A) : const Color(0xFF8700FF);
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -33,7 +42,7 @@ class _HelpPageState extends State<HelpPage> {
   void initState() {
     super.initState();
     _selectedCategory = _t('help_category_all');
-    _loadFAQs();
+    _loadRoleAndFAQs();
     _searchController.addListener(_filterArticles);
   }
 
@@ -44,20 +53,27 @@ class _HelpPageState extends State<HelpPage> {
     super.dispose();
   }
 
-  Future<void> _loadFAQs() async {
+  // ── Charger rôle puis FAQs ───────────────────────────────────
+  Future<void> _loadRoleAndFAQs() async {
     setState(() => _isLoading = true);
     try {
+      final role = await _faqService.getUserRole();
+      if (mounted) setState(() => _userRole = role);
+
       final faqs       = await _faqService.getAllFAQs();
       final categories = await _faqService.getCategories();
-      setState(() {
-        _allArticles      = faqs;
-        _filteredArticles = faqs;
-        _categories       = [_t('help_category_all'), ...categories];
-        _selectedCategory = _t('help_category_all');
-        _isLoading        = false;
-      });
+
+      if (mounted) {
+        setState(() {
+          _allArticles      = faqs;
+          _filteredArticles = faqs;
+          _categories       = [_t('help_category_all'), ...categories];
+          _selectedCategory = _t('help_category_all');
+          _isLoading        = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('${_t('help_faq_load_error')}: $e'),
@@ -67,11 +83,13 @@ class _HelpPageState extends State<HelpPage> {
     }
   }
 
-  Color _getColorFromString(String colorString) {
-    if (colorString.startsWith('#')) {
-      return Color(int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
+  // ── Helpers couleur / icône ──────────────────────────────────
+
+  Color _getColorFromString(String s) {
+    if (s.startsWith('#')) {
+      return Color(int.parse(s.substring(1), radix: 16) + 0xFF000000);
     }
-    switch (colorString.toLowerCase()) {
+    switch (s.toLowerCase()) {
       case 'blue':   return Colors.blue;
       case 'orange': return Colors.orange;
       case 'green':  return Colors.green;
@@ -84,8 +102,8 @@ class _HelpPageState extends State<HelpPage> {
     }
   }
 
-  IconData _getIconFromString(String iconName) {
-    switch (iconName) {
+  IconData _getIconFromString(String name) {
+    switch (name) {
       case 'local_shipping':    return Icons.local_shipping;
       case 'cancel':            return Icons.cancel;
       case 'payment':           return Icons.payment;
@@ -94,43 +112,52 @@ class _HelpPageState extends State<HelpPage> {
       case 'assignment_return': return Icons.assignment_return;
       case 'security':          return Icons.security;
       case 'system_update':     return Icons.system_update;
+      case 'store':             return Icons.store;
+      case 'inventory':         return Icons.inventory_2;
+      case 'analytics':         return Icons.analytics;
+      case 'verified':          return Icons.verified;
       default:                  return Icons.help_outline;
     }
   }
 
   Color _getCategoryColor(String category) {
-    final cat = category.toLowerCase();
-    if (cat.contains('command') || cat.contains('order')) return Colors.blue;
-    if (cat.contains('paiem') || cat.contains('payment')) return Colors.green;
-    if (cat.contains('compte') || cat.contains('account')) return Colors.purple;
-    if (cat.contains('livr') || cat.contains('deliv')) return Colors.red;
-    if (cat.contains('retour') || cat.contains('return')) return Colors.teal;
-    if (cat.contains('sécu') || cat.contains('secur')) return Colors.indigo;
-    if (cat.contains('applic') || cat.contains('app')) return Colors.cyan;
-    return Colors.deepPurple;
+    final c = category.toLowerCase();
+    if (c.contains('command') || c.contains('order'))   return Colors.blue;
+    if (c.contains('paiem')   || c.contains('payment')) return Colors.green;
+    if (c.contains('compte')  || c.contains('account')) return Colors.purple;
+    if (c.contains('livr')    || c.contains('deliv'))   return Colors.red;
+    if (c.contains('retour')  || c.contains('return'))  return Colors.teal;
+    if (c.contains('sécu')    || c.contains('secur'))   return Colors.indigo;
+    if (c.contains('applic')  || c.contains('app'))     return Colors.cyan;
+    if (c.contains('produit') || c.contains('product')) return Colors.orange;
+    return _primary;
   }
+
+  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile  = screenWidth < 600;
-    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
-    final isDesktop = screenWidth >= 1200;
+    final w         = MediaQuery.of(context).size.width;
+    final isMobile  = w < 600;
+    final isTablet  = w >= 600 && w < 1200;
+    final isDesktop = w >= 1200;
 
     return Directionality(
-      textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      textDirection:
+      AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-        body: _isLoading
-            ? _buildLoadingWidget()
-            : _buildBody(context, isDesktop, isTablet, isMobile),
-        floatingActionButton: _buildFloatingActionButton(isDesktop, isTablet, isMobile),
+        appBar:  _buildAppBar(isDesktop, isTablet),
+        body:    _isLoading ? _buildLoading() : _buildBody(isDesktop, isTablet, isMobile),
+        floatingActionButton:
+        _buildFAB(isDesktop, isTablet, isMobile),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+  // ── AppBar avec badge rôle ───────────────────────────────────
+
+  PreferredSizeWidget _buildAppBar(bool isDesktop, bool isTablet) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -142,42 +169,91 @@ class _HelpPageState extends State<HelpPage> {
           size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
       ),
-      title: Text(
-        _t('help_center_title'),
-        style: TextStyle(
-          color: Colors.black87,
-          fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
-          fontWeight: FontWeight.bold,
-        ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _t('help_center_title'),
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: isDesktop ? 22 : isTablet ? 20 : 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (!_isLoading) ...[
+            const SizedBox(width: 10),
+            // Badge rôle coloré
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _userRole == 'seller'
+                        ? Icons.store_rounded
+                        : Icons.person_rounded,
+                    color: _primary,
+                    size: 11,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _userRole == 'seller'
+                        ? _t('seller_role_label')
+                        : _t('buyer_role_label'),
+                    style: TextStyle(
+                      color: _primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
       centerTitle: false,
     );
   }
 
-  Widget _buildLoadingWidget() {
-    return const Center(
+  // ── Loading ──────────────────────────────────────────────────
+
+  Widget _buildLoading() {
+    return Center(
       child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+        valueColor: AlwaysStoppedAnimation<Color>(_primary),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+  // ── Body ─────────────────────────────────────────────────────
+
+  Widget _buildBody(bool isDesktop, bool isTablet, bool isMobile) {
+    final pad = isMobile ? 16.0 : isTablet ? 20.0 : 24.0;
+
     return Column(
       children: [
         // Barre de recherche
         Container(
-          margin: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
+          margin: EdgeInsets.all(pad),
           child: TextField(
             controller: _searchController,
-            textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+            textDirection: AppLocalizations.isRtl
+                ? TextDirection.rtl
+                : TextDirection.ltr,
             decoration: InputDecoration(
               hintText: _t('help_search_hint'),
               hintStyle: TextStyle(
                 color: Colors.grey[400],
                 fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
               ),
-              prefixIcon: Icon(Icons.search, color: Colors.grey[600],
+              prefixIcon: Icon(Icons.search,
+                  color: Colors.grey[600],
                   size: isDesktop ? 24 : isTablet ? 22 : 20),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -189,10 +265,10 @@ class _HelpPageState extends State<HelpPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
+                borderSide: BorderSide(color: _primary, width: 2),
               ),
               contentPadding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+                horizontal: pad,
                 vertical: isMobile ? 14 : isTablet ? 16 : 18,
               ),
               filled: true,
@@ -201,17 +277,17 @@ class _HelpPageState extends State<HelpPage> {
           ),
         ),
 
-        // Filtres de catégorie
+        // Filtres catégories
         Container(
-          margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : isTablet ? 20 : 24),
+          margin: EdgeInsets.symmetric(horizontal: pad),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _categories.map((category) {
-                final isAll      = category == _t('help_category_all');
-                final color      = isAll ? Colors.deepPurple : _getCategoryColor(category);
-                final isSelected = category == _selectedCategory;
-                return _buildCategoryChip(category, color, isSelected);
+              children: _categories.map((cat) {
+                final isAll      = cat == _t('help_category_all');
+                final color      = isAll ? _primary : _getCategoryColor(cat);
+                final isSelected = cat == _selectedCategory;
+                return _buildCategoryChip(cat, color, isSelected);
               }).toList(),
             ),
           ),
@@ -219,26 +295,26 @@ class _HelpPageState extends State<HelpPage> {
 
         SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
 
-        // Liste des articles
+        // Liste FAQs
         Expanded(
           child: _filteredArticles.isEmpty
-              ? _buildEmptyState(context, isDesktop, isTablet, isMobile)
+              ? _buildEmptyState(isDesktop, isTablet, isMobile)
               : ListView.builder(
             padding: EdgeInsets.only(
-              left:   isMobile ? 16 : isTablet ? 20 : 24,
-              right:  isMobile ? 16 : isTablet ? 20 : 24,
+              left:   pad,
+              right:  pad,
               bottom: isMobile ? 80 : isTablet ? 90 : 100,
             ),
             itemCount: _filteredArticles.length,
-            itemBuilder: (context, index) {
-              return _buildArticleCard(
-                  _filteredArticles[index], isDesktop, isTablet, isMobile);
-            },
+            itemBuilder: (_, i) => _buildArticleCard(
+                _filteredArticles[i], isDesktop, isTablet, isMobile),
           ),
         ),
       ],
     );
   }
+
+  // ── Category chip ────────────────────────────────────────────
 
   Widget _buildCategoryChip(String label, Color color, bool isSelected) {
     return Container(
@@ -248,25 +324,28 @@ class _HelpPageState extends State<HelpPage> {
           label,
           style: TextStyle(
             color: isSelected ? Colors.white : color,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
         ),
-        selected: isSelected,
-        onSelected: (_) {
-          setState(() {
-            _selectedCategory = label;
-            _filterArticles();
-          });
-        },
-        backgroundColor: isSelected ? color : color.withOpacity(0.1),
+        selected:        isSelected,
+        selectedColor:   color,
+        backgroundColor: color.withOpacity(0.1),
+        checkmarkColor:  Colors.white,
         side: BorderSide(color: color.withOpacity(0.3), width: 1),
+        onSelected: (_) => setState(() {
+          _selectedCategory = label;
+          _filterArticles();
+        }),
       ),
     );
   }
 
-  Widget _buildArticleCard(Map<String, dynamic> article, bool isDesktop, bool isTablet, bool isMobile) {
-    final icon  = _getIconFromString(article['icon'] ?? 'help_outline');
+  // ── Article card ─────────────────────────────────────────────
+
+  Widget _buildArticleCard(Map<String, dynamic> article,
+      bool isDesktop, bool isTablet, bool isMobile) {
+    final icon  = _getIconFromString(article['icon']  ?? 'help_outline');
     final color = _getColorFromString(article['color'] ?? 'blue');
 
     return Container(
@@ -274,8 +353,12 @@ class _HelpPageState extends State<HelpPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _primary.withOpacity(0.07)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(
+              color:   Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset:  const Offset(0, 2)),
         ],
       ),
       child: ExpansionTile(
@@ -285,7 +368,8 @@ class _HelpPageState extends State<HelpPage> {
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: color, size: isDesktop ? 24 : isTablet ? 22 : 20),
+          child: Icon(icon, color: color,
+              size: isDesktop ? 24 : isTablet ? 22 : 20),
         ),
         title: Text(
           article['title'] ?? _t('help_faq_content_unavailable'),
@@ -297,8 +381,10 @@ class _HelpPageState extends State<HelpPage> {
         ),
         subtitle: Text(
           article['category'] ?? '',
-          style: TextStyle(fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-              color: color, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontSize: isDesktop ? 13 : 12,
+              color: color,
+              fontWeight: FontWeight.w500),
         ),
         trailing: Icon(Icons.expand_more, color: Colors.grey[400]),
         children: [
@@ -309,7 +395,7 @@ class _HelpPageState extends State<HelpPage> {
               style: TextStyle(
                 fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
                 color: Colors.grey[700],
-                height: 1.5,
+                height: 1.6,
               ),
             ),
           ),
@@ -318,55 +404,60 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left:   isMobile ? 16 : isTablet ? 20 : 24,
-        right:  isMobile ? 16 : isTablet ? 20 : 24,
-        bottom: isMobile ? 80 : isTablet ? 90 : 100,
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: isDesktop ? 80 : isTablet ? 64 : 48, color: Colors.grey[400]),
-            SizedBox(height: isMobile ? 16 : isTablet ? 20 : 24),
-            Text(
-              _t('help_empty_title'),
-              style: TextStyle(
-                fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
+  // ── Empty state ──────────────────────────────────────────────
+
+  Widget _buildEmptyState(bool isDesktop, bool isTablet, bool isMobile) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off,
+              size:  isDesktop ? 80 : isTablet ? 64 : 48,
+              color: Colors.grey[300]),
+          SizedBox(height: isMobile ? 16 : 24),
+          Text(
+            _t('help_empty_title'),
+            style: TextStyle(
+              fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
             ),
-            SizedBox(height: isMobile ? 8 : isTablet ? 10 : 12),
-            Text(
-              _t('help_empty_subtitle'),
-              style: TextStyle(fontSize: isDesktop ? 14 : isTablet ? 13 : 12, color: Colors.grey[500]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _t('help_empty_subtitle'),
+            style: TextStyle(
+                fontSize: isDesktop ? 14 : 12, color: Colors.grey[500]),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFloatingActionButton(bool isDesktop, bool isTablet, bool isMobile) {
+  // ── FAB — couleur rôle ───────────────────────────────────────
+
+  Widget _buildFAB(bool isDesktop, bool isTablet, bool isMobile) {
     return FloatingActionButton.extended(
       onPressed: _showContactSupport,
-      backgroundColor: Colors.deepPurple,
+      backgroundColor: _primary,
       foregroundColor: Colors.white,
       elevation: 4,
-      icon: Icon(Icons.support_agent, size: isDesktop ? 24 : isTablet ? 22 : 20),
+      icon: Icon(Icons.support_agent,
+          size: isDesktop ? 24 : isTablet ? 22 : 20),
       label: Text(
         _t('help_support_fab'),
-        style: TextStyle(fontSize: isDesktop ? 16 : isTablet ? 15 : 14, fontWeight: FontWeight.w600),
+        style: TextStyle(
+            fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+            fontWeight: FontWeight.w600),
       ),
     );
   }
 
+  // ── Filter ───────────────────────────────────────────────────
+
   void _filterArticles() {
-    final query = _searchController.text.toLowerCase();
+    final query       = _searchController.text.toLowerCase();
     final allCategory = _t('help_category_all');
     setState(() {
       if (query.isEmpty && _selectedCategory == allCategory) {
@@ -376,7 +467,8 @@ class _HelpPageState extends State<HelpPage> {
           final title    = (article['title']    as String? ?? '').toLowerCase();
           final content  = (article['content']  as String? ?? '').toLowerCase();
           final category = (article['category'] as String? ?? '').toLowerCase();
-          final matchesSearch   = query.isEmpty || title.contains(query) || content.contains(query);
+          final matchesSearch   = query.isEmpty ||
+              title.contains(query) || content.contains(query);
           final matchesCategory = _selectedCategory == allCategory ||
               category == _selectedCategory.toLowerCase();
           return matchesSearch && matchesCategory;
@@ -385,14 +477,17 @@ class _HelpPageState extends State<HelpPage> {
     });
   }
 
+  // ── Bottom sheet contact ─────────────────────────────────────
+
   void _showContactSupport() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Directionality(
-        textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Directionality(
+        textDirection: AppLocalizations.isRtl
+            ? TextDirection.rtl
+            : TextDirection.ltr,
         child: Container(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -400,67 +495,57 @@ class _HelpPageState extends State<HelpPage> {
             children: [
               Container(
                 width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 20),
-              Text(
-                _t('help_contact_title'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
+              Text(_t('help_contact_title'),
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87)),
               const SizedBox(height: 20),
-
-              // Chat
               _buildContactOption(
-                _t('help_chat_title'),
-                _t('help_chat_subtitle'),
-                Icons.chat,
-                Colors.green,
-                    () {
-                  Navigator.pop(context); // ferme le bottom sheet
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LiveChatPage()),
-                  );
-                },
+                _t('help_chat_title'), _t('help_chat_subtitle'),
+                Icons.chat, Colors.green, () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const LiveChatPage()));
+              },
               ),
-
-              // Téléphone
               _buildContactOption(
-                _t('help_phone_title'),
-                _t('help_phone_subtitle'),
-                Icons.phone,
-                Colors.blue,
-                    () async {
-                  Navigator.pop(context);
-                  try {
-                    final Uri phoneUri = Uri.parse('tel:21693489229');
-                    if (await canLaunchUrl(phoneUri)) {
-                      await launchUrl(phoneUri);
-                    } else {
+                _t('help_phone_title'), _t('help_phone_subtitle'),
+                Icons.phone, Colors.blue, () async {
+                Navigator.pop(context);
+                try {
+                  final uri = Uri.parse('tel:21693489229');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(_t('help_phone_unavailable')),
                         backgroundColor: Colors.orange,
                       ));
                     }
-                  } catch (e) {
+                  }
+                } catch (e) {
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text('${_t('error')}: $e'),
                       backgroundColor: Colors.red,
                     ));
                   }
-                },
+                }
+              },
               ),
-
-              // Email
               _buildContactOption(
-                _t('help_email_title'),
-                _t('help_email_subtitle'),
-                Icons.email,
-                Colors.orange,
-                    () async {
-                  Navigator.pop(context);
-                  await _showSupportEmailDialog();
-                },
+                _t('help_email_title'), _t('help_email_subtitle'),
+                Icons.email, Colors.orange, () async {
+                Navigator.pop(context);
+                await _showSupportEmailDialog();
+              },
               ),
               const SizedBox(height: 20),
             ],
@@ -470,129 +555,105 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  Widget _buildContactOption(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildContactOption(String title, String subtitle,
+      IconData icon, Color color, VoidCallback onTap) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87)),
+      subtitle: Text(subtitle,
+          style: TextStyle(fontSize: 14, color: Colors.grey[600])),
       trailing: Icon(
-        AppLocalizations.isRtl ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
+        AppLocalizations.isRtl
+            ? Icons.arrow_back_ios
+            : Icons.arrow_forward_ios,
         color: Colors.grey, size: 16,
       ),
       onTap: onTap,
     );
   }
 
-  Future<void> _copyEmailToClipboard() async {
-    try {
-      await Clipboard.setData(const ClipboardData(text: 'nizarbouden234@gmail.com'));
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_t('help_email_copied')),
-        backgroundColor: Colors.blue,
-        action: SnackBarAction(
-          label: _t('ok'),
-          textColor: Colors.white,
-          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-        ),
-      ));
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_t('help_email_fallback')),
-        backgroundColor: Colors.grey,
-        duration: const Duration(seconds: 5),
-      ));
-    }
-  }
-
-  // Dialogue pour envoyer un email de support automatiquement
   Future<void> _showSupportEmailDialog() async {
     _issueController.clear();
-
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Directionality(
-          textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
-          child: AlertDialog(
-            title: Row(
+      builder: (ctx) => Directionality(
+        textDirection: AppLocalizations.isRtl
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        child: AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.email, color: Colors.orange, size: 24),
+            const SizedBox(width: 12),
+            Text(_t('help_email_title')),
+          ]),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.email, color: Colors.orange, size: 24),
-                const SizedBox(width: 12),
-                Text(_t('help_email_title')),
+                Text(_t('help_email_dialog_subtitle'),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _issueController,
+                  maxLines: 5,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: _t('help_email_issue_hint'),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                      const BorderSide(color: Colors.orange, width: 2),
+                    ),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(_t('help_email_disclaimer'),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _t('help_email_dialog_subtitle'),
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _issueController,
-                    maxLines: 5,
-                    maxLength: 500,
-                    decoration: InputDecoration(
-                      hintText: _t('help_email_issue_hint'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.orange, width: 2),
-                      ),
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _t('help_email_disclaimer'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text(_t('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: _isSendingEmail ? null : () => _sendSupportEmail(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isSendingEmail
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(_t('help_send_email')),
-              ),
-            ],
           ),
-        );
-      },
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(_t('cancel')),
+            ),
+            ElevatedButton(
+              onPressed: _isSendingEmail ? null : _sendSupportEmail,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: _isSendingEmail
+                  ? const SizedBox(
+                width: 16, height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                    AlwaysStoppedAnimation<Color>(Colors.white)),
+              )
+                  : Text(_t('help_send_email')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // Envoyer l'email de support automatiquement
   Future<void> _sendSupportEmail() async {
     if (_issueController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -601,40 +662,34 @@ class _HelpPageState extends State<HelpPage> {
       ));
       return;
     }
-
     setState(() => _isSendingEmail = true);
-
     try {
       final user = FirebaseAuth.instance.currentUser;
       final sent = await _emailService.sendSupportEmail(
         issueDescription: _issueController.text.trim(),
-        userName: user?.displayName,
+        userName:  user?.displayName,
         userEmail: user?.email,
       );
-
-      Navigator.of(context).pop(); // Fermer le dialogue
-
-      if (sent) {
+      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_t('help_email_sent_success')),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 4),
-        ));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_t('help_email_sent_pending')),
-          backgroundColor: Colors.orange,
+          content: Text(sent
+              ? _t('help_email_sent_success')
+              : _t('help_email_sent_pending')),
+          backgroundColor: sent ? Colors.green : Colors.orange,
           duration: const Duration(seconds: 4),
         ));
       }
     } catch (e) {
-      Navigator.of(context).pop(); // Fermer le dialogue
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${_t('error')}: $e'),
-        backgroundColor: Colors.red,
-      ));
+      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${_t('error')}: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
     } finally {
-      setState(() => _isSendingEmail = false);
+      if (mounted) setState(() => _isSendingEmail = false);
     }
   }
 }

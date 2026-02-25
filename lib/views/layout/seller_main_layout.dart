@@ -5,7 +5,7 @@ import 'package:smart_marketplace/providers/language_provider.dart';
 import '../compte/seller_profile_page.dart';
 import '../dashboard/seller_dashboard_page.dart';
 import '../orders/seller_orders_page.dart';
-import '../products/seller_products_page.dart';
+import '../products/seller/seller_products_page.dart';
 
 class SellerMainLayout extends StatefulWidget {
   const SellerMainLayout({super.key});

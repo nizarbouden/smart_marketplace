@@ -446,6 +446,7 @@ class AppLocalizations {
     'notif_page_time_ago_default': 'Il y a quelque temps',
     'notif_page_mark_error': 'Erreur lors du marquage',
     'notif_page_delete_error': 'Erreur lors de la suppression',
+    'notif_title' : 'Notifications',
 
     // ── Sessions actives ──────────────────────────────────────────
     'session_cannot_revoke_current': 'Impossible de révoquer la session actuelle',
@@ -759,6 +760,8 @@ class AppLocalizations {
     'add_product_category_hint'    : 'Sélectionner une catégorie',
     'add_product_category_search'  : 'Rechercher...',
     'add_product_category_required': 'Catégorie requise',
+
+
     //──── seller product page ──────────────────────────────────────
     'add_product_pending'          : 'Produit soumis, en attente de validation',
     'add_product_validation_title' : 'Validation requise',
@@ -767,6 +770,16 @@ class AppLocalizations {
     'seller_product_rejected'      : 'Refusé',
     'seller_product_pending_info'  : 'En cours de vérification par l\'admin',
     'seller_product_rejected_info' : 'Votre produit a été refusé',
+    'seller_reward_label'           : 'Reward',
+    'seller_action_edit'            : 'Modifier',
+    'seller_action_delete'          : 'Supprimer',
+    'seller_action_activate'        : 'Activer',
+    'seller_action_deactivate'      : 'Désactiver',
+    'seller_action_status_info'     : 'Voir le statut',
+    'seller_search_products'       : 'Rechercher un produit...',
+    'seller_search_no_result'      : 'Aucun produit trouvé',
+    'seller_search_no_result_hint' : 'Essayez un autre nom',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1210,6 +1223,7 @@ class AppLocalizations {
     'notif_page_time_ago_default': 'Some time ago',
     'notif_page_mark_error': 'Error marking notification',
     'notif_page_delete_error': 'Error deleting notification',
+    'notif_title' :'Notifications',
 
     // ── Active Sessions ───────────────────────────────────────────
     'session_cannot_revoke_current': 'Cannot revoke the current session',
@@ -1537,6 +1551,9 @@ class AppLocalizations {
     'seller_product_rejected'      : 'Rejected',
     'seller_product_pending_info'  : 'Being reviewed by admin',
     'seller_product_rejected_info' : 'Your product was rejected',
+    'seller_search_products'       : 'Search a product...',
+    'seller_search_no_result'      : 'No product found',
+    'seller_search_no_result_hint' : 'Try a different name',
 
   };
   //  ARABIC
@@ -1980,6 +1997,7 @@ class AppLocalizations {
     'notif_page_time_ago_default': 'منذ فترة',
     'notif_page_mark_error': 'خطأ في تحديد الإشعار',
     'notif_page_delete_error': 'خطأ في حذف الإشعار',
+    'notif_title' :'الإشعارات',
 
     // ── الجلسات النشطة ────────────────────────────────────────────
     'session_cannot_revoke_current': 'لا يمكن إلغاء الجلسة الحالية',
@@ -2217,7 +2235,7 @@ class AppLocalizations {
     'seller_status_delivered':    'تم التسليم',
     'seller_status_cancelled':    'ملغى',
 
-    // Products page seller
+    // seller product page
     'seller_products_title':      'منتجاتي',
     'seller_add_product':         'إضافة منتج',
     'seller_edit_product':        'تعديل المنتج',
@@ -2234,6 +2252,18 @@ class AppLocalizations {
     'seller_save_changes':        'حفظ التغييرات',
     'seller_delete_product_title':'حذف المنتج',
     'seller_delete_product_confirm':'هل أنت متأكد من حذف هذا المنتج؟',
+    'seller_reward_label'           : 'مكافأة',
+    'seller_action_edit'            : 'تعديل',
+    'seller_action_delete'          : 'حذف',
+    'seller_action_activate'        : 'تفعيل',
+    'seller_action_deactivate'      : 'إلغاء التفعيل',
+    'seller_action_status_info'     : 'عرض الحالة',
+    'seller_product_pending_info'   : 'في انتظار موافقة المشرف',
+    'seller_product_rejected_info'  : 'تم رفض المنتج من قبل المشرف',
+    'seller_search_products'       : 'ابحث عن منتج...',
+    'seller_search_no_result'      : 'لا يوجد منتج',
+    'seller_search_no_result_hint' : 'جرب اسماً آخر',
+
 
     // Profile page seller
     'seller_profile_title':       'ملفي الشخصي',
@@ -2252,7 +2282,7 @@ class AppLocalizations {
     'seller_firstname':           'الاسم الأول',
     'seller_lastname':            'اسم العائلة',
 
-    //──── sellerdashboard page ──────────────────────────────────────
+    //──── seller dashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'لوحة التحكم',
     'seller_welcome':               'مرحباً',
 
@@ -2299,16 +2329,14 @@ class AppLocalizations {
     'add_product_category_hint'    : 'اختر فئة',
     'add_product_category_search'  : 'بحث...',
     'add_product_category_required': 'الفئة مطلوبة',
-
-    //──── seller product page ──────────────────────────────────────
     'seller_stat_delivered'   :'تم التسليم',
     'add_product_pending'          : 'تم إرسال المنتج، في انتظار المراجعة',
     'add_product_validation_title' : 'مطلوب التحقق',
     'add_product_validation_desc'  : 'سيكون منتجك مرئياً بعد مراجعة فريقنا (24-48 ساعة)',
     'seller_product_pending'       : 'قيد الانتظار',
     'seller_product_rejected'      : 'مرفوض',
-    'seller_product_pending_info'  : 'قيد المراجعة من قبل المشرف',
-    'seller_product_rejected_info' : 'تم رفض منتجك',
+
+
 
 
   };

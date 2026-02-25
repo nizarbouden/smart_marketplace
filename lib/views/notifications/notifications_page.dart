@@ -105,9 +105,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildHeader(bool isMobile, bool isTablet) {
-    return isMobile ? _buildButtonsMobile() : _buildButtonsDesktop(isTablet);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ✅ Ligne titre + bouton retour
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  AppLocalizations.isRtl
+                      ? Icons.arrow_forward_ios_rounded
+                      : Icons.arrow_back_ios_rounded,
+                  size: 18,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                AppLocalizations.get('notif_title'),
+                style: TextStyle(
+                  fontSize: isMobile ? 20 : (isTablet ? 22 : 24),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // ✅ Boutons actions
+        isMobile ? _buildButtonsMobile() : _buildButtonsDesktop(isTablet),
+      ],
+    );
   }
-
   Widget _buildButtonsMobile() {
     return Row(
       children: [

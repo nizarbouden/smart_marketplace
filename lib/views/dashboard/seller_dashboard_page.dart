@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:smart_marketplace/localization/app_localizations.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/language_provider.dart';
+import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 
 class SellerDashboardPage extends StatefulWidget {
   const SellerDashboardPage({super.key});
@@ -12,20 +15,44 @@ class SellerDashboardPage extends StatefulWidget {
 
 class _SellerDashboardPageState extends State<SellerDashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String _t(String key) => AppLocalizations.get(key);
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
-  // Stats
-  int _totalProducts = 0;
-  int _totalOrders = 0;
-  double _totalRevenue = 0;
-  int _pendingOrders = 0;
-  bool _isLoading = true;
+  int    _totalProducts = 0;
+  int    _totalOrders   = 0;
+  double _totalRevenue  = 0;
+  int    _pendingOrders = 0;
+  bool   _isLoading     = true;
+  int    _unreadCount   = 0;
+
+  StreamSubscription<QuerySnapshot>? _notifSub; // ✅ stream temps réel
 
   @override
   void initState() {
     super.initState();
     _loadStats();
+    _listenUnreadCount(); // ✅ écoute en continu
+  }
+
+  @override
+  void dispose() {
+    _notifSub?.cancel(); // ✅ arrêter le stream
+    super.dispose();
+  }
+
+  // ✅ Stream temps réel → badge mis à jour instantanément
+  void _listenUnreadCount() {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+
+    _notifSub = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snap) {
+      if (mounted) setState(() => _unreadCount = snap.docs.length);
+    });
   }
 
   Future<void> _loadStats() async {
@@ -34,19 +61,16 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       final uid = _currentUser?.uid;
       if (uid == null) return;
 
-      // Produits
       final products = await _firestore
           .collection('products')
           .where('sellerId', isEqualTo: uid)
           .get();
 
-      // Commandes
       final orders = await _firestore
           .collection('orders')
           .where('sellerId', isEqualTo: uid)
           .get();
 
-      // Commandes en attente
       final pending = await _firestore
           .collection('orders')
           .where('sellerId', isEqualTo: uid)
@@ -55,58 +79,74 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
       double revenue = 0;
       for (final doc in orders.docs) {
-        final data = doc.data();
-        revenue += (data['totalPrice'] as num? ?? 0).toDouble();
+        revenue += (doc.data()['totalPrice'] as num? ?? 0).toDouble();
       }
 
       setState(() {
         _totalProducts = products.docs.length;
-        _totalOrders = orders.docs.length;
-        _totalRevenue = revenue;
+        _totalOrders   = orders.docs.length;
+        _totalRevenue  = revenue;
         _pendingOrders = pending.docs.length;
-        _isLoading = false;
+        _isLoading     = false;
       });
-    } catch (e) {
+    } catch (_) {
       setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _reload() => _loadStats();
+  // ✅ pas besoin de recharger les notifs au pull-to-refresh : le stream s'en charge
+
+  void _openNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
+    String _t(String key) => lang.translate(key);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0FDF4),
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(),
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                if (_isLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF16A34A),
+      body: RefreshIndicator(
+        color: const Color(0xFF16A34A),
+        onRefresh: _reload,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _buildAppBar(_t),
+            SliverPadding(
+              padding: const EdgeInsets.all(20),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40),
+                        child: CircularProgressIndicator(
+                            color: Color(0xFF16A34A)),
                       ),
-                    ),
-                  )
-                else ...[
-                  _buildWelcomeCard(),
-                  const SizedBox(height: 24),
-                  _buildStatsGrid(),
-                  const SizedBox(height: 24),
-                  _buildRecentActivitySection(),
-                ],
-              ]),
+                    )
+                  else ...[
+                    _buildWelcomeCard(_t),
+                    const SizedBox(height: 24),
+                    _buildStatsGrid(_t),
+                    const SizedBox(height: 24),
+                    _buildRecentActivitySection(_t),
+                  ],
+                ]),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(String Function(String) _t) {
     return SliverAppBar(
       expandedHeight: 120,
       floating: false,
@@ -119,32 +159,67 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF16A34A), Color(0xFF15803D), Color(0xFF166534)],
+              colors: [
+                Color(0xFF16A34A),
+                Color(0xFF15803D),
+                Color(0xFF166534),
+              ],
             ),
           ),
         ),
         title: Text(
           _t('seller_dashboard_title'),
           style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20),
         ),
         centerTitle: false,
         titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
       ),
       actions: [
-        IconButton(
-          onPressed: _loadStats,
-          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: _openNotifications,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_rounded,
+                    color: Colors.white, size: 30),
+                if (_unreadCount > 0)
+                  Positioned(
+                    top: -5,
+                    right: -5,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(
+                          minWidth: 18, minHeight: 18),
+                      child: Text(
+                        _unreadCount > 99 ? '99+' : '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildWelcomeCard() {
+  Widget _buildWelcomeCard(String Function(String) _t) {
     final name = _currentUser?.displayName ?? _t('seller_default_name');
     return Container(
       padding: const EdgeInsets.all(20),
@@ -183,18 +258,15 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                 Text(
                   '${_t('seller_welcome')}, $name 👋',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _t('seller_welcome_subtitle'),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
-                    fontSize: 13,
-                  ),
+                      color: Colors.white.withOpacity(0.85), fontSize: 13),
                 ),
               ],
             ),
@@ -204,17 +276,16 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(String Function(String) _t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           _t('seller_stats_title'),
           style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
-          ),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B)),
         ),
         const SizedBox(height: 16),
         GridView.count(
@@ -294,21 +365,14 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: color)),
+              Text(label,
+                  style:
+                  TextStyle(fontSize: 12, color: Colors.grey[600])),
             ],
           ),
         ],
@@ -316,17 +380,16 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     );
   }
 
-  Widget _buildRecentActivitySection() {
+  Widget _buildRecentActivitySection(String Function(String) _t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           _t('seller_recent_activity'),
           style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
-          ),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B)),
         ),
         const SizedBox(height: 16),
         StreamBuilder<QuerySnapshot>(
@@ -339,7 +402,8 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF16A34A)),
+                child:
+                CircularProgressIndicator(color: Color(0xFF16A34A)),
               );
             }
 
@@ -353,9 +417,8 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                    ),
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10),
                   ],
                 ),
                 child: Center(
@@ -364,10 +427,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                       Icon(Icons.inbox_rounded,
                           size: 48, color: Colors.grey[300]),
                       const SizedBox(height: 12),
-                      Text(
-                        _t('seller_no_orders_yet'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                      ),
+                      Text(_t('seller_no_orders_yet'),
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 14)),
                     ],
                   ),
                 ),
@@ -377,7 +439,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             return Column(
               children: docs.map((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                return _buildOrderTile(data);
+                return _buildOrderTile(data, _t);
               }).toList(),
             );
           },
@@ -387,29 +449,31 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     );
   }
 
-  Widget _buildOrderTile(Map<String, dynamic> data) {
-    final status = data['status'] as String? ?? 'pending';
-    final total = (data['totalPrice'] as num? ?? 0).toDouble();
-    final orderId = (data['orderId'] as String? ?? '').substring(0, 8);
+  Widget _buildOrderTile(
+      Map<String, dynamic> data, String Function(String) _t) {
+    final status  = data['status']     as String? ?? 'pending';
+    final total   = (data['totalPrice'] as num?   ?? 0).toDouble();
+    final rawId   = data['orderId']    as String? ?? '';
+    final orderId = rawId.length >= 8 ? rawId.substring(0, 8) : rawId;
 
     Color statusColor;
     IconData statusIcon;
     switch (status) {
       case 'delivered':
         statusColor = const Color(0xFF16A34A);
-        statusIcon = Icons.check_circle_rounded;
+        statusIcon  = Icons.check_circle_rounded;
         break;
       case 'shipping':
         statusColor = const Color(0xFF3B82F6);
-        statusIcon = Icons.local_shipping_rounded;
+        statusIcon  = Icons.local_shipping_rounded;
         break;
       case 'cancelled':
         statusColor = const Color(0xFFDC2626);
-        statusIcon = Icons.cancel_rounded;
+        statusIcon  = Icons.cancel_rounded;
         break;
       default:
         statusColor = const Color(0xFFF59E0B);
-        statusIcon = Icons.pending_rounded;
+        statusIcon  = Icons.pending_rounded;
     }
 
     return Container(
@@ -420,9 +484,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-          ),
+              color: Colors.black.withOpacity(0.04), blurRadius: 8),
         ],
       ),
       child: Row(
@@ -444,10 +506,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                 Text(
                   '#$orderId...',
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Color(0xFF1E293B),
-                  ),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Color(0xFF1E293B)),
                 ),
                 Text(
                   _t('seller_order_status_$status'),
@@ -459,10 +520,9 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           Text(
             '${total.toStringAsFixed(2)} TND',
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Color(0xFF16A34A),
-            ),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Color(0xFF16A34A)),
           ),
         ],
       ),

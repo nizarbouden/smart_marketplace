@@ -8,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
 
-import '../../models/product_categories.dart'; // ✅ import catégories
+import '../../../models/product_categories.dart'; // ✅ import catégories
 
 class AddProductPage extends StatefulWidget {
   final String? docId;

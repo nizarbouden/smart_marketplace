@@ -39,7 +39,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   bool _isUserConnected() => _auth.currentUser != null;
 
-  // ── Helper pour les callbacks sans context réactif ──────────────
   String _t(String key) {
     try {
       return Provider.of<LanguageProvider>(context, listen: false).translate(key);
@@ -352,9 +351,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   void _toggleCartOverlay() => setState(() => _showCartOverlay = !_showCartOverlay);
 
+  /// Ouvre le drawer du filtre via la GlobalKey de HomePage
+  void _openHomeFilter() {
+    homePageKey.currentState?.openFilterDrawer();
+    // Rafraîchit le badge après fermeture
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ Écoute LanguageProvider → header + navbar se reconstruisent à chaque changement de langue
     final lang = Provider.of<LanguageProvider>(context);
 
     return Scaffold(
@@ -377,13 +384,21 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // ✅ Après
+                      // ── Gauche : filtre (home only) + logo + titre ──
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: _currentIndex == 0 && !_showNotifications
                             ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // 🔽 Icône filtre à gauche du logo
+                            _FilterButton(
+                              onTap: _openHomeFilter,
+                              hasActiveFilters:
+                              homePageKey.currentState?.hasActiveFilters ?? false,
+                            ),
+                            const SizedBox(width: 8),
+                            // Logo
                             Image.asset(
                               'assets/images/logoApp.png',
                               height: 32,
@@ -408,6 +423,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                               color: Colors.black),
                         ),
                       ),
+                      // ── Droite : notifications ──
                       Padding(
                         padding: const EdgeInsets.only(right: 16),
                         child: Stack(
@@ -459,7 +475,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     : IndexedStack(
                   index: _currentIndex,
                   children: [
-                    const HomePage(),
+                    // ✅ homePageKey permet d'accéder à openFilterDrawer()
+                    HomePage(key: homePageKey),
                     _totalCartItems == 0
                         ? _buildEmptyCart(lang)
                         : CartPage(
@@ -988,5 +1005,59 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       case 3:  return lang.translate('profile');
       default: return 'Winzy';
     }
+  }
+}
+
+// ── Bouton filtre dans le header ─────────────────────────────────
+
+class _FilterButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool hasActiveFilters;
+
+  const _FilterButton({
+    required this.onTap,
+    required this.hasActiveFilters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: hasActiveFilters
+                  ? Colors.deepPurple.withOpacity(0.1)
+                  : Colors.grey.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              color: hasActiveFilters ? Colors.deepPurple : Colors.black87,
+              size: 20,
+            ),
+          ),
+          // Point orange si filtres actifs
+          if (hasActiveFilters)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

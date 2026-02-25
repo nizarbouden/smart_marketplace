@@ -11,6 +11,7 @@ import 'package:smart_marketplace/views/compte/profile/edit_profile_page.dart';
 import 'package:smart_marketplace/views/compte/terms&conditions/terms_conditions_page.dart';
 
 import '../../models/user_model.dart';
+import 'help/help_page.dart';
 
 // ── Décommente selon tes imports réels ─────────────────────────
 // import 'seller_edit_profile_page.dart';
@@ -413,11 +414,10 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
 
           _languageTile(isDesktop, isTablet, langProvider),
 
-          _menuTile(
-            'help', Icons.help,
-            isDesktop, isTablet, langProvider,
-            onTap: () {},
-          ),
+          _menuTile('help', Icons.help,
+              isDesktop, isTablet, langProvider,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const HelpPage()))),
 
           _menuTile(
             'terms_conditions', Icons.description,
