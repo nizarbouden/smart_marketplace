@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
+import 'package:smart_marketplace/models/product_categories.dart';
 
 class FilterOptions {
   String? selectedCategory;
   double minPrice;
   double maxPrice;
-  String sortOrder; // 'none', 'asc', 'desc'
+  String sortOrder;
   bool inStockOnly;
 
   FilterOptions({
@@ -24,13 +26,13 @@ class FilterOptions {
     bool clearCategory = false,
   }) {
     return FilterOptions(
-      selectedCategory:
-      clearCategory ? null : (selectedCategory ?? this.selectedCategory),
+      selectedCategory: clearCategory ? null : (selectedCategory ?? this.selectedCategory),
       minPrice: minPrice ?? this.minPrice,
       maxPrice: maxPrice ?? this.maxPrice,
       sortOrder: sortOrder ?? this.sortOrder,
       inStockOnly: inStockOnly ?? this.inStockOnly,
     );
+
   }
 }
 
@@ -55,6 +57,8 @@ class FilterDrawer extends StatefulWidget {
 class _FilterDrawerState extends State<FilterDrawer> {
   late FilterOptions _filters;
 
+  String _t(String key) => AppLocalizations.get(key);
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +71,18 @@ class _FilterDrawerState extends State<FilterDrawer> {
     );
   }
 
+  // ✅ Auto-apply à chaque changement
+  void _update(FilterOptions newFilters) {
+    setState(() => _filters = newFilters);
+    widget.onApply(newFilters);
+  }
+
+  void _resetFilters() {
+    final reset = FilterOptions(maxPrice: widget.absoluteMaxPrice);
+    setState(() => _filters = reset);
+    widget.onApply(reset);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,73 +93,68 @@ class _FilterDrawerState extends State<FilterDrawer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 24, 16, 16),
+              padding: const EdgeInsets.fromLTRB(20, 24, 12, 16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
-                borderRadius: const BorderRadius.only(
-                  bottomRight: Radius.circular(16),
-                ),
+                borderRadius: const BorderRadius.only(bottomRight: Radius.circular(16)),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
                   const SizedBox(width: 10),
                   Text(
-                    'Filtres',
+                    _t('filter_title'),
                     style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+                      color: Colors.white, fontWeight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
-                  TextButton(
+                  // ✅ Icône reload à la place du texte "Réinitialiser"
+                  IconButton(
                     onPressed: _resetFilters,
-                    child: Text(
-                      'Réinitialiser',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.85),
-                        fontSize: 12,
-                      ),
+                    tooltip: _t('filter_reset'),
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withOpacity(0.15),
+                      padding: const EdgeInsets.all(6),
+                      minimumSize: const Size(34, 34),
                     ),
                   ),
                 ],
               ),
             ),
 
+            // ── Contenu ──────────────────────────────────────────
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  // ── Categories ──
-                  _SectionTitle(title: 'Catégorie'),
+                  // ── Catégories ──────────────────────────────
+                  _SectionTitle(title: _t('filter_category')),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
                       _CategoryChip(
-                        label: 'Toutes',
+                        label: _t('filter_category_all'),
                         selected: _filters.selectedCategory == null,
-                        onTap: () => setState(
-                                () => _filters = _filters.copyWith(clearCategory: true)),
+                        onTap: () => _update(_filters.copyWith(clearCategory: true)),
                       ),
-                      ...widget.categories.map(
-                            (cat) => _CategoryChip(
-                          label: cat,
-                          selected: _filters.selectedCategory == cat,
-                          onTap: () => setState(() => _filters =
-                              _filters.copyWith(selectedCategory: cat)),
-                        ),
-                      ),
+                      ...widget.categories.map((id) => _CategoryChip(
+                        label: '${ProductCategories.iconFromId(id)} ${ProductCategories.labelFromId(id, AppLocalizations.getLanguage())}',
+                        selected: _filters.selectedCategory == id,
+                        onTap: () => _update(_filters.copyWith(selectedCategory: id)),
+                      )),
                     ],
                   ),
 
                   const SizedBox(height: 28),
 
-                  // ── Price Range ──
-                  _SectionTitle(title: 'Fourchette de prix'),
+                  // ── Prix ─────────────────────────────────────
+                  _SectionTitle(title: _t('filter_price_range')),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -162,96 +173,63 @@ class _FilterDrawerState extends State<FilterDrawer> {
                     divisions: 100,
                     activeColor: theme.colorScheme.primary,
                     inactiveColor: theme.colorScheme.primary.withOpacity(0.15),
-                    onChanged: (values) {
-                      setState(() {
-                        _filters = _filters.copyWith(
-                          minPrice: values.start,
-                          maxPrice: values.end,
-                        );
-                      });
-                    },
+                    // ✅ onChangeEnd pour ne pas spammer à chaque pixel
+                    onChangeEnd: (values) => _update(_filters.copyWith(
+                      minPrice: values.start,
+                      maxPrice: values.end,
+                    )),
+                    onChanged: (values) => setState(() => _filters = _filters.copyWith(
+                      minPrice: values.start,
+                      maxPrice: values.end,
+                    )),
                   ),
 
                   const SizedBox(height: 28),
 
-                  // ── Sort ──
-                  _SectionTitle(title: 'Trier par prix'),
+                  // ── Tri ──────────────────────────────────────
+                  _SectionTitle(title: _t('filter_sort_by_price')),
                   const SizedBox(height: 10),
                   _SortTile(
-                    label: 'Par défaut',
+                    label: _t('filter_sort_default'),
                     icon: Icons.sort_rounded,
                     selected: _filters.sortOrder == 'none',
-                    onTap: () => setState(
-                            () => _filters = _filters.copyWith(sortOrder: 'none')),
+                    onTap: () => _update(_filters.copyWith(sortOrder: 'none')),
                   ),
                   const SizedBox(height: 8),
                   _SortTile(
-                    label: 'Prix croissant',
+                    label: _t('filter_sort_asc'),
                     icon: Icons.arrow_upward_rounded,
                     selected: _filters.sortOrder == 'asc',
-                    onTap: () => setState(
-                            () => _filters = _filters.copyWith(sortOrder: 'asc')),
+                    onTap: () => _update(_filters.copyWith(sortOrder: 'asc')),
                   ),
                   const SizedBox(height: 8),
                   _SortTile(
-                    label: 'Prix décroissant',
+                    label: _t('filter_sort_desc'),
                     icon: Icons.arrow_downward_rounded,
                     selected: _filters.sortOrder == 'desc',
-                    onTap: () => setState(
-                            () => _filters = _filters.copyWith(sortOrder: 'desc')),
+                    onTap: () => _update(_filters.copyWith(sortOrder: 'desc')),
                   ),
 
                   const SizedBox(height: 28),
 
-                  // ── Stock ──
-                  _SectionTitle(title: 'Disponibilité'),
+                  // ── Disponibilité ────────────────────────────
+                  _SectionTitle(title: _t('filter_availability')),
                   const SizedBox(height: 8),
                   _ToggleTile(
-                    label: 'En stock uniquement',
+                    label: _t('filter_in_stock_only'),
                     value: _filters.inStockOnly,
-                    onChanged: (v) =>
-                        setState(() => _filters = _filters.copyWith(inStockOnly: v)),
+                    onChanged: (v) => _update(_filters.copyWith(inStockOnly: v)),
                   ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
-
-            // Apply Button
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    widget.onApply(_filters);
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Appliquer les filtres',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                ),
-              ),
-            ),
+            // ✅ Bouton "Appliquer" supprimé — auto-apply actif
           ],
         ),
       ),
     );
-  }
-
-  void _resetFilters() {
-    setState(() {
-      _filters = FilterOptions(maxPrice: widget.absoluteMaxPrice);
-    });
   }
 }
 
@@ -279,11 +257,7 @@ class _CategoryChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _CategoryChip({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -296,9 +270,7 @@ class _CategoryChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? primary : primary.withOpacity(0.08),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? primary : primary.withOpacity(0.2),
-          ),
+          border: Border.all(color: selected ? primary : primary.withOpacity(0.2)),
         ),
         child: Text(
           label,
@@ -319,12 +291,7 @@ class _SortTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _SortTile({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+  const _SortTile({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -337,27 +304,22 @@ class _SortTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? primary.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? primary : Colors.grey.shade200,
-          ),
+          border: Border.all(color: selected ? primary : Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            Icon(icon,
-                size: 18, color: selected ? primary : Colors.grey.shade500),
+            Icon(icon, size: 18, color: selected ? primary : Colors.grey.shade500),
             const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? primary : Colors.grey.shade700,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                fontSize: 14,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                  color: selected ? primary : Colors.grey.shade700,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 14,
+                )),
             if (selected) ...[
               const Spacer(),
               Icon(Icons.check_rounded, size: 16, color: primary),
-            ]
+            ],
           ],
         ),
       ),
@@ -370,19 +332,16 @@ class _ToggleTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _ToggleTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
+  const _ToggleTile({required this.label, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        ),
         Switch.adaptive(
           value: value,
           onChanged: onChanged,

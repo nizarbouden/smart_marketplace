@@ -884,6 +884,22 @@ class FirebaseAuthService {
     }
   }
 
+  Future<String> getUserRole() async {
+    try {
+      final uid = currentUser?.uid; // currentUser est déjà dans FirebaseAuthService
+      if (uid == null) return 'buyer';
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      return (doc.data()?['role'] as String?) == 'seller' ? 'seller' : 'buyer';
+    } catch (e) {
+      return 'buyer';
+    }
+  }
+
   // ── SUPPRIMER L'ANCIENNE PHOTO ────────────────────────────────
   Future<void> deleteProfilePhoto() async {
     try {

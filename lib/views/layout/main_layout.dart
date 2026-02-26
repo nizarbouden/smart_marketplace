@@ -8,6 +8,7 @@ import '../compte/profile_page.dart';
 import '../home/home_page.dart';
 import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
+import '../favorites/favorites_page.dart'; // ✅ import FavoritesPage
 import '../../services/selection_service.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
@@ -330,6 +331,18 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     }
   }
 
+  // ✅ Navigation vers la page favoris
+  void _navigateToFavorites() {
+    if (_isUserConnected()) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FavoritesPage()),
+      );
+    } else {
+      _showLoginRequiredMessage();
+    }
+  }
+
   void _updateCartItemCount(int totalCount) {
     setState(() {
       _totalCartItems = totalCount;
@@ -351,10 +364,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   void _toggleCartOverlay() => setState(() => _showCartOverlay = !_showCartOverlay);
 
-  /// Ouvre le drawer du filtre via la GlobalKey de HomePage
   void _openHomeFilter() {
     homePageKey.currentState?.openFilterDrawer();
-    // Rafraîchit le badge après fermeture
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() {});
     });
@@ -384,21 +395,19 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // ── Gauche : filtre (home only) + logo + titre ──
+                      // ── Gauche ──────────────────────────────────
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: _currentIndex == 0 && !_showNotifications
                             ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // 🔽 Icône filtre à gauche du logo
                             _FilterButton(
                               onTap: _openHomeFilter,
                               hasActiveFilters:
                               homePageKey.currentState?.hasActiveFilters ?? false,
                             ),
                             const SizedBox(width: 8),
-                            // Logo
                             Image.asset(
                               'assets/images/logoApp.png',
                               height: 32,
@@ -423,45 +432,68 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                               color: Colors.black),
                         ),
                       ),
-                      // ── Droite : notifications ──
+
+                      // ── Droite : icônes selon la page ───────────
                       Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Stack(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(
-                                _showNotifications ? Icons.close : Icons.notifications,
-                                color: Colors.black,
-                                size: 28,
-                              ),
-                              onPressed: _toggleNotifications,
-                            ),
-                            if (!_showNotifications && _unreadNotificationsCount > 0)
-                              Positioned(
-                                right: 2,
-                                top: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: Colors.white, width: 2),
-                                  ),
-                                  constraints: const BoxConstraints(
-                                      minWidth: 24, minHeight: 24),
-                                  child: Text(
-                                    _unreadNotificationsCount > 99
-                                        ? '99+'
-                                        : _unreadNotificationsCount.toString(),
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                  ),
+                            // ✅ Icône cœur — uniquement sur la page panier (index 1)
+                            if (_currentIndex == 1 && !_showNotifications)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.favorite_rounded,
+                                  color: Colors.red,
+                                  size: 26,
                                 ),
+                                onPressed: _navigateToFavorites,
+                                tooltip: _t('favorites_title'),
                               ),
+
+                            // Icône notifications
+                            Stack(
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    _showNotifications
+                                        ? Icons.close
+                                        : Icons.notifications,
+                                    color: Colors.black,
+                                    size: 28,
+                                  ),
+                                  onPressed: _toggleNotifications,
+                                ),
+                                if (!_showNotifications &&
+                                    _unreadNotificationsCount > 0)
+                                  Positioned(
+                                    right: 2,
+                                    top: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                      ),
+                                      constraints: const BoxConstraints(
+                                          minWidth: 24, minHeight: 24),
+                                      child: Text(
+                                        _unreadNotificationsCount > 99
+                                            ? '99+'
+                                            : _unreadNotificationsCount.toString(),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -475,7 +507,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                     : IndexedStack(
                   index: _currentIndex,
                   children: [
-                    // ✅ homePageKey permet d'accéder à openFilterDrawer()
                     HomePage(key: homePageKey),
                     _totalCartItems == 0
                         ? _buildEmptyCart(lang)
@@ -1008,7 +1039,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
   }
 }
 
-// ── Bouton filtre dans le header ─────────────────────────────────
+// ── Bouton filtre ─────────────────────────────────────────────────
 
 class _FilterButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -1041,7 +1072,6 @@ class _FilterButton extends StatelessWidget {
               size: 20,
             ),
           ),
-          // Point orange si filtres actifs
           if (hasActiveFilters)
             Positioned(
               right: 0,

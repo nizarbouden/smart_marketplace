@@ -9,7 +9,6 @@ import '../../providers/language_provider.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/auto_logout_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
-import '../../localization/app_localizations.dart';
 import 'profile/edit_profile_page.dart';
 import 'adress/address_page.dart';
 import 'notifications/notification_settings_page.dart';

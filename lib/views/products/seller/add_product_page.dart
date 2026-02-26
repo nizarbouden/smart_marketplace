@@ -7,8 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
-
-import '../../../models/product_categories.dart'; // ✅ import catégories
+import '../../../models/product_categories.dart';
+import '../../../models/user_model.dart';
+import '../../compte/profile/edit_profile_page.dart';
 
 class AddProductPage extends StatefulWidget {
   final String? docId;
@@ -34,7 +35,6 @@ class _AddProductPageState extends State<AddProductPage>
   final _descCtrl       = TextEditingController();
   final _rewardNameCtrl = TextEditingController();
 
-  // ✅ Catégorie sélectionnée
   String? _selectedCategory;
 
   bool _hasReward = false;
@@ -48,12 +48,16 @@ class _AddProductPageState extends State<AddProductPage>
   late AnimationController _fadeCtrl;
   late Animation<double>   _fadeAnim;
 
-  bool get _isEditing      => widget.docId != null;
-  bool get _imageError     => _submitted && _productImages.isEmpty;
-  bool get _rewardImgErr   => _submitted && _hasReward && _rewardImageBase64 == null;
-  bool get _categoryError  => _submitted && _selectedCategory == null;
+  // ── Vérification du profil ────────────────────────────────────
+  bool _isCheckingProfile = true;  // true pendant le chargement
+  bool _profileComplete   = false; // true si profil complet
+  Map<String, bool> _missingFields = {}; // champs manquants
 
-  // ── Langue courante pour les labels de catégorie ──────────────
+  bool get _isEditing     => widget.docId != null;
+  bool get _imageError    => _submitted && _productImages.isEmpty;
+  bool get _rewardImgErr  => _submitted && _hasReward && _rewardImageBase64 == null;
+  bool get _categoryError => _submitted && _selectedCategory == null;
+
   String get _langCode => AppLocalizations.getLanguage();
 
   @override
@@ -64,7 +68,57 @@ class _AddProductPageState extends State<AddProductPage>
         vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
-    if (widget.existing != null) _populateExisting();
+
+    // ✅ Vérifier le profil en premier
+    _checkSellerProfile();
+  }
+
+  // ── ✅ Vérification du profil vendeur ─────────────────────────
+  Future<void> _checkSellerProfile() async {
+    setState(() => _isCheckingProfile = true);
+    try {
+      final uid = _currentUser?.uid;
+      if (uid == null) {
+        setState(() {
+          _isCheckingProfile = false;
+          _profileComplete   = false;
+        });
+        return;
+      }
+
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final data = doc.data() ?? {};
+
+      final storeName = (data['storeName'] as String?)?.trim() ?? '';
+      final firstName = (data['prenom']    as String?)?.trim() ?? '';
+      final lastName  = (data['nom']       as String?)?.trim() ?? '';
+      final phone     = (data['phoneNumber'] as String?)?.trim() ?? '';
+
+      final missing = <String, bool>{
+        'storeName': storeName.isEmpty,
+        'firstName': firstName.isEmpty,
+        'lastName':  lastName.isEmpty,
+        'phone':     phone.isEmpty,
+      };
+
+      final complete = missing.values.every((v) => !v);
+
+      setState(() {
+        _missingFields     = missing;
+        _profileComplete   = complete;
+        _isCheckingProfile = false;
+      });
+
+      // Si profil complet et mode édition, charger les données
+      if (complete && widget.existing != null) {
+        _populateExisting();
+      }
+    } catch (e) {
+      setState(() {
+        _isCheckingProfile = false;
+        _profileComplete   = false;
+      });
+    }
   }
 
   void _populateExisting() {
@@ -73,9 +127,7 @@ class _AddProductPageState extends State<AddProductPage>
     _priceCtrl.text = d['price']?.toString() ?? '';
     _stockCtrl.text = d['stock']?.toString() ?? '';
     _descCtrl.text  = d['description']       as String? ?? '';
-
-    // ✅ Restore category
-    _selectedCategory = d['category'] as String?;
+    _selectedCategory = d['category']        as String?;
 
     final imgs = (d['images'] as List<dynamic>?)
         ?.map((e) => e.toString())
@@ -161,10 +213,10 @@ class _AddProductPageState extends State<AddProductPage>
   Future<void> _save() async {
     setState(() => _submitted = true);
 
-    final formValid  = _formKey.currentState?.validate() ?? false;
-    final hasImage   = _productImages.isNotEmpty;
+    final formValid   = _formKey.currentState?.validate() ?? false;
+    final hasImage    = _productImages.isNotEmpty;
     final hasCategory = _selectedCategory != null;
-    final rewardOk   = !_hasReward || _rewardImageBase64 != null;
+    final rewardOk    = !_hasReward || _rewardImageBase64 != null;
 
     if (!formValid || !hasImage || !hasCategory || !rewardOk) {
       if (!hasImage) {
@@ -188,7 +240,7 @@ class _AddProductPageState extends State<AddProductPage>
         'stock':       int.parse(_stockCtrl.text.trim()),
         'description': _descCtrl.text.trim(),
         'images':      _productImages,
-        'category':    _selectedCategory,       // ✅ sauvegarde catégorie
+        'category':    _selectedCategory,
         'sellerId':    uid,
         'isActive':    false,
         'status':      'pending',
@@ -205,10 +257,7 @@ class _AddProductPageState extends State<AddProductPage>
       }
 
       if (_isEditing) {
-        await _firestore
-            .collection('products')
-            .doc(widget.docId!)
-            .update(data);
+        await _firestore.collection('products').doc(widget.docId!).update(data);
       } else {
         data['createdAt'] = Timestamp.now();
         await _firestore.collection('products').add(data);
@@ -239,6 +288,57 @@ class _AddProductPageState extends State<AddProductPage>
 
   @override
   Widget build(BuildContext context) {
+    // ── 1. Chargement en cours ────────────────────────────────
+    if (_isCheckingProfile) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF0F4F8),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF16A34A),
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 20),
+          ),
+          title: Text(
+            _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+          ),
+        ),
+      );
+    }
+
+    // ── 2. Profil incomplet → page d'erreur ───────────────────
+    if (!_profileComplete) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF0F4F8),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF16A34A),
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 20),
+          ),
+          title: Text(
+            _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          centerTitle: true,
+        ),
+        body: _buildIncompleteProfilePage(),
+      );
+    }
+
+    // ── 3. Profil complet → formulaire normal ─────────────────
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
@@ -251,8 +351,7 @@ class _AddProductPageState extends State<AddProductPage>
               _buildSliverAppBar(),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding:
-                  EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomPad),
+                  padding: EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomPad),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -278,6 +377,227 @@ class _AddProductPageState extends State<AddProductPage>
         ),
       ),
     );
+  }
+
+  // ── ✅ Page profil incomplet ───────────────────────────────────
+  Widget _buildIncompleteProfilePage() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icône
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: const Color(0xFFF59E0B).withOpacity(0.3), width: 2),
+              ),
+              child: const Icon(Icons.person_off_rounded,
+                  size: 50, color: Color(0xFFF59E0B)),
+            ),
+            const SizedBox(height: 28),
+
+            // Titre
+            Text(
+              _t('add_product_profile_incomplete_title'),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            Text(
+              _t('add_product_profile_incomplete_desc'),
+              style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF64748B),
+                  height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+
+            // ✅ Champs manquants
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: const Color(0xFFFDE68A), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          color: Color(0xFFF59E0B), size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _t('add_product_missing_fields'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ..._buildMissingFieldsList(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // ✅ Bouton → aller au profil
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final uid = _currentUser?.uid;
+                  if (uid == null) return;
+
+                  final doc = await _firestore.collection('users').doc(uid).get();
+                  final data = doc.data() ?? {};
+                  data['uid'] = doc.id;
+                  final user = UserModel.fromMap(data);
+
+                  if (mounted) {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditProfilePage(user: user),
+                      ),
+                    );
+                    // Recharger la vérification après retour
+                    _checkSellerProfile();
+                  }
+                },
+                icon: const Icon(Icons.edit_rounded, size: 20),
+                label: Text(
+                  _t('add_product_complete_profile_btn'),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor:
+                  const Color(0xFF16A34A).withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Bouton retour
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                label: Text(
+                  _t('cancel'),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF16A34A),
+                  side: const BorderSide(
+                      color: Color(0xFF16A34A), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ✅ Liste des champs manquants avec icône ✗ / ✓
+  List<Widget> _buildMissingFieldsList() {
+    final fields = [
+      {
+        'key': 'storeName',
+        'label': _t('seller_store_name_hint'),
+        'icon': Icons.storefront_rounded,
+      },
+      {
+        'key': 'firstName',
+        'label': _t('edit_profile_first_name'),
+        'icon': Icons.person_rounded,
+      },
+      {
+        'key': 'lastName',
+        'label': _t('edit_profile_last_name'),
+        'icon': Icons.person_outline_rounded,
+      },
+      {
+        'key': 'phone',
+        'label': _t('edit_profile_phone_required'),
+        'icon': Icons.phone_rounded,
+      },
+    ];
+
+    return fields.map((f) {
+      final isMissing = _missingFields[f['key']] ?? false;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            Icon(f['icon'] as IconData,
+                size: 18,
+                color: isMissing
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFF16A34A)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                f['label'] as String,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isMissing
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF16A34A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(
+              isMissing ? Icons.close_rounded : Icons.check_circle_rounded,
+              size: 18,
+              color: isMissing
+                  ? const Color(0xFFEF4444)
+                  : const Color(0xFF16A34A),
+            ),
+          ],
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildSliverAppBar() {
@@ -521,7 +841,6 @@ class _AddProductPageState extends State<AddProductPage>
   Widget _buildInfoFields() {
     return Column(
       children: [
-        // Nom du produit
         _buildValidatedField(
           ctrl: _nameCtrl,
           label: _t('seller_product_name'),
@@ -535,7 +854,6 @@ class _AddProductPageState extends State<AddProductPage>
         ),
         const SizedBox(height: 14),
 
-        // ✅ Sélecteur de catégorie
         _buildCategoryPicker(),
         const SizedBox(height: 14),
 
@@ -598,13 +916,10 @@ class _AddProductPageState extends State<AddProductPage>
     );
   }
 
-  // ── ✅ Sélecteur de catégorie ─────────────────────────────────
-
   Widget _buildCategoryPicker() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label + *
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Row(
@@ -626,8 +941,6 @@ class _AddProductPageState extends State<AddProductPage>
             ],
           ),
         ),
-
-        // Dropdown avec recherche — on ouvre un bottom sheet
         GestureDetector(
           onTap: _showCategoryBottomSheet,
           child: Container(
@@ -653,7 +966,6 @@ class _AddProductPageState extends State<AddProductPage>
             ),
             child: Row(
               children: [
-                // Icône
                 Text(
                   _selectedCategory != null
                       ? ProductCategories.iconFromId(_selectedCategory!)
@@ -661,7 +973,6 @@ class _AddProductPageState extends State<AddProductPage>
                   style: const TextStyle(fontSize: 20),
                 ),
                 const SizedBox(width: 12),
-                // Texte
                 Expanded(
                   child: Text(
                     _selectedCategory != null
@@ -676,7 +987,6 @@ class _AddProductPageState extends State<AddProductPage>
                     ),
                   ),
                 ),
-                // Flèche
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: _categoryError
@@ -687,8 +997,6 @@ class _AddProductPageState extends State<AddProductPage>
             ),
           ),
         ),
-
-        // Message erreur catégorie
         if (_categoryError)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
@@ -702,11 +1010,8 @@ class _AddProductPageState extends State<AddProductPage>
     );
   }
 
-  // ── Bottom sheet catégories avec recherche ───────────────────
-
   void _showCategoryBottomSheet() {
-    String _searchQuery = '';
-
+    String searchQuery = '';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -714,8 +1019,7 @@ class _AddProductPageState extends State<AddProductPage>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final filtered = ProductCategories.filter(_searchQuery, _langCode);
-
+            final filtered = ProductCategories.filter(searchQuery, _langCode);
             return Container(
               height: MediaQuery.of(context).size.height * 0.80,
               decoration: const BoxDecoration(
@@ -727,7 +1031,6 @@ class _AddProductPageState extends State<AddProductPage>
               ),
               child: Column(
                 children: [
-                  // Handle
                   Container(
                     margin: const EdgeInsets.only(top: 12, bottom: 8),
                     width: 40, height: 4,
@@ -736,8 +1039,6 @@ class _AddProductPageState extends State<AddProductPage>
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-
-                  // Titre
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                     child: Row(
@@ -756,12 +1057,11 @@ class _AddProductPageState extends State<AddProductPage>
                       ],
                     ),
                   ),
-
-                  // Barre de recherche
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                     child: TextField(
-                      onChanged: (v) => setSheetState(() => _searchQuery = v),
+                      onChanged: (v) =>
+                          setSheetState(() => searchQuery = v),
                       decoration: InputDecoration(
                         hintText: _t('add_product_category_search'),
                         hintStyle: const TextStyle(
@@ -779,10 +1079,7 @@ class _AddProductPageState extends State<AddProductPage>
                       ),
                     ),
                   ),
-
                   const Divider(height: 1),
-
-                  // Liste des catégories
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -793,7 +1090,6 @@ class _AddProductPageState extends State<AddProductPage>
                         final icon  = cat['icon']!;
                         final label = cat[_langCode] ?? cat['fr']!;
                         final isSelected = _selectedCategory == id;
-
                         return InkWell(
                           onTap: () {
                             setState(() => _selectedCategory = id);
@@ -818,7 +1114,6 @@ class _AddProductPageState extends State<AddProductPage>
                             ),
                             child: Row(
                               children: [
-                                // Emoji icône
                                 Container(
                                   width: 40, height: 40,
                                   decoration: BoxDecoration(
@@ -834,7 +1129,6 @@ class _AddProductPageState extends State<AddProductPage>
                                   ),
                                 ),
                                 const SizedBox(width: 14),
-                                // Label
                                 Expanded(
                                   child: Text(
                                     label,
@@ -849,7 +1143,6 @@ class _AddProductPageState extends State<AddProductPage>
                                     ),
                                   ),
                                 ),
-                                // Checkmark
                                 if (isSelected)
                                   const Icon(Icons.check_circle_rounded,
                                       color: Color(0xFF16A34A), size: 20),
@@ -868,8 +1161,6 @@ class _AddProductPageState extends State<AddProductPage>
       },
     );
   }
-
-  // ── Champ validé ─────────────────────────────────────────────
 
   Widget _buildValidatedField({
     required TextEditingController ctrl,
@@ -973,8 +1264,6 @@ class _AddProductPageState extends State<AddProductPage>
     );
   }
 
-  // ── Reward section ────────────────────────────────────────────
-
   Widget _buildRewardSection() {
     return AnimatedSize(
       duration: const Duration(milliseconds: 350),
@@ -1041,7 +1330,6 @@ class _AddProductPageState extends State<AddProductPage>
                 ),
               ),
             ),
-
             if (_hasReward) ...[
               const Divider(height: 1, color: Color(0xFFF1F5F9)),
               Padding(
@@ -1117,7 +1405,6 @@ class _AddProductPageState extends State<AddProductPage>
                             : _rewardImageHint(hasError: _rewardImgErr),
                       ),
                     ),
-
                     if (_rewardImgErr)
                       Padding(
                         padding: const EdgeInsets.only(top: 6, left: 4),
@@ -1127,9 +1414,7 @@ class _AddProductPageState extends State<AddProductPage>
                               color: Color(0xFFEF4444), fontSize: 12),
                         ),
                       ),
-
                     const SizedBox(height: 16),
-
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1207,9 +1492,7 @@ class _AddProductPageState extends State<AddProductPage>
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 14),
-
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

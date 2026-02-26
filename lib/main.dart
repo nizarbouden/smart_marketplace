@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ✅ AJOUTER
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'package:smart_marketplace/views/auth/login_screen.dart';
@@ -28,6 +29,13 @@ import 'package:smart_marketplace/services/navigation_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ✅ Status bar noire pour toute l'application
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark, // Android
+    statusBarBrightness: Brightness.light,    // iOS
+  ));
+
   print(' === DÉMARRAGE DE L\'APPLICATION ===');
 
   // Initialiser Firebase
@@ -51,51 +59,45 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final navigationService = NavigationService();
-    
+
     return MultiProvider(
       providers: [
-        // ✅ AuthProvider pour l'authentification
-        ChangeNotifierProvider(
-          create: (context) => AuthProvider(),
-        ),
-        // ✅ LanguageProvider pour la multi-langue
-        ChangeNotifierProvider(
-          create: (context) => LanguageProvider(),
-        ),
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+        ChangeNotifierProvider(create: (context) => LanguageProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, _) {
           return MaterialApp(
-            navigatorKey: navigationService.navigatorKey, // Ajouter le navigatorKey global
+            navigatorKey: navigationService.navigatorKey,
             debugShowCheckedModeBanner: false,
             title: 'Winzy',
 
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.deepPurple,
-              ),
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
               useMaterial3: true,
+              // ✅ Garantit le noir sur toutes les pages via AppBar aussi
+              appBarTheme: const AppBarTheme(
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark, // Android
+                  statusBarBrightness: Brightness.light,    // iOS
+                ),
+              ),
             ),
 
-            // ✅ SplashScreen en premier (SANS ActivityRecorderWrapper)
             initialRoute: '/',
 
             routes: {
               '/': (context) => const SplashScreen(),
 
-              // ✅ MainLayout EST enveloppé par ActivityRecorderWrapper
               '/home': (context) => ActivityRecorderWrapper(
                 child: const MainLayout(),
-
               ),
 
-              // ✅ Seller MainLayout
               '/seller-home': (context) => ActivityRecorderWrapper(
                 child: const SellerMainLayout(),
               ),
 
-
-              // ✅ TOUTES les pages enfants enveloppées
               '/panier': (context) => ActivityRecorderWrapper(
                 child: const CartPage(),
               ),
@@ -124,12 +126,10 @@ class MyApp extends StatelessWidget {
                 child: const PaymentMethodsPage(),
               ),
 
-              // ✅ Pages d'authentification (PAS de timer)
               '/login': (context) => const LoginScreen(),
               '/signup': (context) => const SignUpScreen(),
               '/forgot-password': (context) => const ForgotPasswordScreen(),
 
-              // ✅ Sécurité et paramètres (AVEC timer)
               '/security-settings': (context) => ActivityRecorderWrapper(
                 child: const SecuritySettingsPage(),
               ),
@@ -137,13 +137,11 @@ class MyApp extends StatelessWidget {
                 child: const ChangePasswordPage(),
               ),
 
-              // ✅ Aide et support (AVEC timer)
               '/help': (context) => ActivityRecorderWrapper(
                 child: const HelpPage(),
               ),
             },
 
-            // ✅ Direction basée sur la langue
             locale: Locale(languageProvider.currentLanguageCode),
           );
         },
