@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
+import '../../../models/product_categories.dart';
 import '../../../models/product_model.dart';
 
 class ProductDetailPage extends StatefulWidget {
@@ -95,19 +96,44 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   Future<void> _addToCart() async {
     if (_currentUser == null) { _showLoginSnack(); return; }
     if (widget.product.stock <= 0) return;
+
     setState(() => _isAddingToCart = true);
     _cartCtrl.forward(from: 0);
+
     try {
       final cartRef = _firestore
           .collection('users').doc(_currentUser!.uid)
           .collection('cart').doc(widget.product.id);
+
       final existing = await cartRef.get();
+
+      // ✅ Produit déjà dans le panier → snack d'avertissement
       if (existing.exists) {
-        await cartRef.update({'quantity': (existing.data()?['quantity'] ?? 0) + _quantity, 'updatedAt': Timestamp.now()});
-      } else {
-        await cartRef.set({'productId': widget.product.id, 'quantity': _quantity, 'addedAt': Timestamp.now(), 'updatedAt': Timestamp.now()});
+        if (mounted) {
+          _showSnack(
+            _t('detail_already_in_cart'),
+            color: Colors.orange.shade700,
+            icon: Icons.shopping_cart_outlined,
+          );
+        }
+        return;
       }
-      if (mounted) _showSnack(_t('detail_added_to_cart'), color: const Color(0xFF16A34A), icon: Icons.check_circle_rounded);
+
+      // ✅ Nouveau produit → on l'ajoute
+      await cartRef.set({
+        'productId': widget.product.id,
+        'quantity': _quantity,
+        'addedAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      });
+
+      if (mounted) {
+        _showSnack(
+          _t('detail_added_to_cart'),
+          color: const Color(0xFF16A34A),
+          icon: Icons.check_circle_rounded,
+        );
+      }
     } catch (_) {
       _showSnack(_t('detail_add_to_cart_error'), color: Colors.red, icon: Icons.error_outline);
     } finally {
@@ -345,7 +371,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     return Row(
       children: [
         Text(
-          '${product.price.toStringAsFixed(2)} DT',
+          '${product.price.toStringAsFixed(2)} \$',
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF16A34A), letterSpacing: -0.5),
         ),
         const Spacer(),
@@ -380,6 +406,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   // ── CATEGORY ─────────────────────────────────────────────────────
 
   Widget _buildCategoryBadge(Product product) {
+    // ── Récupère la langue courante et traduit la catégorie ──
+    final langCode = AppLocalizations.getLanguage();
+    final categoryLabel = ProductCategories.labelFromId(product.category, langCode);
+    final categoryIcon  = ProductCategories.iconFromId(product.category);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
@@ -390,10 +421,16 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.category_rounded, size: 14, color: Colors.deepPurple.shade400),
+          Text(categoryIcon, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 6),
-          Text(product.category,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.deepPurple.shade600)),
+          Text(
+            categoryLabel,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.deepPurple.shade600,
+            ),
+          ),
         ],
       ),
     );
@@ -730,7 +767,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       child: Text(
                         isOutOfStock
                             ? _t('detail_out_of_stock')
-                            : '${_t('detail_add_to_cart')} · ${(_quantity * widget.product.price).toStringAsFixed(2)} DT',
+                            : '${_t('detail_add_to_cart')} · \$ ${(_quantity * widget.product.price).toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                         overflow: TextOverflow.ellipsis,
                       ),

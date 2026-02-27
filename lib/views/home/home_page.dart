@@ -466,7 +466,7 @@ class _ProductCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${product.price.toStringAsFixed(2)} DT',
+                          '\$${product.price.toStringAsFixed(2)} ',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,

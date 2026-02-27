@@ -826,7 +826,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 
   Widget _buildCartNavigationBar(LanguageProvider lang) {
     return Container(
-      height: 161,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -836,156 +835,35 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               offset: const Offset(0, -2))
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            height: 90,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-                color: Colors.grey[50],
-                border: Border(bottom: BorderSide(color: Colors.grey[300]!))),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    _selectionService.toggleAllSelection();
-                    final totals = _calculateRealTotals();
-                    _updateCartSelection(
-                        totals['count'] as int, totals['total'] as double);
-                  },
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey[400]!, width: 2),
-                      color: _selectionService.isAllSelected
-                          ? Colors.deepPurple
-                          : null,
-                    ),
-                    child: _selectionService.isAllSelected
-                        ? const Icon(Icons.check, color: Colors.white, size: 12)
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(lang.translate('select_all'),
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '$_selectedCartItems ${lang.translate('articles')}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (_selectedCartItems > 0)
-                  GestureDetector(
-                    onTap: () {
-                      if (_isUserConnected()) {
-                        _toggleCartOverlay();
-                      } else {
-                        _showLoginRequiredMessage();
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('${_selectedTotal.toStringAsFixed(2)} €',
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple)),
-                          const SizedBox(width: 4),
-                          Icon(
-                            _showCartOverlay
-                                ? Icons.keyboard_arrow_down
-                                : Icons.keyboard_arrow_up,
-                            color: Colors.deepPurple,
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  const Text('0.00 €',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple)),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _selectedCartItems > 0
-                      ? () => Navigator.pushNamed(context, '/paiement')
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _selectedCartItems > 0
-                        ? Colors.deepPurple
-                        : Colors.grey[300],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    minimumSize: const Size(0, 40),
-                  ),
-                  child: Text(
-                    '${lang.translate('payment')} ($_selectedCartItems)',
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: lang.translate('home'),
+                  index: 0),
+              _buildNavItem(
+                  icon: Icons.shopping_cart_outlined,
+                  activeIcon: Icons.shopping_cart,
+                  label: lang.translate('cart'),
+                  index: 1),
+              _buildNavItem(
+                  icon: Icons.history_outlined,
+                  activeIcon: Icons.history,
+                  label: lang.translate('history'),
+                  index: 2),
+              _buildNavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: lang.translate('profile'),
+                  index: 3),
+            ],
           ),
-          Expanded(
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                    horizontal:
-                    MediaQuery.of(context).size.width < 360 ? 12 : 16,
-                    vertical:
-                    MediaQuery.of(context).size.width < 360 ? 1 : 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(
-                        icon: Icons.home_outlined,
-                        activeIcon: Icons.home,
-                        label: lang.translate('home'),
-                        index: 0),
-                    _buildNavItem(
-                        icon: Icons.shopping_cart_outlined,
-                        activeIcon: Icons.shopping_cart,
-                        label: lang.translate('cart'),
-                        index: 1),
-                    _buildNavItem(
-                        icon: Icons.history_outlined,
-                        activeIcon: Icons.history,
-                        label: lang.translate('history'),
-                        index: 2),
-                    _buildNavItem(
-                        icon: Icons.person_outline,
-                        activeIcon: Icons.person,
-                        label: lang.translate('profile'),
-                        index: 3),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

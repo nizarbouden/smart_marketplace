@@ -152,7 +152,6 @@ class AppLocalizations {
 
     // ── Panier ────────────────────────────────────────────────────
     'cart_title': 'Panier',
-    'select_all': 'Tout',
     'summary': 'Résumé',
     'article': 'article',
     'articles': 'articles',
@@ -163,7 +162,13 @@ class AppLocalizations {
     'item_removed': 'Article supprimé',
     'quantity': 'Quantité',
     'items_selected': 'articles sélectionnés',
-
+    'unknown_store':    'Boutique inconnue',
+    'empty_cart_desc':  'Ajoutez des produits pour commencer vos achats',
+    'select_all':       'Tout sélectionner',
+    'order':            'Commander',
+    'confirm_order':    'Confirmer la commande',
+    'go_to_payment':    'Procéder au paiement',
+    'detail_already_in_cart': 'Ce produit est déjà dans votre panier',
     // ── Adresses ──────────────────────────────────────────────────
     'delivery_address_title': 'Adresse de livraison',
     'add_new_address': 'Ajouter une nouvelle adresse',
@@ -985,7 +990,6 @@ class AppLocalizations {
 
     // ── Cart ──────────────────────────────────────────────────────
     'cart_title': 'Cart',
-    'select_all': 'All',
     'summary': 'Summary',
     'article': 'item',
     'articles': 'items',
@@ -996,6 +1000,13 @@ class AppLocalizations {
     'item_removed': 'Item removed',
     'quantity': 'Quantity',
     'items_selected': 'items selected',
+    'unknown_store':    'Unknown store',
+    'empty_cart_desc':  'Add products to start shopping',
+    'select_all':       'Select all',
+    'order':            'Order',
+    'confirm_order':    'Confirm order',
+    'go_to_payment':    'Proceed to payment',
+    'detail_already_in_cart': 'This product is already in your cart',
 
     // ── Addresses ─────────────────────────────────────────────────
     'delivery_address_title': 'Delivery Address',
@@ -1810,7 +1821,6 @@ class AppLocalizations {
 
     // ── عربة التسوق ───────────────────────────────────────────────
     'cart_title': 'عربة التسوق',
-    'select_all': 'الكل',
     'summary': 'الملخص',
     'article': 'منتج',
     'articles': 'منتجات',
@@ -1821,6 +1831,13 @@ class AppLocalizations {
     'item_removed': 'تم حذف المنتج',
     'quantity': 'الكمية',
     'items_selected': 'منتجات مختارة',
+    'unknown_store':    'متجر غير معروف',
+    'empty_cart_desc':  'أضف منتجات لبدء التسوق',
+    'select_all':       'تحديد الكل',
+    'order':            'طلب',
+    'confirm_order':    'تأكيد الطلب',
+    'go_to_payment':    'المتابعة للدفع',
+    'detail_already_in_cart': 'هذا المنتج موجود بالفعل في سلة التسوق',
 
     // ── العناوين ──────────────────────────────────────────────────
     'delivery_address_title': 'عنوان التسليم',

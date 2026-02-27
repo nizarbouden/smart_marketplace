@@ -1,6 +1,3 @@
-/// Catégories produits pour marketplace e-commerce
-/// Même structure que CountryData — ID fixe + traduction FR/AR/EN
-/// L'ID est stocké dans Firestore → filtres fiables côté client
 
 class ProductCategories {
   static const List<Map<String, String>> categories = [
