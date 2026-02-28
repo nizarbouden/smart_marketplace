@@ -852,6 +852,20 @@ class AppLocalizations {
     'product': 'produit',
     'products': 'produits',
 
+    // ── chckout page    ─────────────────────────────────────
+    'checkout_title': 'Récapitulatif',
+    'my_articles': 'Mes articles',
+    'select_address_error': 'Veuillez sélectionner une adresse de livraison',
+    'select_payment_error': 'Veuillez sélectionner une méthode de paiement',
+    'no_address_selected': 'Aucune adresse sélectionnée',
+    'no_payment_selected': 'Aucune méthode sélectionnée',
+    'total_items': 'Total articles',
+    'discount_10': 'Réduction (10%)',
+    'pay_button': 'Payer',
+    'order_confirmed': 'Commande confirmée !',
+    'order_confirmed_desc': 'Votre commande a été passée avec succès. Vous serez notifié de son suivi.',
+    'back_to_home': 'Retour à l\'accueil',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1699,6 +1713,21 @@ class AppLocalizations {
     'error_prefix': 'Error',
     'product': 'product',
     'products': 'products',
+
+    // ── chckout page    ─────────────────────────────────────
+    'checkout_title': 'Order Summary',
+    'my_articles': 'My items',
+    'select_address_error': 'Please select a delivery address',
+    'select_payment_error': 'Please select a payment method',
+    'no_address_selected': 'No address selected',
+    'no_payment_selected': 'No payment method selected',
+    'total_items': 'Items total',
+    'discount_10': 'Discount (10%)',
+    'pay_button': 'Pay',
+    'order_confirmed': 'Order confirmed!',
+    'order_confirmed_desc': 'Your order has been placed successfully. You will be notified of its tracking.',
+    'back_to_home': 'Back to home',
+
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -2550,6 +2579,20 @@ class AppLocalizations {
     'error_prefix': 'خطأ',
     'product': 'منتج',
     'products': 'منتجات',
+
+    // ── chckout page    ─────────────────────────────────────
+    'checkout_title': 'ملخص الطلب',
+    'my_articles': 'مقالاتي',
+    'select_address_error': 'يرجى اختيار عنوان التسليم',
+    'select_payment_error': 'يرجى اختيار طريقة الدفع',
+    'no_address_selected': 'لم يتم اختيار عنوان',
+    'no_payment_selected': 'لم يتم اختيار طريقة دفع',
+    'total_items': 'إجمالي المقالات',
+    'discount_10': 'خصم (10%)',
+    'pay_button': 'الدفع',
+    'order_confirmed': 'تم تأكيد الطلب!',
+    'order_confirmed_desc': 'تم تقديم طلبك بنجاح. سيتم إخطارك بتتبعه.',
+    'back_to_home': 'العودة إلى الرئيسية',
   };
 
   // ════════════════════════════════════════════════════════════════

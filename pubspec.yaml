@@ -61,6 +61,10 @@ dependencies:
   package_info_plus: ^4.2.0
   uuid: ^4.2.1
 
+  # payment
+  flutter_stripe: ^10.1.1
+  
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
