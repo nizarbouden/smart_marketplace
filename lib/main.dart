@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ✅ AJOUTER
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/cart_provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
 import 'package:smart_marketplace/views/auth/login_screen.dart';
 import 'package:smart_marketplace/views/auth/signup_screen.dart';
@@ -26,6 +27,10 @@ import 'package:smart_marketplace/widgets/activity_recorder_wrapper.dart';
 import 'package:smart_marketplace/views/compte/security/change_password/change_password_page.dart';
 import 'package:smart_marketplace/services/navigation_service.dart';
 
+// ✅ RouteObserver global — accessible depuis cart_page.dart
+final RouteObserver<ModalRoute<void>> routeObserver =
+RouteObserver<ModalRoute<void>>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -38,12 +43,10 @@ void main() async {
 
   print(' === DÉMARRAGE DE L\'APPLICATION ===');
 
-  // Initialiser Firebase
   print('📱 Initialisation Firebase...');
   await FirebaseConfig.initializeFirebase();
   print('✅ Firebase initialisé');
 
-  // Nettoyer le cache Firestore
   print('🧹 Nettoyage du cache Firestore...');
   await FirebaseAuthService().clearFirestoreCache();
   print('✅ Cache nettoyé');
@@ -64,6 +67,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => LanguageProvider()),
+        ChangeNotifierProvider(create: (context) => CartProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, _) {
@@ -72,15 +76,17 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             title: 'Winzy',
 
+            // ✅ RouteObserver enregistré ici
+            navigatorObservers: [routeObserver],
+
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
               useMaterial3: true,
-              // ✅ Garantit le noir sur toutes les pages via AppBar aussi
               appBarTheme: const AppBarTheme(
                 systemOverlayStyle: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.dark, // Android
-                  statusBarBrightness: Brightness.light,    // iOS
+                  statusBarIconBrightness: Brightness.dark,
+                  statusBarBrightness: Brightness.light,
                 ),
               ),
             ),

@@ -8,7 +8,7 @@ import '../compte/profile_page.dart';
 import '../home/home_page.dart';
 import '../history/history_page.dart';
 import '../notifications/notifications_page.dart';
-import '../favorites/favorites_page.dart'; // ✅ import FavoritesPage
+import '../favorites/favorites_page.dart';
 import '../../services/selection_service.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../widgets/auto_logout_warning_dialog.dart';
@@ -24,7 +24,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentIndex = 0;
-  int _totalCartItems = 5;
+  int _totalCartItems = 0;  // ✅ commence à 0, CartPage met à jour via callback
   int _selectedCartItems = 0;
   double _selectedTotal = 0.0;
   bool _showNotifications = false;
@@ -293,11 +293,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     if (mounted) setState(() {});
   }
 
-  Map<String, dynamic> _calculateRealTotals() {
-    if (_selectedCartItems > 0) return {'count': _selectedCartItems, 'total': _selectedTotal};
-    return {'count': 0, 'total': 0.0};
-  }
-
   void _onItemTapped(int index) {
     if (index == 0) {
       setState(() {
@@ -310,6 +305,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           _currentIndex = index;
           _refreshNotificationCount();
         });
+
+        // ✅ Recharge le panier à chaque tap sur l'onglet cart
+        if (index == 1) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            cartPageKey.currentState?.loadCart();
+          });
+        }
       } else {
         _showLoginRequiredMessage();
       }
@@ -331,7 +333,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     }
   }
 
-  // ✅ Navigation vers la page favoris
   void _navigateToFavorites() {
     if (_isUserConnected()) {
       Navigator.push(
@@ -395,7 +396,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // ── Gauche ──────────────────────────────────
                       Padding(
                         padding: const EdgeInsets.only(left: 16),
                         child: _currentIndex == 0 && !_showNotifications
@@ -433,13 +433,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                         ),
                       ),
 
-                      // ── Droite : icônes selon la page ───────────
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ✅ Icône cœur — uniquement sur la page panier (index 1)
                             if (_currentIndex == 1 && !_showNotifications)
                               IconButton(
                                 icon: const Icon(
@@ -451,7 +449,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                                 tooltip: _t('favorites_title'),
                               ),
 
-                            // Icône notifications
                             Stack(
                               children: [
                                 IconButton(
@@ -508,12 +505,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
                   index: _currentIndex,
                   children: [
                     HomePage(key: homePageKey),
-                    _totalCartItems == 0
-                        ? _buildEmptyCart(lang)
-                        : CartPage(
+
+                    // ✅ CartPage est TOUJOURS dans le tree — elle gère elle-même l'état vide.
+                    // onGoHome : quand le panier est vide, le bouton "Découvrir" switche vers l'onglet accueil.
+                    CartPage(
+                      key: cartPageKey,
                       onTotalCartItemsChanged: _updateCartItemCount,
                       onCartSelectionChanged: _updateCartSelection,
+                      onGoHome: () => setState(() => _currentIndex = 0),
                     ),
+
                     const HistoryPage(),
                     const ProfilePage(),
                   ],
@@ -657,7 +658,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
       {'id': '1', 'name': 'Produit A', 'price': 49.99, 'quantity': 2},
       {'id': '2', 'name': 'Produit B', 'price': 29.99, 'quantity': 1},
     ];
-
     if (index < testItems.length) {
       final item = testItems[index];
       return Container(
@@ -714,51 +714,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     return const SizedBox.shrink();
   }
 
-  Widget _buildEmptyCart(LanguageProvider lang) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.1),
-                  shape: BoxShape.circle),
-              child: const Icon(Icons.shopping_cart_outlined,
-                  color: Colors.deepPurple, size: 60),
-            ),
-            const SizedBox(height: 24),
-            Text(lang.translate('empty_cart'),
-                style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87)),
-            const SizedBox(height: 12),
-            Text(lang.translate('no_data'),
-                style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _currentIndex = 0),
-              icon: const Icon(Icons.shopping_bag),
-              label: Text(lang.translate('home')),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _summaryRow(String label, String value,
       {bool isBold = false, bool isLarge = false}) {
     return Padding(
@@ -797,26 +752,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: lang.translate('home'),
-                  index: 0),
-              _buildNavItem(
-                  icon: Icons.shopping_cart_outlined,
-                  activeIcon: Icons.shopping_cart,
-                  label: lang.translate('cart'),
-                  index: 1),
-              _buildNavItem(
-                  icon: Icons.history_outlined,
-                  activeIcon: Icons.history,
-                  label: lang.translate('history'),
-                  index: 2),
-              _buildNavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: lang.translate('profile'),
-                  index: 3),
+              _buildNavItem(icon: Icons.home_outlined, activeIcon: Icons.home,
+                  label: lang.translate('home'), index: 0),
+              _buildNavItem(icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart,
+                  label: lang.translate('cart'), index: 1),
+              _buildNavItem(icon: Icons.history_outlined, activeIcon: Icons.history,
+                  label: lang.translate('history'), index: 2),
+              _buildNavItem(icon: Icons.person_outline, activeIcon: Icons.person,
+                  label: lang.translate('profile'), index: 3),
             ],
           ),
         ),
@@ -841,26 +784,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: lang.translate('home'),
-                  index: 0),
-              _buildNavItem(
-                  icon: Icons.shopping_cart_outlined,
-                  activeIcon: Icons.shopping_cart,
-                  label: lang.translate('cart'),
-                  index: 1),
-              _buildNavItem(
-                  icon: Icons.history_outlined,
-                  activeIcon: Icons.history,
-                  label: lang.translate('history'),
-                  index: 2),
-              _buildNavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: lang.translate('profile'),
-                  index: 3),
+              _buildNavItem(icon: Icons.home_outlined, activeIcon: Icons.home,
+                  label: lang.translate('home'), index: 0),
+              _buildNavItem(icon: Icons.shopping_cart_outlined, activeIcon: Icons.shopping_cart,
+                  label: lang.translate('cart'), index: 1),
+              _buildNavItem(icon: Icons.history_outlined, activeIcon: Icons.history,
+                  label: lang.translate('history'), index: 2),
+              _buildNavItem(icon: Icons.person_outline, activeIcon: Icons.person,
+                  label: lang.translate('profile'), index: 3),
             ],
           ),
         ),
@@ -889,8 +820,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
               size: MediaQuery.of(context).size.width < 360 ? 16 : 20,
             ),
           ),
-          SizedBox(
-              height: MediaQuery.of(context).size.width < 360 ? 0.5 : 1),
+          SizedBox(height: MediaQuery.of(context).size.width < 360 ? 0.5 : 1),
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 200),
             style: TextStyle(
@@ -909,7 +839,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
     if (_showNotifications) return lang.translate('notifications');
     switch (_currentIndex) {
       case 0:  return 'Winzy';
-      case 1:  return '${lang.translate('cart')} ($_totalCartItems)';
+      case 1:  return lang.translate('cart');
       case 2:  return lang.translate('history');
       case 3:  return lang.translate('profile');
       default: return 'Winzy';
@@ -918,15 +848,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin, 
 }
 
 // ── Bouton filtre ─────────────────────────────────────────────────
-
 class _FilterButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool hasActiveFilters;
 
-  const _FilterButton({
-    required this.onTap,
-    required this.hasActiveFilters,
-  });
+  const _FilterButton({required this.onTap, required this.hasActiveFilters});
 
   @override
   Widget build(BuildContext context) {

@@ -169,6 +169,7 @@ class AppLocalizations {
     'confirm_order':    'Confirmer la commande',
     'go_to_payment':    'Procéder au paiement',
     'detail_already_in_cart': 'Ce produit est déjà dans votre panier',
+    'discover_products': 'Découvrir les produits',
     // ── Adresses ──────────────────────────────────────────────────
     'delivery_address_title': 'Adresse de livraison',
     'add_new_address': 'Ajouter une nouvelle adresse',
@@ -837,6 +838,20 @@ class AppLocalizations {
     'detail_reward_step3':      'Le gagnant reçoit ce reward gratuitement !',
     'detail_reward_note':       'Un tirage au sort est effectué parmi tous les acheteurs. Bonne chance !',
 
+    // ── home page    ─────────────────────────────────────
+    'search_hint': 'Rechercher un produit...',
+    'out_of_stock': 'Épuisé',
+    'in_stock': 'en stock',
+    'in_stock_filter': 'En stock',
+    'price_asc': 'Prix ↑',
+    'price_desc': 'Prix ↓',
+    'clear_all': 'Tout effacer',
+    'no_products_filters': 'Aucun produit ne correspond\nà ces filtres',
+    'no_products': 'Aucun produit disponible',
+    'error_prefix': 'Erreur',
+    'product': 'produit',
+    'products': 'produits',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1007,7 +1022,7 @@ class AppLocalizations {
     'confirm_order':    'Confirm order',
     'go_to_payment':    'Proceed to payment',
     'detail_already_in_cart': 'This product is already in your cart',
-
+    'discover_products': 'Discover products',
     // ── Addresses ─────────────────────────────────────────────────
     'delivery_address_title': 'Delivery Address',
     'add_new_address': 'Add New Address',
@@ -1670,6 +1685,20 @@ class AppLocalizations {
     'detail_reward_step2':      'You are automatically entered in the draw',
     'detail_reward_step3':      'The winner receives this reward for free!',
     'detail_reward_note':       'A draw is held among all buyers. Good luck!',
+
+    // ── home page    ─────────────────────────────────────
+    'search_hint': 'Search for a product...',
+    'out_of_stock': 'Out of stock',
+    'in_stock': 'in stock',
+    'in_stock_filter': 'In stock',
+    'price_asc': 'Price ↑',
+    'price_desc': 'Price ↓',
+    'clear_all': 'Clear all',
+    'no_products_filters': 'No products match\nthese filters',
+    'no_products': 'No products available',
+    'error_prefix': 'Error',
+    'product': 'product',
+    'products': 'products',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -1838,7 +1867,7 @@ class AppLocalizations {
     'confirm_order':    'تأكيد الطلب',
     'go_to_payment':    'المتابعة للدفع',
     'detail_already_in_cart': 'هذا المنتج موجود بالفعل في سلة التسوق',
-
+    'discover_products': 'اكتشف المنتجات',
     // ── العناوين ──────────────────────────────────────────────────
     'delivery_address_title': 'عنوان التسليم',
     'add_new_address': 'إضافة عنوان جديد',
@@ -2508,7 +2537,19 @@ class AppLocalizations {
     'detail_reward_step2':      'يتم تسجيلك تلقائياً في السحب',
     'detail_reward_step3':      'الفائز يحصل على هذه المكافأة مجاناً!',
     'detail_reward_note':       'يتم إجراء سحب عشوائي بين جميع المشترين. حظاً موفقاً!',
-
+      // ── home page    ─────────────────────────────────────
+    'search_hint': 'البحث عن منتج...',
+    'out_of_stock': 'نفذ المخزون',
+    'in_stock': 'في المخزون',
+    'in_stock_filter': 'في المخزون',
+    'price_asc': 'السعر ↑',
+    'price_desc': 'السعر ↓',
+    'clear_all': 'مسح الكل',
+    'no_products_filters': 'لا يوجد منتج يطابق\nهذه المرشحات',
+    'no_products': 'لا توجد منتجات متاحة',
+    'error_prefix': 'خطأ',
+    'product': 'منتج',
+    'products': 'منتجات',
   };
 
   // ════════════════════════════════════════════════════════════════

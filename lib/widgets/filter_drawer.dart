@@ -32,7 +32,6 @@ class FilterOptions {
       sortOrder: sortOrder ?? this.sortOrder,
       inStockOnly: inStockOnly ?? this.inStockOnly,
     );
-
   }
 }
 
@@ -56,6 +55,7 @@ class FilterDrawer extends StatefulWidget {
 
 class _FilterDrawerState extends State<FilterDrawer> {
   late FilterOptions _filters;
+  bool _categoryExpanded = false; // ✅ état d'ouverture de la liste
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -69,9 +69,10 @@ class _FilterDrawerState extends State<FilterDrawer> {
       sortOrder: widget.currentFilters.sortOrder,
       inStockOnly: widget.currentFilters.inStockOnly,
     );
+    // ✅ Si une catégorie est déjà sélectionnée, ouvrir la liste au démarrage
+    _categoryExpanded = widget.currentFilters.selectedCategory != null;
   }
 
-  // ✅ Auto-apply à chaque changement
   void _update(FilterOptions newFilters) {
     setState(() => _filters = newFilters);
     widget.onApply(newFilters);
@@ -79,13 +80,22 @@ class _FilterDrawerState extends State<FilterDrawer> {
 
   void _resetFilters() {
     final reset = FilterOptions(maxPrice: widget.absoluteMaxPrice);
-    setState(() => _filters = reset);
+    setState(() {
+      _filters = reset;
+      _categoryExpanded = false;
+    });
     widget.onApply(reset);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = AppLocalizations.getLanguage();
+
+    // Label de la catégorie sélectionnée (pour l'afficher dans le header fermé)
+    final selectedCatLabel = _filters.selectedCategory != null
+        ? '${ProductCategories.iconFromId(_filters.selectedCategory!)} ${ProductCategories.labelFromId(_filters.selectedCategory!, lang)}'
+        : _t('filter_category_all');
 
     return Drawer(
       width: 300,
@@ -98,7 +108,8 @@ class _FilterDrawerState extends State<FilterDrawer> {
               padding: const EdgeInsets.fromLTRB(20, 24, 12, 16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
-                borderRadius: const BorderRadius.only(bottomRight: Radius.circular(16)),
+                borderRadius: const BorderRadius.only(
+                    bottomRight: Radius.circular(16)),
               ),
               child: Row(
                 children: [
@@ -111,11 +122,11 @@ class _FilterDrawerState extends State<FilterDrawer> {
                     ),
                   ),
                   const Spacer(),
-                  // ✅ Icône reload à la place du texte "Réinitialiser"
                   IconButton(
                     onPressed: _resetFilters,
                     tooltip: _t('filter_reset'),
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: Colors.white, size: 22),
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.white.withOpacity(0.15),
                       padding: const EdgeInsets.all(6),
@@ -131,24 +142,136 @@ class _FilterDrawerState extends State<FilterDrawer> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  // ── Catégories ──────────────────────────────
+
+                  // ── Catégories (liste dépliable) ─────────────
                   _SectionTitle(title: _t('filter_category')),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _CategoryChip(
-                        label: _t('filter_category_all'),
-                        selected: _filters.selectedCategory == null,
-                        onTap: () => _update(_filters.copyWith(clearCategory: true)),
+
+                  // ✅ Container cliquable qui ouvre/ferme la liste
+                  GestureDetector(
+                    onTap: () => setState(() => _categoryExpanded = !_categoryExpanded),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _filters.selectedCategory != null
+                            ? theme.colorScheme.primary.withOpacity(0.08)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _filters.selectedCategory != null
+                              ? theme.colorScheme.primary.withOpacity(0.4)
+                              : Colors.grey.shade200,
+                        ),
                       ),
-                      ...widget.categories.map((id) => _CategoryChip(
-                        label: '${ProductCategories.iconFromId(id)} ${ProductCategories.labelFromId(id, AppLocalizations.getLanguage())}',
-                        selected: _filters.selectedCategory == id,
-                        onTap: () => _update(_filters.copyWith(selectedCategory: id)),
-                      )),
-                    ],
+                      child: Row(
+                        children: [
+                          // Icône + label catégorie sélectionnée
+                          Expanded(
+                            child: Text(
+                              selectedCatLabel,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _filters.selectedCategory != null
+                                    ? theme.colorScheme.primary
+                                    : Colors.grey.shade700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          // ✅ Badge nombre de catégories dispo
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${widget.categories.length}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          // Flèche animée
+                          AnimatedRotation(
+                            turns: _categoryExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Colors.grey.shade500,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ✅ Liste animée qui s'ouvre/ferme
+                  AnimatedCrossFade(
+                    duration: const Duration(milliseconds: 220),
+                    crossFadeState: _categoryExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      // ✅ Hauteur max avec scroll si beaucoup de catégories
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListView(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          children: [
+                            // Option "Toutes"
+                            _CategoryListTile(
+                              icon: '🏷️',
+                              label: _t('filter_category_all'),
+                              selected: _filters.selectedCategory == null,
+                              onTap: () {
+                                _update(_filters.copyWith(clearCategory: true));
+                                setState(() => _categoryExpanded = false);
+                              },
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            // Catégories disponibles
+                            ...widget.categories.map((id) {
+                              final icon = ProductCategories.iconFromId(id);
+                              final label = ProductCategories.labelFromId(id, lang);
+                              return _CategoryListTile(
+                                icon: icon,
+                                label: label,
+                                selected: _filters.selectedCategory == id,
+                                onTap: () {
+                                  _update(_filters.copyWith(selectedCategory: id));
+                                  setState(() => _categoryExpanded = false); // ✅ ferme après sélection
+                                },
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 28),
@@ -173,7 +296,6 @@ class _FilterDrawerState extends State<FilterDrawer> {
                     divisions: 100,
                     activeColor: theme.colorScheme.primary,
                     inactiveColor: theme.colorScheme.primary.withOpacity(0.15),
-                    // ✅ onChangeEnd pour ne pas spammer à chaque pixel
                     onChangeEnd: (values) => _update(_filters.copyWith(
                       minPrice: values.start,
                       maxPrice: values.end,
@@ -225,7 +347,53 @@ class _FilterDrawerState extends State<FilterDrawer> {
                 ],
               ),
             ),
-            // ✅ Bouton "Appliquer" supprimé — auto-apply actif
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Category List Tile ────────────────────────────────────────────
+
+class _CategoryListTile extends StatelessWidget {
+  final String icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryListTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        color: selected ? primary.withOpacity(0.08) : Colors.transparent,
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected ? primary : Colors.grey.shade800,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_rounded, size: 16, color: primary),
           ],
         ),
       ),
@@ -252,46 +420,18 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _CategoryChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? primary : primary.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? primary : primary.withOpacity(0.2)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : primary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SortTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _SortTile({required this.label, required this.icon, required this.selected, required this.onTap});
+  const _SortTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -304,18 +444,24 @@ class _SortTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? primary.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? primary : Colors.grey.shade200),
+          border: Border.all(
+              color: selected ? primary : Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: selected ? primary : Colors.grey.shade500),
+            Icon(icon,
+                size: 18,
+                color: selected ? primary : Colors.grey.shade500),
             const SizedBox(width: 10),
-            Text(label,
-                style: TextStyle(
-                  color: selected ? primary : Colors.grey.shade700,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 14,
-                )),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? primary : Colors.grey.shade700,
+                fontWeight:
+                selected ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 14,
+              ),
+            ),
             if (selected) ...[
               const Spacer(),
               Icon(Icons.check_rounded, size: 16, color: primary),
@@ -332,7 +478,11 @@ class _ToggleTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _ToggleTile({required this.label, required this.value, required this.onChanged});
+  const _ToggleTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +490,9 @@ class _ToggleTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w500)),
         ),
         Switch.adaptive(
           value: value,
