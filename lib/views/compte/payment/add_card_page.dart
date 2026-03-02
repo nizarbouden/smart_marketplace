@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
+import '../../../services/payment_service.dart';
+
 // ── Utilitaire de chiffrement simple (XOR + Base64) ──────────────
 // Pour la production, utiliser flutter_secure_storage ou encrypt package
 class CardEncryption {
@@ -179,111 +181,108 @@ class _AddCardPageState extends State<AddCardPage> with SingleTickerProviderStat
 
   // ── Sauvegarde dans Firebase ──────────────────────────────────
   Future<void> _saveCard() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
     setState(() => _isLoading = true);
-
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('Utilisateur non connecté');
+      if (user == null) throw Exception('Non connecté');
 
-      final rawNumber = _cardNumberCtrl.text.replaceAll(' ', '');
-      final rawCvv    = _cvvCtrl.text.trim();
-      final expiry    = _expiryCtrl.text.trim().split('/');
+      // ── DEBUG : voir les données brutes du backend ────────────
+      final userDoc  = await FirebaseFirestore.instance
+          .collection('users').doc(user.uid).get();
+      final userData = userDoc.data();
+      String customerId = userData?['stripeCustomerId']?.toString() ?? '';
 
-      // En mode édition, utiliser le numéro original si non modifié
-      String finalCardNumber = rawNumber;
-      if (_isEditMode && rawNumber.startsWith('****')) {
-        // Récupérer le numéro original depuis la base de données
-        final cardDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('payment_methods')
-            .doc(widget.cardData!['docId'])
-            .get();
-        
-        if (cardDoc.exists) {
-          final encryptedNumber = cardDoc.data()!['encryptedCardNumber'] as String;
-          finalCardNumber = CardEncryption.decrypt(encryptedNumber);
-        }
-      }
+      debugPrint('👤 customerId: $customerId');
 
-      // Chiffrement des données sensibles
-      final encryptedNumber = CardEncryption.encrypt(finalCardNumber);
-      final encryptedCvv    = CardEncryption.encrypt(rawCvv);
-
-      if (_isEditMode) {
-        // Mode édition : mettre à jour le document existant
+      if (customerId.isEmpty) {
+        customerId = await PaymentService.createStripeCustomer(
+          email:       user.email ?? '',
+          name:        user.displayName ?? '',
+          firebaseUid: user.uid,
+        );
+        debugPrint('✅ nouveau customerId: $customerId');
         await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('payment_methods')
-            .doc(widget.cardData!['docId'])
-            .update({
-          'cardType':            _cardType,
-          'lastFourDigits':      finalCardNumber.substring(finalCardNumber.length - 4),
-          'cardholderName':      _holderNameCtrl.text.trim(),
-          'expiryMonth':         expiry[0].trim(),
-          'expiryYear':          expiry.length > 1 ? expiry[1].trim() : '',
-          'encryptedCardNumber': encryptedNumber,
-          'encryptedCvv':        encryptedCvv,
-          'updatedAt':           Timestamp.now(),
-        });
-      } else {
-        // Mode ajout : créer un nouveau document
-        // Vérifier si c'est la première carte (→ défaut)
-        final existingCards = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('payment_methods')
-            .get();
-        final isFirst = existingCards.docs.isEmpty;
-
-        // Si on veut cette carte par défaut → retirer le défaut des autres
-        if (isFirst) {
-          for (final doc in existingCards.docs) {
-            await doc.reference.update({'isDefault': false});
-          }
-        }
-
-        // Créer le document
-        final docRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('payment_methods')
-            .doc();
-
-        await docRef.set({
-          'id':                  docRef.id,
-          'userId':              user.uid,
-          'type':                'card',
-          'cardType':            _cardType,
-          'lastFourDigits':      finalCardNumber.substring(finalCardNumber.length - 4),
-          'cardholderName':      _holderNameCtrl.text.trim(),
-          'expiryMonth':         expiry[0].trim(),
-          'expiryYear':          expiry.length > 1 ? expiry[1].trim() : '',
-          'isDefault':           isFirst,
-          'encryptedCardNumber': encryptedNumber,
-          'encryptedCvv':        encryptedCvv,
-          'createdAt':           Timestamp.now(),
-          'updatedAt':           null,
-        });
+            .collection('users').doc(user.uid)
+            .update({'stripeCustomerId': customerId});
       }
+
+      final stripeData = await PaymentService.saveCard(customerId: customerId);
+
+      // ── Afficher TOUTES les données reçues ────────────────────
+      if (stripeData == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      // ── Conversion sécurisée ──────────────────────────────────
+      final stripePaymentMethodId = stripeData['stripePaymentMethodId']?.toString() ?? '';
+      final lastFourDigits        = stripeData['lastFourDigits']?.toString() ?? '';
+      final cardType              = stripeData['cardType']?.toString() ?? 'unknown';
+      final expiryMonth           = stripeData['expiryMonth']?.toString() ?? '';
+      final expiryYear            = stripeData['expiryYear']?.toString() ?? '';
+
+      debugPrint('✅ stripePaymentMethodId : $stripePaymentMethodId');
+      debugPrint('✅ lastFourDigits        : $lastFourDigits');
+      debugPrint('✅ cardType              : $cardType');
+      debugPrint('✅ expiryMonth           : $expiryMonth');
+      debugPrint('✅ expiryYear            : $expiryYear');
+
+      if (stripePaymentMethodId.isEmpty) {
+        throw Exception('stripePaymentMethodId vide — vérifier le backend');
+      }
+
+      final existingCards = await FirebaseFirestore.instance
+          .collection('users').doc(user.uid)
+          .collection('payment_methods').get();
+      final isFirst = existingCards.docs.isEmpty;
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users').doc(user.uid)
+          .collection('payment_methods').doc();
+
+      final dataToSave = {
+        'id':                    docRef.id,
+        'type':                  'card',
+        'cardType':              cardType,
+        'lastFourDigits':        lastFourDigits,
+        'cardholderName':        _holderNameCtrl.text.trim(),
+        'expiryMonth':           expiryMonth,
+        'expiryYear':            expiryYear,
+        'stripePaymentMethodId': stripePaymentMethodId,
+        'stripeCustomerId':      customerId,
+        'isDefault':             isFirst,
+        'createdAt':             Timestamp.now(),
+        'updatedAt':             null,
+        'encryptedCardNumber':   '',
+        'encryptedCvv':          '',
+      };
+
+      // ── Afficher ce qu'on sauvegarde ──────────────────────────
+      debugPrint('💾 dataToSave:');
+      dataToSave.forEach((key, value) {
+        debugPrint('  → $key : ${value?.runtimeType} = $value');
+      });
+
+      await docRef.set(dataToSave);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_isEditMode ? _t('payment_card_updated_success') : _t('payment_card_added_success')),
+          content:         Text(_t('payment_card_added_success')),
           backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
+          behavior:        SnackBarBehavior.floating,
         ));
-        Navigator.of(context).pop(true); // retour avec refresh
+        Navigator.of(context).pop(true);
       }
-    } catch (e) {
+
+    } catch (e, stackTrace) {
+      // ── Afficher l'erreur complète avec stacktrace ────────────
+      debugPrint('❌ ERREUR: $e');
+      debugPrint('📍 StackTrace: $stackTrace');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${_t('error')}: ${e.toString()}'),
+          content:         Text('Erreur: $e'),
           backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
+          behavior:        SnackBarBehavior.floating,
         ));
       }
     } finally {

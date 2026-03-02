@@ -6,7 +6,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_marketplace/views/payment/payment_picker_page.dart';
 import '../../providers/cart_provider.dart';
 import '../../localization/app_localizations.dart';
+import '../../services/payment_service.dart';
 import '../compte/adress/address_picker_page.dart';
+import '../history/history_page.dart';
+import '../home/home_page.dart';
+import '../layout/main_layout.dart';
 
 
 class CheckoutPage extends StatefulWidget {
@@ -95,35 +99,235 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _processPayment() async {
-    // ✅ Messages d'erreur traduits
-    if (_selectedAddress == null) {
-      _showSnack(_t('select_address_error'));
-      return;
-    }
-    if (_selectedPayment == null) {
-      _showSnack(_t('select_payment_error'));
-      return;
-    }
-
+    if (_selectedAddress == null || _selectedPayment == null) return;
     setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
 
+    try {
+      final cart    = context.read<CartProvider>();
+      bool  success = false;
+
+      if (_selectedPayment!.type == 'card') {
+        final stripePaymentMethodId = _selectedPayment!.stripePaymentMethodId;
+        final stripeCustomerId      = _selectedPayment!.stripeCustomerId;
+
+        if (stripePaymentMethodId != null && stripeCustomerId != null) {
+          success = await PaymentService.processPaymentWithSavedCard(
+            amount:                cart.estimatedTotal,
+            currency:              'usd',
+            stripeCustomerId:      stripeCustomerId,
+            stripePaymentMethodId: stripePaymentMethodId,
+          );
+        } else {
+          success = await PaymentService.processPayment(
+            amount:   cart.estimatedTotal,
+            currency: 'usd',
+          );
+        }
+
+      } else if (_selectedPayment!.type == 'cash') {
+        success = true;
+
+      } else {
+        success = await PaymentService.processPayment(
+          amount:   cart.estimatedTotal,
+          currency: 'usd',
+        );
+      }
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      if (!success) return;
+
+      // ✅ Créer la commande
+      await _createOrder(cart);
+      if (!mounted) return;
+
+      // ✅ Dialog de confirmation
+      _showSuccessDialog(cart.estimatedTotal);
+
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _showSnack('Erreur: $e');
+    }
+  }
+
+// ✅ Dialog succès séparé
+  void _showSuccessDialog(double totalPaid) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _SuccessDialog(
-        // ✅ Textes du dialogue traduits
-        title: _t('order_confirmed'),
-        message: _t('order_confirmed_desc'),
-        buttonLabel: _t('back_to_home'),
-        onConfirm: () {
-          Navigator.of(ctx).pop();
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        },
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 20,
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 88, height: 88,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.green.shade200, width: 2),
+                ),
+                child: Icon(Icons.check_circle_rounded,
+                    size: 52, color: Colors.green.shade500),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                _t('order_confirmed'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _t('order_confirmed_desc'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14,
+                    color: Colors.grey.shade500, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.payments_rounded,
+                        color: Colors.green.shade600, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '\$${totalPaid.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w800,
+                        color: Colors.green.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // ✅ Bouton Accueil
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();         // fermer dialog
+                    Navigator.of(context).pop();     // fermer checkout
+                    // ✅ Changer onglet Home via mainLayoutKey
+                    mainLayoutKey.currentState?.setIndex(0);
+                    historyPageKey.currentState?.loadOrders();
+                  },
+                  icon: const Icon(Icons.home_rounded, size: 20),
+                  label: Text(_t('back_to_home'),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 4,
+                    shadowColor: Colors.deepPurple.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // ✅ Bouton Mes commandes
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();         // fermer dialog
+                    Navigator.of(context).pop();     // fermer checkout
+                    // ✅ Changer onglet History via mainLayoutKey
+                    mainLayoutKey.currentState?.setIndex(2);
+                    historyPageKey.currentState?.loadOrders();
+                  },
+                  icon: Icon(Icons.receipt_long_rounded,
+                      size: 20, color: Colors.deepPurple.shade600),
+                  label: Text(_t('view_orders'),
+                      style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600,
+                        color: Colors.deepPurple.shade600,
+                      )),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                        color: Colors.deepPurple.shade200, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+// ✅ Créer commande + vider panier
+  Future<void> _createOrder(CartProvider cart) async {
+    final uid   = _auth.currentUser!.uid;
+    final batch = _firestore.batch();
+
+    final orderRef = _firestore.collection('orders').doc();
+    final orderData = {
+      'id':            orderRef.id,
+      'userId':        uid,
+      'items':         cart.selectedItems.map((i) => i.toMap()).toList(),
+      'total':         cart.estimatedTotal,
+      'address':       _selectedAddress!.toMap(),
+      'paymentMethod': _selectedPayment!.type,
+      'status':        'paid',
+      'createdAt':     Timestamp.now(),
+    };
+
+    // ✅ Sauvegarder dans orders/ (global)
+    batch.set(orderRef, orderData);
+
+    // ✅ Sauvegarder aussi dans users/{uid}/orders/ (pour HistoryPage)
+    final userOrderRef = _firestore
+        .collection('users').doc(uid)
+        .collection('orders').doc(orderRef.id);
+    batch.set(userOrderRef, orderData);
+
+    // ✅ Supprimer du panier
+    for (final item in cart.selectedItems) {
+      batch.delete(
+        _firestore.collection('users').doc(uid)
+            .collection('cart').doc(item.cartDocId),
+      );
+    }
+
+    // ✅ Réduire le stock
+    for (final item in cart.selectedItems) {
+      final productRef  = _firestore.collection('products').doc(item.productId);
+      final productSnap = await productRef.get();
+      if (productSnap.exists) {
+        final currentStock = productSnap.data()?['stock'] as int? ?? 0;
+        final newStock     = (currentStock - item.quantity).clamp(0, currentStock);
+        batch.update(productRef, {'stock': newStock});
+      }
+    }
+
+    await batch.commit();
   }
 
   void _showSnack(String msg) {

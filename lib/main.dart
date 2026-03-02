@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/providers/cart_provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
@@ -37,11 +38,11 @@ void main() async {
   // ✅ Status bar noire pour toute l'application
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark, // Android
-    statusBarBrightness: Brightness.light,    // iOS
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
   ));
 
-  print(' === DÉMARRAGE DE L\'APPLICATION ===');
+  print('=== DÉMARRAGE DE L\'APPLICATION ===');
 
   print('📱 Initialisation Firebase...');
   await FirebaseConfig.initializeFirebase();
@@ -50,6 +51,12 @@ void main() async {
   print('🧹 Nettoyage du cache Firestore...');
   await FirebaseAuthService().clearFirestoreCache();
   print('✅ Cache nettoyé');
+
+  // ✅ Initialisation Stripe — clé PUBLIQUE uniquement (pk_test_...)
+  print('💳 Initialisation Stripe...');
+  Stripe.publishableKey = 'pk_test_51T5rs4Q3Ez5ClbruC5VNxyihMhvo9dVbMRJYiWE8gD1eLWpbiRd4Ztf2RAH5eLiSP1VcCfZOrMa6Ww76pfmoCkX800GJUPNsox'; // ← remplace par ta clé publique
+  await Stripe.instance.applySettings();
+  print('✅ Stripe initialisé');
 
   print('🎯 === LANCEMENT DE L\'APPLICATION ===\n');
 
@@ -97,7 +104,7 @@ class MyApp extends StatelessWidget {
               '/': (context) => const SplashScreen(),
 
               '/home': (context) => ActivityRecorderWrapper(
-                child: const MainLayout(),
+                child: MainLayout(key: mainLayoutKey),
               ),
 
               '/seller-home': (context) => ActivityRecorderWrapper(

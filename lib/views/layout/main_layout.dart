@@ -16,6 +16,8 @@ import '../../widgets/auto_logout_warning_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 
+final GlobalKey<_MainLayoutState> mainLayoutKey = GlobalKey<_MainLayoutState>();
+final GlobalKey<HistoryPageState> historyPageKey = GlobalKey<HistoryPageState>();
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
@@ -49,6 +51,12 @@ class _MainLayoutState extends State<MainLayout>
     }
   }
 
+  void setIndex(int index) {
+    setState(() {
+      _currentIndex = index;
+      _showNotifications = false;
+    });
+  }
   void _showAutoLogoutWarning(int remainingSeconds) {
     if (_dialogShown) return;
     _dialogShown = true;
@@ -226,6 +234,11 @@ class _MainLayoutState extends State<MainLayout>
           cartPageKey.currentState?.loadCart();
         });
       }
+      if (index == 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          historyPageKey.currentState?.loadOrders();
+        });
+      }
     } else {
       _showLoginRequiredMessage();
     }
@@ -314,7 +327,7 @@ class _MainLayoutState extends State<MainLayout>
                   onCartSelectionChanged: _updateCartSelection,
                   onGoHome: () => setState(() => _currentIndex = 0),
                 ),
-                const HistoryPage(),
+                HistoryPage(key: historyPageKey),
                 const ProfilePage(),
               ],
             ),

@@ -311,6 +311,8 @@ class AppLocalizations {
     'payment_deleted_success': 'Moyen de paiement supprimé',
     'payment_set_default_success': 'Moyen de paiement défini par défaut',
     'payment_cash_description': 'Payer en espèces ou par carte lors de la livraison',
+    'payment_no_methods_desc':  'Ajoutez une carte bancaire, PayPal ou un autre moyen de paiement pour passer commande.',
+
 
     // ── Rôles utilisateur ─────────────────────────────────────────────
     'user_role_title': 'Choisissez votre rôle',
@@ -865,7 +867,20 @@ class AppLocalizations {
     'order_confirmed': 'Commande confirmée !',
     'order_confirmed_desc': 'Votre commande a été passée avec succès. Vous serez notifié de son suivi.',
     'back_to_home': 'Retour à l\'accueil',
+    'view_orders': 'Voir mes commandes',
 
+    // ── history page    ─────────────────────────────────────
+    'orders_count':     'commandes',
+    'filter_all':       'Toutes',
+    'status_paid':      'Payée',
+    'status_shipping':  'En livraison',
+    'status_delivered': 'Livrée',
+    'status_cancelled': 'Annulée',
+    'status_pending':   'En attente',
+    'more_items':       'articles de plus',
+    'details':          'Détails',
+    'no_orders_title':  'Aucune commande',
+    'no_orders_desc':   'Vos commandes apparaîtront ici après votre premier achat.',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1177,6 +1192,8 @@ class AppLocalizations {
     'payment_deleted_success': 'Payment method deleted',
     'payment_set_default_success': 'Payment method set as default',
     'payment_cash_description': 'Pay in cash or by card upon delivery',
+    'payment_no_methods_title': 'No payment method',
+    'payment_no_methods_desc':  'Add a credit card, PayPal or another payment method to place an order.',
 
     // ── User Roles ───────────────────────────────────────────────
     'user_role_title': 'Choose your role',
@@ -1727,7 +1744,20 @@ class AppLocalizations {
     'order_confirmed': 'Order confirmed!',
     'order_confirmed_desc': 'Your order has been placed successfully. You will be notified of its tracking.',
     'back_to_home': 'Back to home',
+    'view_orders': 'View my orders',
 
+    // ── history page    ─────────────────────────────────────
+    'orders_count':     'orders',
+    'filter_all':       'All',
+    'status_paid':      'Paid',
+    'status_shipping':  'Shipping',
+    'status_delivered': 'Delivered',
+    'status_cancelled': 'Cancelled',
+    'status_pending':   'Pending',
+    'more_items':       'more items',
+    'details':          'Details',
+    'no_orders_title':  'No orders yet',
+    'no_orders_desc':   'Your orders will appear here after your first purchase.',
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -2051,6 +2081,8 @@ class AppLocalizations {
     'payment_deleted_success': 'تم حذف طريقة الدفع',
     'payment_set_default_success': 'تم تعيين طريقة الدفع كافتراضية',
     'payment_cash_description': 'الدفع نقداً أو ببطاقة عند التسليم',
+    'payment_no_methods_title': 'لا توجد طريقة دفع',
+    'payment_no_methods_desc':  'أضف بطاقة ائتمانية أو PayPal أو طريقة دفع أخرى لإتمام الطلب.',
 
     // ── تعديل الملف الشخصي ────────────────────────────────────────
     'edit_profile_title': 'تعديل الملف الشخصي',
@@ -2593,6 +2625,21 @@ class AppLocalizations {
     'order_confirmed': 'تم تأكيد الطلب!',
     'order_confirmed_desc': 'تم تقديم طلبك بنجاح. سيتم إخطارك بتتبعه.',
     'back_to_home': 'العودة إلى الرئيسية',
+    'view_orders': 'عرض طلباتي',
+
+    // ── history page    ─────────────────────────────────────
+    'orders_count':     'طلبات',
+    'filter_all':       'الكل',
+    'status_paid':      'مدفوع',
+    'status_shipping':  'قيد التوصيل',
+    'status_delivered': 'تم التسليم',
+    'status_cancelled': 'ملغي',
+    'status_pending':   'قيد الانتظار',
+    'more_items':       'عناصر أخرى',
+    'details':          'تفاصيل',
+    'no_orders_title':  'لا توجد طلبات',
+    'no_orders_desc':   'ستظهر طلباتك هنا بعد أول عملية شراء.',
+
   };
 
   // ════════════════════════════════════════════════════════════════

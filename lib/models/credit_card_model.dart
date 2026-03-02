@@ -7,12 +7,15 @@ class CreditCardModel {
   final String cardholderName;
   final String expiryMonth;
   final String expiryYear;
-  final String cardType; // visa, mastercard, etc.
+  final String cardType;
   final bool isDefault;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String encryptedCardNumber;
   final String encryptedCvv;
+  // ✅ Ajout Stripe
+  final String? stripePaymentMethodId;
+  final String? stripeCustomerId;
 
   CreditCardModel({
     required this.id,
@@ -27,44 +30,49 @@ class CreditCardModel {
     this.updatedAt,
     required this.encryptedCardNumber,
     required this.encryptedCvv,
+    this.stripePaymentMethodId,
+    this.stripeCustomerId,
   });
 
-  // Créer depuis Firestore
   factory CreditCardModel.fromFirestore(Map<String, dynamic> data, String documentId) {
     return CreditCardModel(
-      id: documentId,
-      userId: data['userId'] ?? '',
-      lastFourDigits: data['lastFourDigits'] ?? '',
-      cardholderName: data['cardholderName'] ?? '',
-      expiryMonth: data['expiryMonth'] ?? '',
-      expiryYear: data['expiryYear'] ?? '',
-      cardType: data['cardType'] ?? 'unknown',
-      isDefault: data['isDefault'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-      encryptedCardNumber: data['encryptedCardNumber'] ?? '',
-      encryptedCvv: data['encryptedCvv'] ?? '',
+      id:                    documentId,
+      userId:                data['userId'] ?? '',
+      lastFourDigits:        data['lastFourDigits'] ?? '',
+      cardholderName:        data['cardholderName'] ?? '',
+      expiryMonth:           data['expiryMonth'] ?? '',
+      expiryYear:            data['expiryYear'] ?? '',
+      cardType:              data['cardType'] ?? 'unknown',
+      isDefault:             data['isDefault'] ?? false,
+      createdAt:             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt:             (data['updatedAt'] as Timestamp?)?.toDate(),
+      encryptedCardNumber:   data['encryptedCardNumber'] ?? '',
+      encryptedCvv:          data['encryptedCvv'] ?? '',
+      // ✅ Stripe — null si ancienne carte sans Stripe
+      stripePaymentMethodId: data['stripePaymentMethodId'] as String?,
+      stripeCustomerId:      data['stripeCustomerId'] as String?,
     );
   }
 
-  // Convertir en Map pour Firestore
   Map<String, dynamic> toMap() {
     return {
-      'userId': userId,
-      'lastFourDigits': lastFourDigits,
-      'cardholderName': cardholderName,
-      'expiryMonth': expiryMonth,
-      'expiryYear': expiryYear,
-      'cardType': cardType,
-      'isDefault': isDefault,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-      'encryptedCardNumber': encryptedCardNumber,
-      'encryptedCvv': encryptedCvv,
+      'userId':                userId,
+      'lastFourDigits':        lastFourDigits,
+      'cardholderName':        cardholderName,
+      'expiryMonth':           expiryMonth,
+      'expiryYear':            expiryYear,
+      'cardType':              cardType,
+      'isDefault':             isDefault,
+      'createdAt':             Timestamp.fromDate(createdAt),
+      'updatedAt':             updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'encryptedCardNumber':   encryptedCardNumber,
+      'encryptedCvv':          encryptedCvv,
+      // ✅ Stripe
+      'stripePaymentMethodId': stripePaymentMethodId,
+      'stripeCustomerId':      stripeCustomerId,
     };
   }
 
-  // Créer une copie avec mise à jour
   CreditCardModel copyWith({
     String? id,
     String? userId,
@@ -78,54 +86,39 @@ class CreditCardModel {
     DateTime? updatedAt,
     String? encryptedCardNumber,
     String? encryptedCvv,
+    String? stripePaymentMethodId,
+    String? stripeCustomerId,
   }) {
     return CreditCardModel(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      lastFourDigits: lastFourDigits ?? this.lastFourDigits,
-      cardholderName: cardholderName ?? this.cardholderName,
-      expiryMonth: expiryMonth ?? this.expiryMonth,
-      expiryYear: expiryYear ?? this.expiryYear,
-      cardType: cardType ?? this.cardType,
-      isDefault: isDefault ?? this.isDefault,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      encryptedCardNumber: encryptedCardNumber ?? this.encryptedCardNumber,
-      encryptedCvv: encryptedCvv ?? this.encryptedCvv,
+      id:                    id ?? this.id,
+      userId:                userId ?? this.userId,
+      lastFourDigits:        lastFourDigits ?? this.lastFourDigits,
+      cardholderName:        cardholderName ?? this.cardholderName,
+      expiryMonth:           expiryMonth ?? this.expiryMonth,
+      expiryYear:            expiryYear ?? this.expiryYear,
+      cardType:              cardType ?? this.cardType,
+      isDefault:             isDefault ?? this.isDefault,
+      createdAt:             createdAt ?? this.createdAt,
+      updatedAt:             updatedAt ?? this.updatedAt,
+      encryptedCardNumber:   encryptedCardNumber ?? this.encryptedCardNumber,
+      encryptedCvv:          encryptedCvv ?? this.encryptedCvv,
+      stripePaymentMethodId: stripePaymentMethodId ?? this.stripePaymentMethodId,
+      stripeCustomerId:      stripeCustomerId ?? this.stripeCustomerId,
     );
   }
 
-  // Obtenir le format d'affichage de la carte
-  String get maskedCardNumber {
-    return '**** **** **** $lastFourDigits';
-  }
+  // ✅ Vérifier si la carte est liée à Stripe
+  bool get hasStripe =>
+      stripePaymentMethodId != null && stripePaymentMethodId!.isNotEmpty;
 
-  // Obtenir la date d'expiration formatée
-  String get formattedExpiry {
-    return '$expiryMonth/$expiryYear';
-  }
+  String get maskedCardNumber => '**** **** **** $lastFourDigits';
+  String get formattedExpiry  => '$expiryMonth/$expiryYear';
 
-  // Vérifier si la carte est expirée
   bool get isExpired {
-    final now = DateTime.now();
-    final expiryDate = DateTime(
-      int.parse(expiryYear),
-      int.parse(expiryMonth),
-    );
+    final now        = DateTime.now();
+    final expiryDate = DateTime(int.parse(expiryYear), int.parse(expiryMonth));
     return expiryDate.isBefore(now);
   }
 
-  // Obtenir l'icône de la carte
-  String get cardIcon {
-    switch (cardType.toLowerCase()) {
-      case 'visa':
-        return '💳';
-      case 'mastercard':
-        return '💳';
-      case 'amex':
-        return '💳';
-      default:
-        return '💳';
-    }
-  }
+  String get cardIcon => '💳';
 }

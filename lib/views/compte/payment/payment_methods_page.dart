@@ -331,6 +331,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           child: _isLoading
               ? const Center(
               child: CircularProgressIndicator(color: Colors.deepPurple))
+              : _methods.isEmpty
+          // ✅ Aucune méthode de paiement
+              ? _buildEmptyState(isMobile)
               : RefreshIndicator(
             onRefresh: _loadMethods,
             color: Colors.deepPurple,
@@ -339,8 +342,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   horizontal: isMobile ? 16 : 20),
               children: [
                 ..._methods.map((m) {
-                  if (m['type'] == 'cash')   return _buildCashItem(m, isMobile);
-                  if (m['type'] == 'paypal') return _buildPaypalItem(m, isMobile);
+                  if (m['type'] == 'cash')       return _buildCashItem(m, isMobile);
+                  if (m['type'] == 'paypal')     return _buildPaypalItem(m, isMobile);
                   if (m['type'] == 'apple_pay')  return _buildWalletItem(m, isMobile, isApple: true);
                   if (m['type'] == 'google_pay') return _buildWalletItem(m, isMobile, isApple: false);
                   return _buildCardItem(m, isMobile);
@@ -353,6 +356,59 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
         _buildSecuritySection(isMobile),
       ],
+    );
+  }
+
+// ✅ Widget état vide
+  Widget _buildEmptyState(bool isMobile) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icône
+            Container(
+              width: isMobile ? 90 : 110,
+              height: isMobile ? 90 : 110,
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.credit_card_off_rounded,
+                size: isMobile ? 44 : 54,
+                color: Colors.deepPurple.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Titre
+            Text(
+              _t('payment_no_methods_title'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: isMobile ? 18 : 20,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Sous-titre
+            Text(
+              _t('payment_no_methods_desc'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                color: Colors.grey[500],
+                height: 1.5,
+              ),
+            ),
+
+          ],
+        ),
+      ),
     );
   }
 

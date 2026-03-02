@@ -164,26 +164,35 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isMobile  = screenWidth < 600;
+    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
+    // ✅ Détecter la langue
+    final isArabic = AppLocalizations.getLanguage() == 'ar';
+
     if (!_isServiceReady) {
-      return Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: Text(AppLocalizations.get('security')),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+      return Directionality(
+        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: Text(AppLocalizations.get('security')),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: const Center(child: CircularProgressIndicator()),
         ),
-        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-      body: _buildBody(context, isDesktop, isTablet, isMobile),
+    return Directionality(
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr, // ✅
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
+        body: _buildBody(context, isDesktop, isTablet, isMobile),
+      ),
     );
   }
 

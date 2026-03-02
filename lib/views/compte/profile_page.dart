@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -28,7 +29,8 @@ class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuthService _authService = FirebaseAuthService();
   final AutoLogoutService _autoLogoutService = AutoLogoutService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  int _points = 0;
+  StreamSubscription? _pointsSubscription;
   bool _dialogShown = false;
   int _ordersCount = 0;
   int _favoritesCount = 0;
@@ -44,6 +46,24 @@ class _ProfilePageState extends State<ProfilePage> {
     _setupListeners();
     _loadUserStats();
     _loadPhotoBase64();
+    _listenToPoints();
+  }
+
+  void _listenToPoints() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    _pointsSubscription = _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && mounted) {
+        setState(() {
+          _points = (doc.data()?['points'] as num?)?.toInt() ?? 0;
+        });
+      }
+    });
   }
 
   // ── Charger photo Base64 depuis Firestore ──────────────────
@@ -128,34 +148,36 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadUserStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        int orders = 0;
-        int favorites = 0;
+      if (user == null) return;
 
-        try {
-          final ordersSnapshot = await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('commandes')
-              .get();
-          orders = ordersSnapshot.docs.length;
-        } catch (_) {}
+      int orders    = 0;
+      int favorites = 0;
 
-        try {
-          final favoritesSnapshot = await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('favoris')
-              .get();
-          favorites = favoritesSnapshot.docs.length;
-        } catch (_) {}
+      // ✅ Commandes réelles depuis users/{uid}/orders
+      try {
+        final ordersSnapshot = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('orders')
+            .get();
+        orders = ordersSnapshot.docs.length;
+      } catch (_) {}
 
-        if (mounted) {
-          setState(() {
-            _ordersCount   = orders;
-            _favoritesCount = favorites;
-          });
-        }
+      // ✅ Favoris réels depuis users/{uid}/favorites
+      try {
+        final favoritesSnapshot = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('favorites')
+            .get();
+        favorites = favoritesSnapshot.docs.length;
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _ordersCount    = orders;
+          _favoritesCount = favorites;
+        });
       }
     } catch (_) {}
   }
@@ -237,6 +259,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   void dispose() {
+    _pointsSubscription?.cancel();
     super.dispose();
   }
 
@@ -329,21 +352,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         _statItem(
                           langProvider.translate('orders'),
-                          '$_ordersCount',
-                          isDesktop,
-                          isTablet,
+                          '$_ordersCount',   // ✅ dynamique
+                          isDesktop, isTablet,
                         ),
                         _statItem(
                           langProvider.translate('favorites'),
-                          '$_favoritesCount',
-                          isDesktop,
-                          isTablet,
+                          '$_favoritesCount', // ✅ dynamique
+                          isDesktop, isTablet,
                         ),
                         _statItem(
                           langProvider.translate('points'),
-                          '${authProvider.points}',
-                          isDesktop,
-                          isTablet,
+                          '$_points',         // ✅ temps réel via stream
+                          isDesktop, isTablet,
                         ),
                       ],
                     ),
@@ -578,6 +598,7 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.push(context,
                   MaterialPageRoute(
                       builder: (_) => const AddressPage()));
+              await _loadUserStats();
             } else if (titleKey == 'notification_settings') {
               Navigator.push(context,
                   MaterialPageRoute(
@@ -602,6 +623,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   MaterialPageRoute(
                       builder: (_) =>
                       const PaymentMethodsPage()));
+              await _loadUserStats();
             }
           },
         ),
