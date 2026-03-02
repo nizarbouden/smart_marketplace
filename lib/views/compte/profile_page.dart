@@ -274,149 +274,133 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
     final langProvider = Provider.of<LanguageProvider>(context);
+    final isRtl = langProvider.currentLanguageCode == 'ar'; // ✅
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: RefreshIndicator(
-        // Pull-to-refresh pour recharger la photo après retour de l'édition
-        color: Colors.deepPurple,
-        onRefresh: () async {
-          await _loadPhotoBase64();
-          await _loadUserStats();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding:
-          EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
-          child: Column(
-            children: [
-              SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
+    return Directionality( // ✅
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: RefreshIndicator(
+          color: Colors.deepPurple,
+          onRefresh: () async {
+            await _loadPhotoBase64();
+            await _loadUserStats();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 16),
+            child: Column(
+              children: [
+                SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
-              // ── Carte profil ─────────────────────────────────
-              Container(
-                padding: EdgeInsets.all(
-                    isDesktop ? 32 : isTablet ? 24 : 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                  BorderRadius.circular(isDesktop ? 20 : 12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Avatar avec reload automatique
-                    _buildAvatar(
-                      radius: isDesktop ? 80 : isTablet ? 60 : 50,
-                      authProvider: authProvider,
-                    ),
-
-                    SizedBox(
-                        height: isDesktop ? 24 : isTablet ? 20 : 16),
-
-                    Text(
-                      authProvider.fullName ?? 'User',
-                      style: TextStyle(
-                        fontSize: isDesktop
-                            ? 28
-                            : isTablet
-                            ? 24
-                            : 20,
-                        fontWeight: FontWeight.bold,
+                // ── Carte profil ─────────────────────────────────
+                Container(
+                  padding: EdgeInsets.all(isDesktop ? 32 : isTablet ? 24 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(isDesktop ? 20 : 12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
-                    ),
-                    SizedBox(
-                        height: isDesktop ? 8 : isTablet ? 6 : 4),
-                    Text(
-                      _getCorrectEmail(),
-                      style: TextStyle(
-                        fontSize: isDesktop
-                            ? 18
-                            : isTablet
-                            ? 16
-                            : 14,
-                        color: Colors.grey[600],
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _buildAvatar(
+                        radius: isDesktop ? 80 : isTablet ? 60 : 50,
+                        authProvider: authProvider,
                       ),
-                    ),
 
-                    SizedBox(
-                        height: isDesktop ? 32 : isTablet ? 24 : 20),
+                      SizedBox(height: isDesktop ? 24 : isTablet ? 20 : 16),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _statItem(
-                          langProvider.translate('orders'),
-                          '$_ordersCount',   // ✅ dynamique
-                          isDesktop, isTablet,
+                      Text(
+                        authProvider.fullName ?? 'User',
+                        style: TextStyle(
+                          fontSize: isDesktop ? 28 : isTablet ? 24 : 20,
+                          fontWeight: FontWeight.bold,
                         ),
-                        _statItem(
-                          langProvider.translate('favorites'),
-                          '$_favoritesCount', // ✅ dynamique
-                          isDesktop, isTablet,
+                      ),
+                      SizedBox(height: isDesktop ? 8 : isTablet ? 6 : 4),
+                      Text(
+                        _getCorrectEmail(),
+                        style: TextStyle(
+                          fontSize: isDesktop ? 18 : isTablet ? 16 : 14,
+                          color: Colors.grey[600],
                         ),
-                        _statItem(
-                          langProvider.translate('points'),
-                          '$_points',         // ✅ temps réel via stream
-                          isDesktop, isTablet,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                      ),
 
-              SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
+                      SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
 
-              // ── Menu ─────────────────────────────────────────
-              Container(
-                padding: EdgeInsets.all(
-                    isDesktop ? 24 : isTablet ? 20 : 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                  BorderRadius.circular(isDesktop ? 20 : 12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _statItem(
+                            langProvider.translate('orders'),
+                            '$_ordersCount',
+                            isDesktop, isTablet,
+                          ),
+                          _statItem(
+                            langProvider.translate('favorites'),
+                            '$_favoritesCount',
+                            isDesktop, isTablet,
+                          ),
+                          _statItem(
+                            langProvider.translate('points'),
+                            '$_points',
+                            isDesktop, isTablet,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    _menuTile('personal_info', Icons.person,
-                        isDesktop, isTablet, langProvider, context),
-                    _menuTile('addresses', Icons.location_on,
-                        isDesktop, isTablet, langProvider, context),
-                    _menuTile('payment_methods', Icons.credit_card,
-                        isDesktop, isTablet, langProvider, context),
-                    _menuTile('notification_settings',
-                        Icons.notifications, isDesktop, isTablet,
-                        langProvider, context),
-                    _menuTile('security', Icons.security, isDesktop,
-                        isTablet, langProvider, context),
-                    _languageTile(
-                        isDesktop, isTablet, langProvider, context),
-                    _menuTile('help', Icons.help, isDesktop, isTablet,
-                        langProvider, context),
-                    _menuTile('terms_conditions', Icons.description,
-                        isDesktop, isTablet, langProvider, context),
-                    _menuTile('logout', Icons.logout, isDesktop,
-                        isTablet, langProvider, context,
-                        isLast: true),
-                  ],
-                ),
-              ),
 
-              SizedBox(height: isTablet ? 30 : 20),
-            ],
+                SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
+
+                // ── Menu ─────────────────────────────────────────
+                Container(
+                  padding: EdgeInsets.all(isDesktop ? 24 : isTablet ? 20 : 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(isDesktop ? 20 : 12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _menuTile('personal_info', Icons.person,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('addresses', Icons.location_on,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('payment_methods', Icons.credit_card,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('notification_settings', Icons.notifications,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('security', Icons.security,
+                          isDesktop, isTablet, langProvider, context),
+                      _languageTile(isDesktop, isTablet, langProvider, context),
+                      _menuTile('help', Icons.help,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('terms_conditions', Icons.description,
+                          isDesktop, isTablet, langProvider, context),
+                      _menuTile('logout', Icons.logout,
+                          isDesktop, isTablet, langProvider, context,
+                          isLast: true),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: isTablet ? 30 : 20),
+              ],
+            ),
           ),
         ),
       ),

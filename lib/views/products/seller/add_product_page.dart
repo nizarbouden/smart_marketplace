@@ -286,93 +286,107 @@ class _AddProductPageState extends State<AddProductPage>
 
   // ── Build ─────────────────────────────────────────────────────
 
+
   @override
   Widget build(BuildContext context) {
+    final isRtl = AppLocalizations.isRtl; // ✅
+
     // ── 1. Chargement en cours ────────────────────────────────
     if (_isCheckingProfile) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF0F4F8),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF16A34A),
-          elevation: 0,
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: Colors.white, size: 20),
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF0F4F8),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF16A34A),
+            elevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(
+                isRtl ? Icons.arrow_forward_ios_rounded : Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 20,
+              ),
+            ),
+            title: Text(
+              _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            centerTitle: true,
           ),
-          title: Text(
-            _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          centerTitle: true,
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+          body: const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+            ),
           ),
         ),
       );
     }
 
-    // ── 2. Profil incomplet → page d'erreur ───────────────────
+    // ── 2. Profil incomplet ───────────────────────────────────
     if (!_profileComplete) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF0F4F8),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF16A34A),
-          elevation: 0,
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: Colors.white, size: 20),
+      return Directionality(
+        textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF0F4F8),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF16A34A),
+            elevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(
+                isRtl ? Icons.arrow_forward_ios_rounded : Icons.arrow_back_ios_new_rounded,
+                color: Colors.white, size: 20,
+              ),
+            ),
+            title: Text(
+              _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            centerTitle: true,
           ),
-          title: Text(
-            _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          centerTitle: true,
+          body: _buildIncompleteProfilePage(),
         ),
-        body: _buildIncompleteProfilePage(),
       );
     }
 
     // ── 3. Profil complet → formulaire normal ─────────────────
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Form(
-          key: _formKey,
-          child: CustomScrollView(
-            slivers: [
-              _buildSliverAppBar(),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomPad),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildImageSection(),
-                      const SizedBox(height: 28),
-                      _buildSectionLabel(_t('add_product_section_info')),
-                      const SizedBox(height: 14),
-                      _buildInfoFields(),
-                      const SizedBox(height: 28),
-                      _buildRewardSection(),
-                      const SizedBox(height: 16),
-                      _buildRequiredLegend(),
-                      const SizedBox(height: 16),
-                      _buildValidationNoticeBanner(),
-                      const SizedBox(height: 16),
-                      _buildSaveButton(),
-                    ],
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr, // ✅
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF0F4F8),
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: Form(
+            key: _formKey,
+            child: CustomScrollView(
+              slivers: [
+                _buildSliverAppBar(),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomPad),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildImageSection(),
+                        const SizedBox(height: 28),
+                        _buildSectionLabel(_t('add_product_section_info')),
+                        const SizedBox(height: 14),
+                        _buildInfoFields(),
+                        const SizedBox(height: 28),
+                        _buildRewardSection(),
+                        const SizedBox(height: 16),
+                        _buildRequiredLegend(),
+                        const SizedBox(height: 16),
+                        _buildValidationNoticeBanner(),
+                        const SizedBox(height: 16),
+                        _buildSaveButton(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -601,19 +615,22 @@ class _AddProductPageState extends State<AddProductPage>
   }
 
   Widget _buildSliverAppBar() {
+    final isRtl = AppLocalizations.isRtl;
     return SliverAppBar(
       pinned: true,
       backgroundColor: const Color(0xFF16A34A),
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.pop(context),
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            color: Colors.white, size: 20),
+        icon: Icon(
+          isRtl ? Icons.arrow_forward : Icons.arrow_back, // ✅ même icône
+          color: Colors.white,
+          size: 20,
+        ),
       ),
       title: Text(
         _isEditing ? _t('seller_edit_product') : _t('seller_add_product'),
-        style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
       ),
       centerTitle: true,
     );

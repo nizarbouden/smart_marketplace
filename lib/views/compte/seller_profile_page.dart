@@ -194,34 +194,36 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     final isDesktop    = screenWidth >= 1200;
     final langProvider = Provider.of<LanguageProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
+    final isRtl        = AppLocalizations.isRtl; // ✅ ajout
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: RefreshIndicator(
-        color: Colors.deepPurple,
-        onRefresh: () async {
-          await _loadPhotoBase64();
-          await _loadAll();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.all(
-              isDesktop ? 32 : isTablet ? 24 : 16),
-          child: Column(
-            children: [
-              SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
+    return Directionality( // ✅ enveloppe tout
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: RefreshIndicator(
+          color: Colors.deepPurple,
+          onRefresh: () async {
+            await _loadPhotoBase64();
+            await _loadAll();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(
+                isDesktop ? 32 : isTablet ? 24 : 16),
+            child: Column(
+              children: [
+                SizedBox(height: isDesktop ? 40 : isTablet ? 30 : 20),
 
-              _buildProfileCard(
-                  isDesktop, isTablet, authProvider, langProvider),
+                _buildProfileCard(
+                    isDesktop, isTablet, authProvider, langProvider),
 
-              SizedBox(
-                  height: isDesktop ? 32 : isTablet ? 24 : 20),
+                SizedBox(height: isDesktop ? 32 : isTablet ? 24 : 20),
 
-              _buildMenuCard(
-                  isDesktop, isTablet, langProvider),
+                _buildMenuCard(isDesktop, isTablet, langProvider),
 
-              SizedBox(height: isTablet ? 30 : 20),
-            ],
+                SizedBox(height: isTablet ? 30 : 20),
+              ],
+            ),
           ),
         ),
       ),

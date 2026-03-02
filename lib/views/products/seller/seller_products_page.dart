@@ -812,31 +812,138 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   void _confirmDelete(String docId, String Function(String) t) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title:   Text(t('seller_delete_product_title')),
-        content: Text(t('seller_delete_product_confirm')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t('cancel')),
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                    ),
+                    child: const Icon(Icons.delete_rounded, color: Colors.white, size: 32),
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t('seller_delete_product_title'),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDC2626),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        t('seller_delete_product_confirm'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: Text(
+                                  t('cancel'),
+                                  style: const TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  await _firestore
+                                      .collection('products')
+                                      .doc(docId)
+                                      .delete();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  foregroundColor: Colors.white,
+                                  shadowColor: const Color(0xFFDC2626).withOpacity(0.3),
+                                  elevation: 4,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: FittedBox(
+                                  child: Text(
+                                    t('delete'),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _firestore
-                  .collection('products')
-                  .doc(docId)
-                  .delete();
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
-            child: Text(t('delete'),
-                style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

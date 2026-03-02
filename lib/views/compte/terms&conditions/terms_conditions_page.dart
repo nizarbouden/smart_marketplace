@@ -50,106 +50,64 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
   @override
   Widget build(BuildContext context) {
     final lang = Provider.of<LanguageProvider>(context, listen: false);
+    final isRtl = AppLocalizations.isRtl; // ✅
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr, // ✅
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: AppBar(
+          backgroundColor: _primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(
+              isRtl ? Icons.arrow_forward : Icons.arrow_back, // ✅
+              color: Colors.white,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            lang.translate('terms_conditions'),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
         ),
-        title: Text(
-          lang.translate('terms_conditions'),
-          style: const TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: _loadingRole
-          ? Center(child: CircularProgressIndicator(color: _primary))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────
-            _buildHeader(lang),
-            const SizedBox(height: 28),
-
-            // ── Sections communes (1 → 5) ───────────
-            // Toutes en vert si vendeur, toutes en violet si acheteur
-            _buildNumberedSection(
-              number:  1,
-              title:   lang.translate('terms_section_1_title'),
-              content: lang.translate('terms_section_1_content'),
-            ),
-            const SizedBox(height: 16),
-            _buildNumberedSection(
-              number:  2,
-              title:   lang.translate('terms_section_2_title'),
-              content: lang.translate('terms_section_2_content'),
-            ),
-            const SizedBox(height: 16),
-            _buildNumberedSection(
-              number:  3,
-              title:   lang.translate('terms_section_3_title'),
-              content: lang.translate('terms_section_3_content'),
-            ),
-            const SizedBox(height: 16),
-            _buildNumberedSection(
-              number:  4,
-              title:   lang.translate('terms_section_4_title'),
-              content: lang.translate('terms_section_4_content'),
-            ),
-            const SizedBox(height: 16),
-            _buildNumberedSection(
-              number:  5,
-              title:   lang.translate('terms_section_5_title'),
-              content: lang.translate('terms_section_5_content'),
-            ),
-
-            // ── Sections vendeur (6 → 10) conditionnelles ──
-            if (_isSeller) ...[
-              const SizedBox(height: 32),
-              _buildSellerDivider(lang),
-              const SizedBox(height: 24),
-
-              _buildNumberedSection(
-                number:  6,
-                title:   lang.translate('terms_seller_section_1_title'),
-                content: lang.translate('terms_seller_section_1_content'),
-              ),
+        body: _loadingRole
+            ? Center(child: CircularProgressIndicator(color: _primary))
+            : SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: isRtl ? CrossAxisAlignment.end : CrossAxisAlignment.start, // ✅
+            children: [
+              _buildHeader(lang),
+              const SizedBox(height: 28),
+              _buildNumberedSection(number: 1, title: lang.translate('terms_section_1_title'), content: lang.translate('terms_section_1_content')),
               const SizedBox(height: 16),
-              _buildNumberedSection(
-                number:  7,
-                title:   lang.translate('terms_seller_section_2_title'),
-                content: lang.translate('terms_seller_section_2_content'),
-              ),
+              _buildNumberedSection(number: 2, title: lang.translate('terms_section_2_title'), content: lang.translate('terms_section_2_content')),
               const SizedBox(height: 16),
-              _buildNumberedSection(
-                number:  8,
-                title:   lang.translate('terms_seller_section_3_title'),
-                content: lang.translate('terms_seller_section_3_content'),
-              ),
+              _buildNumberedSection(number: 3, title: lang.translate('terms_section_3_title'), content: lang.translate('terms_section_3_content')),
               const SizedBox(height: 16),
-              _buildNumberedSection(
-                number:  9,
-                title:   lang.translate('terms_seller_section_4_title'),
-                content: lang.translate('terms_seller_section_4_content'),
-              ),
+              _buildNumberedSection(number: 4, title: lang.translate('terms_section_4_title'), content: lang.translate('terms_section_4_content')),
               const SizedBox(height: 16),
-              _buildNumberedSection(
-                number:  10,
-                title:   lang.translate('terms_seller_section_5_title'),
-                content: lang.translate('terms_seller_section_5_content'),
-              ),
+              _buildNumberedSection(number: 5, title: lang.translate('terms_section_5_title'), content: lang.translate('terms_section_5_content')),
+              if (_isSeller) ...[
+                const SizedBox(height: 32),
+                _buildSellerDivider(lang),
+                const SizedBox(height: 24),
+                _buildNumberedSection(number: 6, title: lang.translate('terms_seller_section_1_title'), content: lang.translate('terms_seller_section_1_content')),
+                const SizedBox(height: 16),
+                _buildNumberedSection(number: 7, title: lang.translate('terms_seller_section_2_title'), content: lang.translate('terms_seller_section_2_content')),
+                const SizedBox(height: 16),
+                _buildNumberedSection(number: 8, title: lang.translate('terms_seller_section_3_title'), content: lang.translate('terms_seller_section_3_content')),
+                const SizedBox(height: 16),
+                _buildNumberedSection(number: 9, title: lang.translate('terms_seller_section_4_title'), content: lang.translate('terms_seller_section_4_content')),
+                const SizedBox(height: 16),
+                _buildNumberedSection(number: 10, title: lang.translate('terms_seller_section_5_title'), content: lang.translate('terms_seller_section_5_content')),
+              ],
+              const SizedBox(height: 48),
             ],
-
-            const SizedBox(height: 48),
-          ],
+          ),
         ),
       ),
     );
@@ -298,8 +256,7 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: _primary.withOpacity(0.15), width: 1),
+        border: Border.all(color: _primary.withOpacity(0.15), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -308,18 +265,18 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
           ),
         ],
       ),
+      // ✅ Plus de logique isRtl manuelle — Directionality gère tout
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Bulle numéro ────────────────────────────
+          // Numéro — automatiquement à droite en RTL grâce à Directionality
           Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
               color: _numberBg,
               shape: BoxShape.circle,
-              border: Border.all(
-                  color: _primary.withOpacity(0.35), width: 1.5),
+              border: Border.all(color: _primary.withOpacity(0.35), width: 1.5),
             ),
             child: Center(
               child: Text(
@@ -332,15 +289,12 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
               ),
             ),
           ),
-
           const SizedBox(width: 14),
-
-          // ── Titre + contenu ─────────────────────────
+          // Contenu
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Barre colorée + titre
                 Row(
                   children: [
                     Container(
@@ -379,7 +333,6 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
       ),
     );
   }
-
   // ── Séparateur sections vendeur ────────────────────────────
 
   Widget _buildSellerDivider(LanguageProvider lang) {

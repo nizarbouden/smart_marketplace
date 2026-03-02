@@ -196,14 +196,24 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context,
+      bool isDesktop,
+      bool isTablet,
+      bool isMobile,
+      ) {
+    final isRtl = AppLocalizations.isRtl; // ✅ même logique
+
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
-        icon: Icon(Icons.arrow_back, color: Colors.black87,
-            size: isDesktop ? 28 : isTablet ? 24 : 20),
+        icon: Icon(
+          isRtl ? Icons.arrow_forward : Icons.arrow_back, // ✅ logique RTL
+          color: Colors.black87,
+          size: isDesktop ? 28 : isTablet ? 24 : 20,
+        ),
       ),
       title: Text(
         AppLocalizations.get('security'),
@@ -219,15 +229,17 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           padding: const EdgeInsets.only(right: 16),
           child: IconButton(
             onPressed: _saveSettings,
-            icon: Icon(Icons.save, color: Colors.deepPurple,
-                size: isDesktop ? 24 : isTablet ? 22 : 20),
+            icon: Icon(
+              Icons.save,
+              color: Colors.deepPurple,
+              size: isDesktop ? 24 : isTablet ? 22 : 20,
+            ),
             tooltip: AppLocalizations.get('save'),
           ),
         ),
       ],
     );
   }
-
   Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
@@ -538,8 +550,11 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, color: Colors.grey[400],
-                    size: isDesktop ? 20 : isTablet ? 18 : 16),
+                Icon(
+                  Icons.arrow_forward_ios, // ✅ toujours la même, Directionality s'occupe du reste
+                  color: Colors.grey[400],
+                  size: isDesktop ? 20 : isTablet ? 18 : 16,
+                ),
               ],
             ),
           ),
