@@ -772,6 +772,22 @@ class AppLocalizations {
     'add_product_missing_fields':          'Champs manquants',
     'add_product_complete_profile_btn':    'Compléter mon profil',
     'add_product_profile_incomplete_title': 'Profil incomplet',
+// Timer de visibilité
+    'add_product_timer_title':      'Programmer la visibilité',
+    'add_product_timer_subtitle':   'Le produit sera visible à partir d\'une date choisie',
+    'add_product_timer_pick_date':  'Choisir une date et une heure',
+    'add_product_timer_info':       'Le produit restera masqué aux clients jusqu\'à la date sélectionnée',
+
+// Promotion
+    'add_product_discount_title':    'Promotion',
+    'add_product_discount_subtitle': 'Appliquer une remise en pourcentage sur ce produit',
+    'add_product_discount_percent':  'Remise (%)',
+    'add_product_discount_invalid':  'Entrez un pourcentage entre 1 et 99',
+    'add_product_discount_end_date': 'Date de fin de la remise (optionnel)',
+    'add_product_discount_no_end':   'Aucune date de fin (remise permanente)',
+    'add_product_original_price':    'Prix original',
+    'add_product_new_price':         'Nouveau prix',
+
     //──── seller product page ──────────────────────────────────────
     'add_product_pending'          : 'Produit soumis, en attente de validation',
     'add_product_validation_title' : 'Validation requise',
@@ -789,6 +805,8 @@ class AppLocalizations {
     'seller_search_products'       : 'Rechercher un produit...',
     'seller_search_no_result'      : 'Aucun produit trouvé',
     'seller_search_no_result_hint' : 'Essayez un autre nom',
+    'seller_product_visible_in':    'Visible dans',
+    'seller_product_discount_until':'Remise jusqu\'au',
 
     // ── Favorites Page  ─────────────────────────────────────────────
     'favorites_title':        'Favoris',
@@ -839,6 +857,11 @@ class AppLocalizations {
     'detail_reward_step2':      'Vous êtes automatiquement inscrit au tirage',
     'detail_reward_step3':      'Le gagnant reçoit ce reward gratuitement !',
     'detail_reward_note':       'Un tirage au sort est effectué parmi tous les acheteurs. Bonne chance !',
+    'detail_price_label':         'Prix',
+    'detail_you_save':            'Économie',
+    'detail_low_stock_warning':   'Dépêchez-vous ! Stock très limité',
+    'detail_visible_for':         'Visible encore :',
+    'detail_urgent':              'URGENT',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Rechercher un produit...',
@@ -853,6 +876,14 @@ class AppLocalizations {
     'error_prefix': 'Erreur',
     'product': 'produit',
     'products': 'produits',
+    'savings_prefix':         '-',
+    'discount_flash':         'OFFRE FLASH — EXPIRE BIENTÔT !',
+    'discount_expires_in':    'REMISE SPÉCIALE EXPIRE DANS',
+    'visible_for':            'Visible encore :',
+    'urgent':                 '!',
+    'reward_badge':           'TIRAGE AU SORT',
+    'reward_draw_label':      'Gagnez ce cadeau !',
+    'reward_draw_sub':        'Achetez ce produit pour participer au tirage au sort',
 
     // ── chckout page    ─────────────────────────────────────
     'checkout_title': 'Récapitulatif',
@@ -1655,6 +1686,20 @@ class AppLocalizations {
     'add_product_missing_fields':          'Missing fields',
     'add_product_complete_profile_btn':    'Complete my profile',
     'add_product_profile_incomplete_title': 'Incomplete profile',
+  // Visibility timer
+  'add_product_timer_title':      'Schedule visibility',
+  'add_product_timer_subtitle':   'The product will be visible from a chosen date',
+  'add_product_timer_pick_date':  'Pick a date and time',
+  'add_product_timer_info':       'The product will remain hidden from customers until the selected date',
+// Promotion
+  'add_product_discount_title':    'Promotion',
+  'add_product_discount_subtitle': 'Apply a percentage discount on this product',
+  'add_product_discount_percent':  'Discount (%)',
+  'add_product_discount_invalid':  'Enter a percentage between 1 and 99',
+  'add_product_discount_end_date': 'Discount end date (optional)',
+  'add_product_discount_no_end':   'No end date (permanent discount)',
+  'add_product_original_price':    'Original price',
+  'add_product_new_price':         'New price',
 
     //──── seller product page ──────────────────────────────────────
     'add_product_pending'          : 'Product submitted, awaiting review',
@@ -1667,6 +1712,8 @@ class AppLocalizations {
     'seller_search_products'       : 'Search a product...',
     'seller_search_no_result'      : 'No product found',
     'seller_search_no_result_hint' : 'Try a different name',
+    'seller_product_visible_in':     'Visible in',
+    'seller_product_discount_until': 'Discount until',
 
     // ── Favorites Page  ─────────────────────────────────────────────
   'favorites_title':        'Favorites',
@@ -1716,6 +1763,11 @@ class AppLocalizations {
     'detail_reward_step2':      'You are automatically entered in the draw',
     'detail_reward_step3':      'The winner receives this reward for free!',
     'detail_reward_note':       'A draw is held among all buyers. Good luck!',
+    'detail_price_label':         'Price',
+    'detail_you_save':            'You save',
+    'detail_low_stock_warning':   'Hurry! Very limited stock',
+    'detail_visible_for':         'Available for:',
+    'detail_urgent':              'URGENT',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Search for a product...',
@@ -1730,6 +1782,14 @@ class AppLocalizations {
     'error_prefix': 'Error',
     'product': 'product',
     'products': 'products',
+    'savings_prefix':         '-',
+    'discount_flash':         'FLASH SALE — EXPIRES SOON!',
+    'discount_expires_in':    'SPECIAL DEAL EXPIRES IN',
+    'visible_for':            'Visible for:',
+    'urgent':                 '!',
+    'reward_badge':           'PRIZE DRAW',
+    'reward_draw_label':      'Win this reward!',
+    'reward_draw_sub':        'Buy this product to enter the prize draw',
 
     // ── chckout page    ─────────────────────────────────────
     'checkout_title': 'Order Summary',
@@ -2474,6 +2534,8 @@ class AppLocalizations {
     'seller_search_products'       : 'ابحث عن منتج...',
     'seller_search_no_result'      : 'لا يوجد منتج',
     'seller_search_no_result_hint' : 'جرب اسماً آخر',
+    'seller_product_visible_in':     'يظهر خلال',
+    'seller_product_discount_until': 'الخصم حتى',
 
 
     // Profile page seller
@@ -2550,6 +2612,21 @@ class AppLocalizations {
     'add_product_missing_fields':          'الحقول المفقودة',
     'add_product_complete_profile_btn':    'إكمال ملفي الشخصي',
     'add_product_profile_incomplete_title': 'الملف الشخصي غير مكتمل',
+  // مؤقت الظهور
+  'add_product_timer_title':      'جدولة الظهور',
+  'add_product_timer_subtitle':   'سيظهر المنتج اعتباراً من تاريخ محدد',
+  'add_product_timer_pick_date':  'اختر تاريخاً ووقتاً',
+  'add_product_timer_info':       'سيبقى المنتج مخفياً عن العملاء حتى التاريخ المحدد',
+
+// التخفيض
+  'add_product_discount_title':    'تخفيض',
+  'add_product_discount_subtitle': 'تطبيق خصم بالنسبة المئوية على هذا المنتج',
+  'add_product_discount_percent':  'نسبة الخصم (%)',
+  'add_product_discount_invalid':  'أدخل نسبة بين 1 و 99',
+  'add_product_discount_end_date': 'تاريخ انتهاء التخفيض (اختياري)',
+  'add_product_discount_no_end':   'بدون تاريخ انتهاء (خصم دائم)',
+  'add_product_original_price':    'السعر الأصلي',
+  'add_product_new_price':         'السعر الجديد',
 
 // ── Favorites Page  ─────────────────────────────────────────────
     'favorites_title':        'المفضلة',
@@ -2598,6 +2675,12 @@ class AppLocalizations {
     'detail_reward_step2':      'يتم تسجيلك تلقائياً في السحب',
     'detail_reward_step3':      'الفائز يحصل على هذه المكافأة مجاناً!',
     'detail_reward_note':       'يتم إجراء سحب عشوائي بين جميع المشترين. حظاً موفقاً!',
+    'detail_price_label':         'السعر',
+    'detail_you_save':            'وفرت',
+    'detail_low_stock_warning':   'أسرع! المخزون محدود جداً',
+    'detail_visible_for':         'متاح لمدة:',
+    'detail_urgent':              'عاجل',
+
       // ── home page    ─────────────────────────────────────
     'search_hint': 'البحث عن منتج...',
     'out_of_stock': 'نفذ المخزون',
@@ -2611,6 +2694,14 @@ class AppLocalizations {
     'error_prefix': 'خطأ',
     'product': 'منتج',
     'products': 'منتجات',
+    'savings_prefix':         '-',
+    'discount_flash':         'عرض خاص — ينتهي قريباً!',
+    'discount_expires_in':    'العرض ينتهي خلال',
+    'visible_for':            'متاح لمدة:',
+    'urgent':                 '!',
+    'reward_badge':           'سحب على الجوائز',
+    'reward_draw_label':      'اربح هذه الجائزة!',
+    'reward_draw_sub':        'اشتر هذا المنتج للمشاركة في السحب على الجوائز',
 
     // ── chckout page    ─────────────────────────────────────
     'checkout_title': 'ملخص الطلب',
@@ -2626,6 +2717,7 @@ class AppLocalizations {
     'order_confirmed_desc': 'تم تقديم طلبك بنجاح. سيتم إخطارك بتتبعه.',
     'back_to_home': 'العودة إلى الرئيسية',
     'view_orders': 'عرض طلباتي',
+
 
     // ── history page    ─────────────────────────────────────
     'orders_count':     'طلبات',
