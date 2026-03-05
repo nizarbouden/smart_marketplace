@@ -2,51 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
-import 'package:smart_marketplace/models/paypal_account_model.dart';
-import 'package:smart_marketplace/services/encryption_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:smart_marketplace/services/paypal_oauth_service.dart';
 
 class AddPayPalAccountPage extends StatefulWidget {
-  final Map<String, dynamic>? paypalAccount; // Pour l'édition
-
-  const AddPayPalAccountPage({super.key, this.paypalAccount});
+  const AddPayPalAccountPage({super.key});
 
   @override
   State<AddPayPalAccountPage> createState() => _AddPayPalAccountPageState();
 }
 
 class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
-  final _formKey         = GlobalKey<FormState>();
-  final _emailCtrl       = TextEditingController();
-  final _holderNameCtrl  = TextEditingController();
-  final _emailFocus      = FocusNode();
-  final _holderNameFocus = FocusNode();
-  bool _isLoading        = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Pré-remplir le formulaire si c'est une édition
-    if (widget.paypalAccount != null) {
-      _emailCtrl.text = widget.paypalAccount!['email'] ?? '';
-      _holderNameCtrl.text = widget.paypalAccount!['accountHolderName'] ?? '';
-    }
-  }
-
-  final _encryption = EncryptionService();
+  bool _isLoading = false;
+  final _paypalOAuth = PayPalOAuthService();
 
   String _t(String key) => AppLocalizations.get(key);
 
-  @override
-  void dispose() {
-    _emailCtrl.dispose();
-    _holderNameCtrl.dispose();
-    _emailFocus.dispose();
-    _holderNameFocus.dispose();
-    super.dispose();
-  }
-
-  // ── Vérifier si PayPal déjà ajouté ───────────────────────────
+  // ── Vérifie si PayPal déjà lié ────────────────────────────────
   Future<bool> _paypalAlreadyExists(String uid) async {
     final snap = await FirebaseFirestore.instance
         .collection('users').doc(uid)
@@ -57,86 +28,95 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
     return snap.docs.isNotEmpty;
   }
 
-  // ── Sauvegarder dans Firebase ─────────────────────────────────
-  Future<void> _savePaypal() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
+  // ── Lance le OAuth PayPal ─────────────────────────────────────
+  Future<void> _connectWithPayPal() async {
     setState(() => _isLoading = true);
-
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) throw Exception('Utilisateur non connecté');
 
-      // Vérifier si PayPal déjà lié
+      // Vérifie doublon
       if (await _paypalAlreadyExists(uid)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(_t('paypal_already_added')),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
+        print('⚠️ [PayPal] Compte déjà lié pour uid: $uid');
+        _showSnackBar(_t('paypal_already_added'), Colors.orange);
         return;
       }
 
-      // Générer et chiffrer le token d'accès via EncryptionService
-      final token          = _encryption.generateRandomToken();
-      final encryptedToken = _encryption.encrypt(token);
+      print('🚀 [PayPal] Lancement du flow OAuth...');
 
-      // Référence du document
+      // Lance le flow OAuth
+      final result = await _paypalOAuth.connectPayPalAccount();
+
+      print('📦 [PayPal] Résultat reçu: $result');
+      print('   isSuccess   : ${result?.isSuccess}');
+      print('   isCancelled : ${result?.isCancelled}');
+      print('   errorMessage: ${result?.errorMessage}');
+      print('   email       : ${result?.email}');
+      print('   name        : ${result?.name}');
+      print('   paypalId    : ${result?.paypalId}');
+      print('   isVerified  : ${result?.isVerified}');
+
+      if (result == null || result.isCancelled) {
+        print('❌ [PayPal] Connexion annulée par l\'utilisateur');
+        _showSnackBar(_t('paypal_connection_cancelled'), Colors.orange);
+        return;
+      }
+
+      if (!result.isSuccess) {
+        print('❌ [PayPal] Échec OAuth: ${result.errorMessage}');
+        _showSnackBar(result.errorMessage ?? _t('error'), Colors.red);
+        return;
+      }
+
+      print('✅ [PayPal] Compte vérifié — sauvegarde dans Firestore...');
+
+      // ✅ Compte PayPal vérifié → sauvegarder dans Firestore
       final col    = FirebaseFirestore.instance
           .collection('users').doc(uid).collection('payment_methods');
       final docRef = col.doc();
 
-      // Construire le modèle PayPalAccountModel
-      final paypal = PayPalAccountModel(
-        id:                   docRef.id,
-        userId:               uid,
-        email:                _emailCtrl.text.trim().toLowerCase(),
-        accountHolderName:    _holderNameCtrl.text.trim(),
-        isVerified:           false,
-        isDefault:            false,
-        createdAt:            DateTime.now(),
-        encryptedAccessToken: encryptedToken,
-      );
-
-      // Sauvegarder — on ajoute 'type' pour que payment_methods_page
-      // puisse distinguer les types (card / paypal / cash)
       await docRef.set({
-        ...paypal.toMap(),
-        'type': 'paypal',
+        'id':                docRef.id,
+        'type':              'paypal',
+        'email':             result.email,
+        'accountHolderName': result.name,
+        'paypalUserId':      result.paypalId,
+        'isVerified':        result.isVerified,
+        'isDefault':         false,
+        'createdAt':         Timestamp.now(),
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_t('paypal_added_success')),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ));
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${_t('error')}: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
+      print('✅ [PayPal] Sauvegardé dans Firestore avec succès — docId: ${docRef.id}');
+
+      _showSnackBar(_t('paypal_added_success'), Colors.green);
+      if (mounted) Navigator.of(context).pop(true);
+
+    } catch (e, stack) {
+      print('💥 [PayPal] Exception inattendue: $e');
+      print('   StackTrace: $stack');
+      _showSnackBar('${_t('error')}: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _showSnackBar(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final sw        = MediaQuery.of(context).size.width;
-    final isMobile  = sw < 600;
-    final isTablet  = sw >= 600 && sw < 1200;
-    final isDesktop = sw >= 1200;
+    final sw       = MediaQuery.of(context).size.width;
+    final isMobile = sw < 600;
 
     return Directionality(
-      textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: AppLocalizations.isRtl
+          ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
@@ -145,106 +125,29 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
           leading: IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(
-              AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
+              AppLocalizations.isRtl
+                  ? Icons.arrow_forward : Icons.arrow_back,
               color: Colors.black87,
             ),
           ),
-          title: Text(
-            widget.paypalAccount != null
-                ? _t('paypal_edit_title')
-                : _t('paypal_page_title'),
-            style: TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          title: Text(_t('paypal_page_title'),
+              style: const TextStyle(
+                  color: Colors.black87, fontWeight: FontWeight.bold)),
           centerTitle: true,
         ),
         body: SingleChildScrollView(
-          padding: EdgeInsets.all(isMobile ? 20 : isTablet ? 28 : 36),
+          padding: EdgeInsets.all(isMobile ? 24 : 36),
           child: Column(
             children: [
-              _buildPaypalHeader(isMobile),
+              _buildHeader(isMobile),
               SizedBox(height: isMobile ? 32 : 40),
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Nom du titulaire ──────────────────────
-                    _buildLabel(_t('paypal_holder_label')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller:         _holderNameCtrl,
-                      focusNode:          _holderNameFocus,
-                      textCapitalization: TextCapitalization.words,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                      decoration: _inputDecoration(
-                        hint: _t('paypal_holder_hint'),
-                        icon: Icons.person_outline,
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? _t('paypal_holder_required') : null,
-                      onFieldSubmitted: (_) =>
-                          FocusScope.of(context).requestFocus(_emailFocus),
-                    ),
-
-                    SizedBox(height: isMobile ? 20 : 24),
-
-                    // ── Email PayPal ──────────────────────────
-                    _buildLabel(_t('paypal_email_label')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller:   _emailCtrl,
-                      focusNode:    _emailFocus,
-                      keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                      decoration: _inputDecoration(
-                        hint: _t('paypal_email_hint'),
-                        icon: Icons.email_outlined,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty)
-                          return _t('paypal_email_required');
-                        // ✅ Utilise isValidPayPalEmail de EncryptionService
-                        if (!_encryption.isValidPayPalEmail(v.trim()))
-                          return _t('paypal_email_invalid');
-                        return null;
-                      },
-                    ),
-
-                    SizedBox(height: isMobile ? 24 : 32),
-
-                    _buildInfoBox(isMobile),
-
-                    SizedBox(height: isMobile ? 32 : 40),
-
-                    _buildSubmitButton(isMobile, isTablet, isDesktop),
-
-                    const SizedBox(height: 16),
-
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          final url = Uri.parse('https://www.paypal.com/signin/create-account');
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
-                          }
-                        },
-                        icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF003087)),
-                        label: Text(
-                          _t('paypal_no_account'),
-                          style: const TextStyle(
-                            color: Color(0xFF003087),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildStepsList(isMobile),
+              SizedBox(height: isMobile ? 32 : 40),
+              _buildInfoBox(isMobile),
+              SizedBox(height: isMobile ? 32 : 40),
+              _buildConnectButton(isMobile),
+              const SizedBox(height: 16),
+              _buildCreateAccountLink(),
             ],
           ),
         ),
@@ -252,8 +155,8 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
     );
   }
 
-  // ── Header PayPal ─────────────────────────────────────────────
-  Widget _buildPaypalHeader(bool isMobile) {
+  // ── Header ────────────────────────────────────────────────────
+  Widget _buildHeader(bool isMobile) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(isMobile ? 24 : 32),
@@ -292,15 +195,70 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
           Text(
             _t('paypal_header_subtitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withOpacity(0.85),
-                fontSize: isMobile ? 13 : 14, height: 1.4),
+            style: TextStyle(
+                color: Colors.white.withOpacity(0.85),
+                fontSize: isMobile ? 13 : 14,
+                height: 1.4),
           ),
         ],
       ),
     );
   }
 
-  // ── Info box sécurité ─────────────────────────────────────────
+  // ── Étapes expliquées ─────────────────────────────────────────
+  Widget _buildStepsList(bool isMobile) {
+    final steps = [
+      (Icons.touch_app_outlined, Colors.blue,
+      _t('paypal_step1_title'), _t('paypal_step1_desc')),
+      (Icons.lock_outline, Colors.orange,
+      _t('paypal_step2_title'), _t('paypal_step2_desc')),
+      (Icons.verified_outlined, Colors.green,
+      _t('paypal_step3_title'), _t('paypal_step3_desc')),
+    ];
+
+    return Column(
+      children: steps.asMap().entries.map((e) {
+        final step = e.value;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: step.$2.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(step.$1, color: step.$2, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(step.$3,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B))),
+                    const SizedBox(height: 3),
+                    Text(step.$4,
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                            height: 1.4)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Info sécurité ─────────────────────────────────────────────
   Widget _buildInfoBox(bool isMobile) {
     return Container(
       padding: EdgeInsets.all(isMobile ? 14 : 16),
@@ -317,8 +275,10 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
           Expanded(
             child: Text(
               _t('paypal_info_text'),
-              style: TextStyle(color: const Color(0xFF003087),
-                  fontSize: isMobile ? 12 : 13, height: 1.5),
+              style: TextStyle(
+                  color: const Color(0xFF003087),
+                  fontSize: isMobile ? 12 : 13,
+                  height: 1.5),
             ),
           ),
         ],
@@ -326,63 +286,58 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
     );
   }
 
-  // ── Décoration champs ─────────────────────────────────────────
-  InputDecoration _inputDecoration({required String hint, required IconData icon}) {
-    return InputDecoration(
-      hintText:  hint,
-      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-      prefixIcon: Icon(icon,
-          color: const Color(0xFF003087).withOpacity(0.7), size: 20),
-      filled: true, fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey[200]!)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey[200]!)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF003087), width: 1.5)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.red)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.red, width: 1.5)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    );
-  }
-
-  Widget _buildLabel(String text) => Text(text,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-          color: Color(0xFF1E293B)));
-
-  // ── Bouton Lier ───────────────────────────────────────────────
-  Widget _buildSubmitButton(bool isMobile, bool isTablet, bool isDesktop) {
+  // ── Bouton principal OAuth ────────────────────────────────────
+  Widget _buildConnectButton(bool isMobile) {
     return SizedBox(
       width: double.infinity,
-      height: isMobile ? 52 : 56,
+      height: isMobile ? 54 : 58,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _savePaypal,
+        onPressed: _isLoading ? null : _connectWithPayPal,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF003087),
           foregroundColor: Colors.white,
           elevation: 4,
           shadowColor: const Color(0xFF003087).withOpacity(0.3),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
         ),
         child: _isLoading
-            ? const SizedBox(width: 22, height: 22,
-            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+            ? const SizedBox(
+          width: 22, height: 22,
+          child: CircularProgressIndicator(
+              color: Colors.white, strokeWidth: 2.5),
+        )
             : Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.link_rounded, size: 20),
+            const Icon(Icons.account_balance_wallet_rounded, size: 22),
             const SizedBox(width: 10),
             Text(
-              widget.paypalAccount != null ? 'Mettre à jour' : _t('paypal_link_btn'),
+              _t('paypal_connect_btn'),
               style: TextStyle(
-                fontSize: isDesktop ? 17 : isTablet ? 16 : 15,
-                fontWeight: FontWeight.w700,
-              ),
+                  fontSize: isMobile ? 15 : 16,
+                  fontWeight: FontWeight.w700),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Lien création compte ──────────────────────────────────────
+  Widget _buildCreateAccountLink() {
+    return TextButton.icon(
+      onPressed: () async {
+        final url = Uri.parse('https://www.paypal.com/signin/create-account');
+        // launchUrl(url, mode: LaunchMode.externalApplication);
+      },
+      icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF003087)),
+      label: Text(
+        _t('paypal_no_account'),
+        style: const TextStyle(
+            color: Color(0xFF003087),
+            fontSize: 13,
+            fontWeight: FontWeight.w600),
       ),
     );
   }
