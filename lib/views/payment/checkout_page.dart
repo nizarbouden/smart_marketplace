@@ -8,8 +8,8 @@ import '../../providers/cart_provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../services/payment_service.dart';
 import '../compte/adress/address_picker_page.dart';
-import '../history/history_page.dart';
-import '../home/home_page.dart';
+import '../compte/payment/payment_methods_page.dart';
+import '../compte/adress/address_page.dart';
 import '../layout/main_layout.dart';
 
 
@@ -22,15 +22,14 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  final _auth      = FirebaseAuth.instance;
 
-  AddressModel? _selectedAddress;
+  AddressModel?       _selectedAddress;
   PaymentMethodModel? _selectedPayment;
   bool _loadingAddress = true;
   bool _loadingPayment = true;
-  bool _isProcessing = false;
+  bool _isProcessing   = false;
 
-  // ✅ Helper de traduction
   String _t(String key) => AppLocalizations.get(key);
 
   @override
@@ -39,6 +38,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _loadDefaultAddress();
     _loadDefaultPayment();
   }
+
+  // ── Loaders ───────────────────────────────────────────────────
 
   Future<void> _loadDefaultAddress() async {
     final uid = _auth.currentUser?.uid;
@@ -82,12 +83,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+  // ── Navigation ────────────────────────────────────────────────
+
   Future<void> _pickAddress() async {
     final result = await Navigator.push<AddressModel>(
       context,
       MaterialPageRoute(builder: (_) => AddressPickerPage(currentAddressId: _selectedAddress?.id)),
     );
     if (result != null && mounted) setState(() => _selectedAddress = result);
+  }
+
+  /// Redirige vers la page d'ajout d'adresse si aucune adresse
+  Future<void> _addAddress() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddressPage()),
+    );
+    // Recharge après retour
+    setState(() => _loadingAddress = true);
+    await _loadDefaultAddress();
   }
 
   Future<void> _pickPayment() async {
@@ -98,6 +112,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (result != null && mounted) setState(() => _selectedPayment = result);
   }
 
+  /// Redirige vers la page d'ajout de méthode de paiement si aucune méthode
+  Future<void> _addPayment() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PaymentMethodsPage()),
+    );
+    // Recharge après retour
+    setState(() => _loadingPayment = true);
+    await _loadDefaultPayment();
+  }
+
+  // ── Paiement ──────────────────────────────────────────────────
+
   Future<void> _processPayment() async {
     if (_selectedAddress == null || _selectedPayment == null) return;
     setState(() => _isProcessing = true);
@@ -106,44 +133,52 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final cart    = context.read<CartProvider>();
       bool  success = false;
 
-      if (_selectedPayment!.type == 'card') {
-        final stripePaymentMethodId = _selectedPayment!.stripePaymentMethodId;
-        final stripeCustomerId      = _selectedPayment!.stripeCustomerId;
+      switch (_selectedPayment!.type) {
 
-        if (stripePaymentMethodId != null && stripeCustomerId != null) {
-          success = await PaymentService.processPaymentWithSavedCard(
-            amount:                cart.estimatedTotal,
-            currency:              'usd',
-            stripeCustomerId:      stripeCustomerId,
-            stripePaymentMethodId: stripePaymentMethodId,
-          );
-        } else {
+      // ── Carte Stripe ────────────────────────────────────────
+        case 'card':
+          final stripePaymentMethodId = _selectedPayment!.stripePaymentMethodId;
+          final stripeCustomerId      = _selectedPayment!.stripeCustomerId;
+
+          if (stripePaymentMethodId != null && stripeCustomerId != null) {
+            success = await PaymentService.processPaymentWithSavedCard(
+              amount:                cart.estimatedTotal,
+              currency:              'usd',
+              stripeCustomerId:      stripeCustomerId,
+              stripePaymentMethodId: stripePaymentMethodId,
+            );
+          } else {
+            success = await PaymentService.processPayment(
+              amount:   cart.estimatedTotal,
+              currency: 'usd',
+            );
+          }
+          break;
+
+      // ── PayPal ──────────────────────────────────────────────
+        case 'paypal':
+          success = await _processPayPalPayment(cart.estimatedTotal);
+          break;
+
+      // ── Espèces ─────────────────────────────────────────────
+        case 'cash':
+          success = true;
+          break;
+
+      // ── Fallback ─────────────────────────────────────────────
+        default:
           success = await PaymentService.processPayment(
             amount:   cart.estimatedTotal,
             currency: 'usd',
           );
-        }
-
-      } else if (_selectedPayment!.type == 'cash') {
-        success = true;
-
-      } else {
-        success = await PaymentService.processPayment(
-          amount:   cart.estimatedTotal,
-          currency: 'usd',
-        );
       }
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
-
       if (!success) return;
 
-      // ✅ Créer la commande
       await _createOrder(cart);
       if (!mounted) return;
-
-      // ✅ Dialog de confirmation
       _showSuccessDialog(cart.estimatedTotal);
 
     } catch (e) {
@@ -153,7 +188,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-// ✅ Dialog succès séparé
+  /// Paiement PayPal via le compte lié
+  Future<bool> _processPayPalPayment(double amount) async {
+    final result = await PaymentService.processPayPalPayment(
+      amount:      amount,
+      description: 'Winzy Order',
+    );
+    if (result.cancelled) return false;
+    if (!result.success) {
+      _showSnack(result.errorMessage ?? 'Erreur PayPal');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Dialog succès ─────────────────────────────────────────────
+
   void _showSuccessDialog(double totalPaid) {
     showDialog(
       context: context,
@@ -181,22 +231,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Text(
                 _t('order_confirmed'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
-                ),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E293B)),
               ),
               const SizedBox(height: 8),
               Text(
                 _t('order_confirmed_desc'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14,
-                    color: Colors.grey.shade500, height: 1.5),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500, height: 1.5),
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -205,73 +251,58 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.payments_rounded,
-                        color: Colors.green.shade600, size: 20),
+                    Icon(Icons.payments_rounded, color: Colors.green.shade600, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       '\$${totalPaid.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w800,
-                        color: Colors.green.shade600,
-                      ),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                          color: Colors.green.shade600),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 28),
-
-              // ✅ Bouton Accueil
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(ctx).pop();         // fermer dialog
-                    Navigator.of(context).pop();     // fermer checkout
-                    // ✅ Changer onglet Home via mainLayoutKey
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pop();
                     mainLayoutKey.currentState?.setIndex(0);
                     historyPageKey.currentState?.loadOrders();
                   },
                   icon: const Icon(Icons.home_rounded, size: 20),
                   label: Text(_t('back_to_home'),
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 4,
                     shadowColor: Colors.deepPurple.withOpacity(0.3),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
-
-              // ✅ Bouton Mes commandes
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.of(ctx).pop();         // fermer dialog
-                    Navigator.of(context).pop();     // fermer checkout
-                    // ✅ Changer onglet History via mainLayoutKey
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pop();
                     mainLayoutKey.currentState?.setIndex(2);
                     historyPageKey.currentState?.loadOrders();
                   },
                   icon: Icon(Icons.receipt_long_rounded,
                       size: 20, color: Colors.deepPurple.shade600),
                   label: Text(_t('view_orders'),
-                      style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600,
-                        color: Colors.deepPurple.shade600,
-                      )),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                          color: Colors.deepPurple.shade600)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(
-                        color: Colors.deepPurple.shade200, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    side: BorderSide(color: Colors.deepPurple.shade200, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ),
@@ -282,12 +313,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-// ✅ Créer commande + vider panier
+  // ── Créer commande ────────────────────────────────────────────
+
   Future<void> _createOrder(CartProvider cart) async {
     final uid   = _auth.currentUser!.uid;
     final batch = _firestore.batch();
 
-    final orderRef = _firestore.collection('orders').doc();
+    final orderRef  = _firestore.collection('orders').doc();
     final orderData = {
       'id':            orderRef.id,
       'userId':        uid,
@@ -299,16 +331,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
       'createdAt':     Timestamp.now(),
     };
 
-    // ✅ Sauvegarder dans orders/ (global)
     batch.set(orderRef, orderData);
 
-    // ✅ Sauvegarder aussi dans users/{uid}/orders/ (pour HistoryPage)
     final userOrderRef = _firestore
         .collection('users').doc(uid)
         .collection('orders').doc(orderRef.id);
     batch.set(userOrderRef, orderData);
 
-    // ✅ Supprimer du panier
     for (final item in cart.selectedItems) {
       batch.delete(
         _firestore.collection('users').doc(uid)
@@ -316,7 +345,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     }
 
-    // ✅ Réduire le stock
     for (final item in cart.selectedItems) {
       final productRef  = _firestore.collection('products').doc(item.productId);
       final productSnap = await productRef.get();
@@ -341,23 +369,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final cart = context.watch<CartProvider>();
+    final cart        = context.watch<CartProvider>();
     final selectedItems = cart.selectedItems;
-    final isTablet = MediaQuery.of(context).size.width > 600;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final isTablet    = MediaQuery.of(context).size.width > 600;
+    final bottomPad   = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        // ✅ Titre traduit
-        title: Text(
-          _t('checkout_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black87),
-        ),
+        title: Text(_t('checkout_title'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700,
+                color: Colors.black87)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87),
           onPressed: () => Navigator.pop(context),
@@ -375,32 +403,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ "Mes articles (X)" traduit
             _buildSectionTitle('${_t('my_articles')} (${selectedItems.length})'),
             const SizedBox(height: 12),
             _buildProductsList(selectedItems, isTablet),
             const SizedBox(height: 24),
 
-            // ✅ "Adresse de livraison" traduit
             _buildSectionTitle(_t('delivery_address')),
             const SizedBox(height: 12),
             _buildAddressCard(),
             const SizedBox(height: 24),
 
-            // ✅ "Méthode de paiement" traduit
             _buildSectionTitle(_t('payment_method')),
             const SizedBox(height: 12),
             _buildPaymentCard(),
             const SizedBox(height: 24),
 
-            // ✅ "Résumé" traduit
             _buildSectionTitle(_t('summary')),
             const SizedBox(height: 12),
             _buildPriceSummary(cart),
           ],
         ),
       ),
-
       bottomNavigationBar: Container(
         padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
         decoration: BoxDecoration(
@@ -412,10 +435,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isProcessing ? null : _processPayment,
+            onPressed: (_isProcessing || _selectedAddress == null || _selectedPayment == null)
+                ? null
+                : _processPayment,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: Colors.grey.shade300,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               elevation: 4,
@@ -430,7 +456,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               children: [
                 const Icon(Icons.lock_rounded, size: 18),
                 const SizedBox(width: 8),
-                // ✅ "Payer $X" traduit
                 Text(
                   '${_t('pay_button')} \$${cart.estimatedTotal.toStringAsFixed(2)}',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
@@ -443,9 +468,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  // ── Widgets ───────────────────────────────────────────────────
+
   Widget _buildSectionTitle(String title) {
     return Text(title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)));
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+            color: Color(0xFF1E293B)));
   }
 
   Widget _buildProductsList(List<CartItemModel> items, bool isTablet) {
@@ -457,8 +485,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       child: Column(
         children: items.asMap().entries.map((entry) {
-          final i = entry.key;
-          final item = entry.value;
+          final i      = entry.key;
+          final item   = entry.value;
           final isLast = i == items.length - 1;
           final imageBytes = item.images.isNotEmpty
               ? (() { try { return base64Decode(item.images.first); } catch (_) { return null; } })()
@@ -473,7 +501,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: Container(width: 64, height: 64, color: Colors.grey.shade100,
                       child: imageBytes != null
                           ? Image.memory(imageBytes, fit: BoxFit.cover)
-                          : Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 28)),
+                          : Icon(Icons.image_outlined,
+                          color: Colors.grey.shade400, size: 28)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -501,7 +530,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ]),
               ]),
             ),
-            if (!isLast) const Divider(height: 1, color: Color(0xFFF0F0F0), indent: 12, endIndent: 12),
+            if (!isLast) const Divider(height: 1, color: Color(0xFFF0F0F0),
+                indent: 12, endIndent: 12),
           ]);
         }).toList(),
       ),
@@ -520,13 +550,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(width: 40, height: 40,
-          decoration: BoxDecoration(color: Colors.deepPurple.withOpacity(0.08), shape: BoxShape.circle),
-          child: const Icon(Icons.location_on_rounded, size: 20, color: Colors.deepPurple),
+          decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.08), shape: BoxShape.circle),
+          child: const Icon(Icons.location_on_rounded,
+              size: 20, color: Colors.deepPurple),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _selectedAddress == null
-          // ✅ "Aucune adresse sélectionnée" traduit
               ? Text(_t('no_address_selected'),
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500,
                   fontStyle: FontStyle.italic))
@@ -542,8 +573,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4)),
           ]),
         ),
-        // ✅ "Modifier" traduit
-        _editButton(_pickAddress),
+        // ✅ Bouton Ajouter si pas d'adresse, Modifier sinon
+        _selectedAddress == null
+            ? _actionButton(_t('add'), _addAddress, isAdd: true)
+            : _actionButton(_t('edit'), _pickAddress),
       ]),
     );
   }
@@ -560,7 +593,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       child: Row(children: [
         Container(width: 44, height: 44,
-          decoration: BoxDecoration(color: Colors.deepPurple.withOpacity(0.08),
+          decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12)),
           child: Icon(_selectedPayment?.icon ?? Icons.payment_rounded,
               size: 22, color: Colors.deepPurple),
@@ -568,7 +602,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         const SizedBox(width: 12),
         Expanded(
           child: _selectedPayment == null
-          // ✅ "Aucune méthode sélectionnée" traduit
               ? Text(_t('no_payment_selected'),
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500,
                   fontStyle: FontStyle.italic))
@@ -583,25 +616,41 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
           ]),
         ),
-        // ✅ "Modifier" traduit
-        _editButton(_pickPayment),
+        // ✅ Bouton Ajouter si pas de méthode, Modifier sinon
+        _selectedPayment == null
+            ? _actionButton(_t('add'), _addPayment, isAdd: true)
+            : _actionButton(_t('edit'), _pickPayment),
       ]),
     );
   }
 
-  // ✅ Bouton "Modifier" centralisé et traduit
-  Widget _editButton(VoidCallback onTap) {
+  /// Bouton unifié — violet pour "Modifier", vert pour "Ajouter"
+  Widget _actionButton(String label, VoidCallback onTap, {bool isAdd = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.deepPurple.withOpacity(0.08),
+          color: isAdd
+              ? Colors.green.withOpacity(0.1)
+              : Colors.deepPurple.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(_t('edit'),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                color: Colors.deepPurple.shade600)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isAdd) ...[
+              Icon(Icons.add_rounded, size: 14,
+                  color: isAdd ? Colors.green.shade700 : Colors.deepPurple.shade600),
+              const SizedBox(width: 3),
+            ],
+            Text(label,
+                style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600,
+                  color: isAdd ? Colors.green.shade700 : Colors.deepPurple.shade600,
+                )),
+          ],
+        ),
       ),
     );
   }
@@ -615,17 +664,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
             blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Column(children: [
-        // ✅ Tous les labels traduits
         _priceRow(_t('total_items'), '\$${cart.selectedTotal.toStringAsFixed(2)}'),
         const SizedBox(height: 10),
-        _priceRow(_t('discount_10'), '-\$${(cart.selectedTotal * 0.1).toStringAsFixed(2)}',
+        _priceRow(_t('discount_10'),
+            '-\$${(cart.selectedTotal * 0.1).toStringAsFixed(2)}',
             valueColor: Colors.green.shade600),
         const SizedBox(height: 10),
         _priceRow(_t('subtotal'), '\$${cart.subtotal.toStringAsFixed(2)}'),
         const SizedBox(height: 10),
         _priceRow(_t('shipping'), '\$${cart.shippingFee.toStringAsFixed(2)}'),
-        const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
-        _priceRow(_t('estimated_total'), '\$${cart.estimatedTotal.toStringAsFixed(2)}',
+        const Padding(padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1)),
+        _priceRow(_t('estimated_total'),
+            '\$${cart.estimatedTotal.toStringAsFixed(2)}',
             isBold: true, isLarge: true, valueColor: Colors.deepPurple),
       ]),
     );
@@ -649,65 +700,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget _buildLoadingCard() {
     return Container(
       height: 72,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: Colors.white,
+          borderRadius: BorderRadius.circular(14)),
       child: const Center(child: SizedBox(width: 20, height: 20,
           child: CircularProgressIndicator(strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation(Colors.deepPurple)))),
-    );
-  }
-}
-
-// ── Dialogue de succès ────────────────────────────────────────────
-class _SuccessDialog extends StatelessWidget {
-  final VoidCallback onConfirm;
-  // ✅ Textes passés en paramètres pour la traduction
-  final String title;
-  final String message;
-  final String buttonLabel;
-
-  const _SuccessDialog({
-    required this.onConfirm,
-    required this.title,
-    required this.message,
-    required this.buttonLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 72, height: 72,
-            decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
-            child: Icon(Icons.check_rounded, size: 40, color: Colors.green.shade600),
-          ),
-          const SizedBox(height: 20),
-          // ✅ Titre traduit
-          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B))),
-          const SizedBox(height: 10),
-          // ✅ Message traduit
-          Text(message, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600, height: 1.5)),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onConfirm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              // ✅ Bouton traduit
-              child: Text(buttonLabel,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ]),
-      ),
     );
   }
 }
