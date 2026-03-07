@@ -1,3 +1,5 @@
+// lib/views/layout/seller_main_layout.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
@@ -17,7 +19,6 @@ class SellerMainLayout extends StatefulWidget {
 class _SellerMainLayoutState extends State<SellerMainLayout> {
   int _currentIndex = 0;
 
-  // ✅ Utilise le provider pour que la langue se mette à jour immédiatement
   String _t(String key) => AppLocalizations.get(key);
 
   final List<Widget> _pages = const [
@@ -27,7 +28,6 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
     SellerProfilePage(),
   ];
 
-  // ✅ Appelé à chaque rebuild (quand langue change) → labels mis à jour
   List<_NavItemData> _buildNavItems() => [
     _NavItemData(
       activeIcon: Icons.dashboard_rounded,
@@ -53,36 +53,71 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Consumer sur LanguageProvider → rebuild immédiat au changement de langue
     return Consumer<LanguageProvider>(
       builder: (context, langProvider, _) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isWideScreen = screenWidth >= 600;
+        final bottomPad = MediaQuery.of(context).padding.bottom;
 
-        // ✅ Directionality avec TextDirection.ltr TOUJOURS
-        // pour garder l'ordre des onglets identique en arabe
         return Directionality(
           textDirection: TextDirection.ltr,
-          child: isWideScreen ? _buildWideLayout() : _buildNarrowLayout(),
+          child: isWideScreen
+              ? _buildWideLayout()
+              : _buildNarrowLayout(bottomPad),
         );
       },
     );
   }
 
-  /// Narrow layout: bottom navigation bar (phones)
-  Widget _buildNarrowLayout() {
+  // ── Narrow layout ─────────────────────────────────────────────
+
+  Widget _buildNarrowLayout(double bottomPad) {
+    final items = _buildNavItems();
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      backgroundColor: const Color(0xFFF0F4F8),
+      body: Stack(
+        children: [
+          // ── Pages ──────────────────────────────────────────────
+          Column(
+            children: [
+              Expanded(
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _pages,
+                ),
+              ),
+              SizedBox(height: 64 + bottomPad),
+            ],
+          ),
+
+          // ── ✅ Animated Indicator NavBar ───────────────────────
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: _AnimatedIndicatorNavBar(
+              currentIndex: _currentIndex,
+              items: items,
+              onTap: (i) => setState(() => _currentIndex = i),
+              bottomPad: bottomPad,
+            ),
+          ),
+        ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  /// Wide layout: side rail navigation (tablets / desktops)
+  // ── Wide layout (tablet) ──────────────────────────────────────
+
   Widget _buildWideLayout() {
     final items = _buildNavItems();
+
+    // Couleurs seller (même ordre que _colors dans la navbar)
+    const colors = [
+      Color(0xFF16A34A), // dashboard — vert
+      Color(0xFF3B82F6), // produits  — bleu
+      Color(0xFFF97316), // commandes — orange
+      Color(0xFF8B5CF6), // profil    — violet
+    ];
+
     return Scaffold(
       body: Row(
         children: [
@@ -91,27 +126,22 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
             selectedIndex: _currentIndex,
             onDestinationSelected: (i) => setState(() => _currentIndex = i),
             labelType: NavigationRailLabelType.all,
-            selectedIconTheme:
-            const IconThemeData(color: Color(0xFF16A34A)),
-            unselectedIconTheme:
-            IconThemeData(color: Colors.grey[400]),
-            selectedLabelTextStyle: const TextStyle(
-              color: Color(0xFF16A34A),
+            selectedIconTheme: IconThemeData(color: colors[_currentIndex]),
+            unselectedIconTheme: IconThemeData(color: Colors.grey[400]),
+            selectedLabelTextStyle: TextStyle(
+              color: colors[_currentIndex],
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
             unselectedLabelTextStyle:
             TextStyle(color: Colors.grey[400], fontSize: 12),
-            indicatorColor:
-            const Color(0xFF16A34A).withOpacity(0.12),
+            indicatorColor: colors[_currentIndex].withOpacity(0.12),
             destinations: items
-                .map(
-                  (e) => NavigationRailDestination(
-                icon: Icon(e.inactiveIcon),
-                selectedIcon: Icon(e.activeIcon),
-                label: Text(e.label),
-              ),
-            )
+                .map((e) => NavigationRailDestination(
+              icon: Icon(e.inactiveIcon),
+              selectedIcon: Icon(e.activeIcon),
+              label: Text(e.label),
+            ))
                 .toList(),
           ),
           const VerticalDivider(thickness: 1, width: 1),
@@ -125,86 +155,12 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    final items = _buildNavItems(); // ✅ recalculé à chaque rebuild
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            // ✅ LTR forcé → ordre toujours Dashboard / Produits / Commandes / Profil
-            textDirection: TextDirection.ltr,
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: items
-                .asMap()
-                .entries
-                .map((e) => _buildNavItem(e.key, e.value))
-                .toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int index, _NavItemData item) {
-    final isActive = _currentIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xFF16A34A).withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isActive ? item.activeIcon : item.inactiveIcon,
-                color: isActive
-                    ? const Color(0xFF16A34A)
-                    : Colors.grey[400],
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight:
-                  isActive ? FontWeight.w700 : FontWeight.normal,
-                  color: isActive
-                      ? const Color(0xFF16A34A)
-                      : Colors.grey[400],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                // ✅ texte arabe centré sans inverser l'ordre
-                textDirection: TextDirection.ltr,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// ✅ ANIMATED INDICATOR NAVBAR — Seller edition
+//    Même logique que MainLayout, couleurs adaptées au seller
+// ═══════════════════════════════════════════════════════════════════
 
 class _NavItemData {
   final IconData activeIcon;
@@ -216,4 +172,221 @@ class _NavItemData {
     required this.inactiveIcon,
     required this.label,
   });
+}
+
+class _AnimatedIndicatorNavBar extends StatefulWidget {
+  final int currentIndex;
+  final List<_NavItemData> items;
+  final ValueChanged<int> onTap;
+  final double bottomPad;
+
+  const _AnimatedIndicatorNavBar({
+    required this.currentIndex,
+    required this.items,
+    required this.onTap,
+    required this.bottomPad,
+  });
+
+  @override
+  State<_AnimatedIndicatorNavBar> createState() =>
+      _AnimatedIndicatorNavBarState();
+}
+
+class _AnimatedIndicatorNavBarState extends State<_AnimatedIndicatorNavBar>
+    with SingleTickerProviderStateMixin {
+
+  late AnimationController _controller;
+  late Animation<double> _indicatorAnim;
+  int _prevIndex = 0;
+
+  // ✅ Couleurs seller par onglet
+  static const _colors = [
+    Color(0xFF16A34A), // dashboard — vert primaire
+    Color(0xFF3B82F6), // produits  — bleu
+    Color(0xFFF97316), // commandes — orange
+    Color(0xFF8B5CF6), // profil    — violet
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _prevIndex = widget.currentIndex;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _indicatorAnim =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutExpo);
+    _controller.value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedIndicatorNavBar old) {
+    super.didUpdateWidget(old);
+    if (old.currentIndex != widget.currentIndex) {
+      _prevIndex = old.currentIndex;
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = _colors[widget.currentIndex];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+          BoxShadow(
+            color: activeColor.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final itemW = constraints.maxWidth / widget.items.length;
+
+            return Stack(clipBehavior: Clip.none, children: [
+
+              // ── Trait animé en haut ────────────────────────────
+              AnimatedBuilder(
+                animation: _indicatorAnim,
+                builder: (_, __) {
+                  final fromX = _prevIndex * itemW + itemW / 2;
+                  final toX   = widget.currentIndex * itemW + itemW / 2;
+                  final x = lerpDouble(fromX, toX, _indicatorAnim.value)!;
+
+                  return Positioned(
+                    top: 0,
+                    left: x - 20,
+                    child: Container(
+                      width: 40,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: activeColor,
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(3),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: activeColor.withOpacity(0.5),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              // ── Spotlight circulaire derrière l'icône active ───
+              AnimatedBuilder(
+                animation: _indicatorAnim,
+                builder: (_, __) {
+                  final fromX = _prevIndex * itemW + itemW / 2;
+                  final toX   = widget.currentIndex * itemW + itemW / 2;
+                  final x = lerpDouble(fromX, toX, _indicatorAnim.value)!;
+
+                  return Positioned(
+                    top: 8,
+                    left: x - 24,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: activeColor.withOpacity(0.10),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              // ── Items ──────────────────────────────────────────
+              Row(
+                children: List.generate(widget.items.length, (i) {
+                  final item     = widget.items[i];
+                  final isActive = i == widget.currentIndex;
+                  final color    = _colors[i];
+
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => widget.onTap(i),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        height: 64,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+
+                            // ── Icône avec switch animé ──────────
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, anim) =>
+                                  ScaleTransition(scale: anim, child: child),
+                              child: Icon(
+                                isActive ? item.activeIcon : item.inactiveIcon,
+                                key: ValueKey(isActive),
+                                size: isActive ? 26 : 23,
+                                color: isActive
+                                    ? color
+                                    : const Color(0xFFB0BEC5),
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            // ── Label animé ──────────────────────
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              style: TextStyle(
+                                fontSize: isActive ? 11 : 10,
+                                fontWeight: isActive
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: isActive
+                                    ? color
+                                    : const Color(0xFFB0BEC5),
+                                letterSpacing: isActive ? 0.2 : 0,
+                              ),
+                              child: Text(
+                                item.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                textDirection: TextDirection.ltr,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+            ]);
+          }),
+        ),
+      ),
+    );
+  }
 }

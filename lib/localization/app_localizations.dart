@@ -719,6 +719,11 @@ class AppLocalizations {
     'seller_logout':              'Se déconnecter',
     'seller_firstname':           'Prénom',
     'seller_lastname':            'Nom',
+    'seller_store_address': 'Adresse boutique',
+    'seller_add_store_address':  'Ajouter adresse boutique',
+    'seller_edit_store_address': 'Modifier adresse boutique',
+    'seller_store_address_hint': 'Cette adresse sera visible par vos acheteurs',
+    'addr_phone_section':        'Téléphone',
 
     //──── sellerdashboard page ──────────────────────────────────────
 
@@ -772,13 +777,10 @@ class AppLocalizations {
     'add_product_missing_fields':          'Champs manquants',
     'add_product_complete_profile_btn':    'Compléter mon profil',
     'add_product_profile_incomplete_title': 'Profil incomplet',
-// Timer de visibilité
     'add_product_timer_title':      'Programmer la visibilité',
     'add_product_timer_subtitle':   'Le produit sera visible à partir d\'une date choisie',
     'add_product_timer_pick_date':  'Choisir une date et une heure',
     'add_product_timer_info':       'Le produit restera masqué aux clients jusqu\'à la date sélectionnée',
-
-// Promotion
     'add_product_discount_title':    'Promotion',
     'add_product_discount_subtitle': 'Appliquer une remise en pourcentage sur ce produit',
     'add_product_discount_percent':  'Remise (%)',
@@ -787,6 +789,13 @@ class AppLocalizations {
     'add_product_discount_no_end':   'Aucune date de fin (remise permanente)',
     'add_product_original_price':    'Prix original',
     'add_product_new_price':         'Nouveau prix',
+    'add_product_no_store_address_title': 'Adresse boutique requise',
+    'add_product_no_store_address_desc': 'Pour publier un produit, vous devez d\'abord renseigner l\'adresse de votre boutique. Cela permet de gérer vos livraisons et de rassurer vos acheteurs.',
+    'add_product_why_address_title': 'Pourquoi cette adresse ?',
+    'add_product_address_reason_1': 'Calcul automatique des frais de livraison selon votre localisation.',
+    'add_product_address_reason_2': 'Renforce la confiance des acheteurs envers votre boutique.',
+    'add_product_address_reason_3': 'Nécessaire pour la génération de vos bons de commande.',
+    'add_product_add_store_address_btn': 'Ajouter l\'adresse boutique',
 
     //──── seller product page ──────────────────────────────────────
     'add_product_pending'          : 'Produit soumis, en attente de validation',
@@ -912,6 +921,24 @@ class AppLocalizations {
     'details':          'Détails',
     'no_orders_title':  'Aucune commande',
     'no_orders_desc':   'Vos commandes apparaîtront ici après votre premier achat.',
+
+    // ──  Shipping Section Widget     ─────────────────────────────────────
+    'shipping_section_title'    : 'Livraison',
+    'shipping_section_subtitle' : 'Société, poids et tarifs par zone',
+    'shipping_weight_label'   : 'Poids du produit',
+    'shipping_weight_hint'    : 'ex: 0.5',
+    'shipping_weight_invalid' : 'Veuillez entrer un poids valide (ex: 1.5)',
+    'shipping_company_label'  : 'Société de livraison',
+    'shipping_zones_title'    : 'Tarifs par zone géographique',
+    'shipping_zones_subtitle' : 'Activez les zones où vous livrez et définissez vos prix',
+    'shipping_zone_unavailable': 'Non disponible avec cette société',
+    'shipping_base_price'     : 'Prix de base (≤1 kg)',
+    'shipping_per_kg'         : 'Prix / kg suppl.',
+    'shipping_price_formula'  : 'Prix final = base + (poids - 1) × prix/kg',
+    'shipping_summary_title'  : 'Récapitulatif des tarifs',
+    'shipping_validation_hint'    : 'Renseignez le poids, choisissez une société et activez au moins une zone.',
+    'shipping_validation_required': 'La livraison est obligatoire : poids + société + au moins une zone.',
+
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1634,6 +1661,11 @@ class AppLocalizations {
     'seller_logout':              'Log out',
     'seller_firstname':           'First name',
     'seller_lastname':            'Last name',
+    'seller_store_address': 'Store Address',
+    'seller_add_store_address':  'Add store address',
+    'seller_edit_store_address': 'Edit store address',
+    'seller_store_address_hint': 'This address will be visible to your buyers',
+    'addr_phone_section':        'Phone',
 
     //──── sellerdashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'Dashboard',
@@ -1700,7 +1732,13 @@ class AppLocalizations {
   'add_product_discount_no_end':   'No end date (permanent discount)',
   'add_product_original_price':    'Original price',
   'add_product_new_price':         'New price',
-
+    'add_product_no_store_address_title': 'Store address required',
+    'add_product_no_store_address_desc': 'To publish a product, you must first add your store address. This is needed to manage your deliveries and build trust with your buyers.',
+    'add_product_why_address_title': 'Why this address?',
+    'add_product_address_reason_1': 'Automatic shipping cost calculation based on your location.',
+    'add_product_address_reason_2': 'Builds trust and credibility with your buyers.',
+    'add_product_address_reason_3': 'Required for generating your order invoices.',
+    'add_product_add_store_address_btn': 'Add store address',
     //──── seller product page ──────────────────────────────────────
     'add_product_pending'          : 'Product submitted, awaiting review',
     'add_product_validation_title' : 'Validation required',
@@ -1818,6 +1856,24 @@ class AppLocalizations {
     'details':          'Details',
     'no_orders_title':  'No orders yet',
     'no_orders_desc':   'Your orders will appear here after your first purchase.',
+
+    // ──  Shipping Section Widget     ─────────────────────────────────────
+    'shipping_section_title'    : 'Shipping',
+    'shipping_section_subtitle' : 'Carrier, weight and rates per zone',
+    'shipping_weight_label'   : 'Product weight',
+    'shipping_weight_hint'    : 'e.g. 0.5',
+    'shipping_weight_invalid' : 'Please enter a valid weight (e.g. 1.5)',
+    'shipping_company_label'  : 'Shipping carrier',
+    'shipping_zones_title'    : 'Rates by geographic zone',
+    'shipping_zones_subtitle' : 'Enable the zones you ship to and set your prices',
+    'shipping_zone_unavailable': 'Not available with this carrier',
+    'shipping_base_price'     : 'Base price (≤1 kg)',
+    'shipping_per_kg'         : 'Price / extra kg',
+    'shipping_price_formula'  : 'Final price = base + (weight - 1) × price/kg',
+    'shipping_summary_title'  : 'Rate summary',
+    'shipping_validation_hint'    : 'Enter the weight, select a carrier and enable at least one zone.',
+    'shipping_validation_required': 'Shipping is required: weight + carrier + at least one zone.',
+
   };
   //  ARABIC
   // ════════════════════════════════════════════════════════════════
@@ -2554,6 +2610,11 @@ class AppLocalizations {
     'seller_logout':              'تسجيل الخروج',
     'seller_firstname':           'الاسم الأول',
     'seller_lastname':            'اسم العائلة',
+    'seller_store_address': 'عنوان المتجر',
+    'seller_add_store_address':  'إضافة عنوان المتجر',
+    'seller_edit_store_address': 'تعديل عنوان المتجر',
+    'seller_store_address_hint': 'هذا العنوان سيكون مرئياً للمشترين',
+    'addr_phone_section':        'الهاتف',
 
     //──── seller dashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'لوحة التحكم',
@@ -2612,21 +2673,25 @@ class AppLocalizations {
     'add_product_missing_fields':          'الحقول المفقودة',
     'add_product_complete_profile_btn':    'إكمال ملفي الشخصي',
     'add_product_profile_incomplete_title': 'الملف الشخصي غير مكتمل',
-  // مؤقت الظهور
-  'add_product_timer_title':      'جدولة الظهور',
-  'add_product_timer_subtitle':   'سيظهر المنتج اعتباراً من تاريخ محدد',
-  'add_product_timer_pick_date':  'اختر تاريخاً ووقتاً',
-  'add_product_timer_info':       'سيبقى المنتج مخفياً عن العملاء حتى التاريخ المحدد',
-
-// التخفيض
-  'add_product_discount_title':    'تخفيض',
-  'add_product_discount_subtitle': 'تطبيق خصم بالنسبة المئوية على هذا المنتج',
-  'add_product_discount_percent':  'نسبة الخصم (%)',
-  'add_product_discount_invalid':  'أدخل نسبة بين 1 و 99',
-  'add_product_discount_end_date': 'تاريخ انتهاء التخفيض (اختياري)',
-  'add_product_discount_no_end':   'بدون تاريخ انتهاء (خصم دائم)',
-  'add_product_original_price':    'السعر الأصلي',
-  'add_product_new_price':         'السعر الجديد',
+    'add_product_timer_title':      'جدولة الظهور',
+    'add_product_timer_subtitle':   'سيظهر المنتج اعتباراً من تاريخ محدد',
+    'add_product_timer_pick_date':  'اختر تاريخاً ووقتاً',
+    'add_product_timer_info':       'سيبقى المنتج مخفياً عن العملاء حتى التاريخ المحدد',
+    'add_product_discount_title':    'تخفيض',
+    'add_product_discount_subtitle': 'تطبيق خصم بالنسبة المئوية على هذا المنتج',
+    'add_product_discount_percent':  'نسبة الخصم (%)',
+    'add_product_discount_invalid':  'أدخل نسبة بين 1 و 99',
+    'add_product_discount_end_date': 'تاريخ انتهاء التخفيض (اختياري)',
+    'add_product_discount_no_end':   'بدون تاريخ انتهاء (خصم دائم)',
+    'add_product_original_price':    'السعر الأصلي',
+    'add_product_new_price':         'السعر الجديد',
+    'add_product_no_store_address_title': 'عنوان المتجر مطلوب',
+    'add_product_no_store_address_desc': 'لنشر منتج، يجب عليك أولاً إضافة عنوان متجرك. هذا ضروري لإدارة التوصيل وبناء ثقة المشترين.',
+    'add_product_why_address_title': 'لماذا هذا العنوان؟',
+    'add_product_address_reason_1': 'حساب تلقائي لتكاليف الشحن بناءً على موقعك.',
+    'add_product_address_reason_2': 'يعزز ثقة المشترين في متجرك.',
+    'add_product_address_reason_3': 'ضروري لإنشاء فواتير الطلبات الخاصة بك.',
+    'add_product_add_store_address_btn': 'إضافة عنوان المتجر',
 
 // ── Favorites Page  ─────────────────────────────────────────────
     'favorites_title':        'المفضلة',
@@ -2731,6 +2796,23 @@ class AppLocalizations {
     'details':          'تفاصيل',
     'no_orders_title':  'لا توجد طلبات',
     'no_orders_desc':   'ستظهر طلباتك هنا بعد أول عملية شراء.',
+
+    // ──  Shipping Section Widget     ─────────────────────────────────────
+    'shipping_section_title'    : 'الشحن',
+    'shipping_section_subtitle' : 'شركة الشحن، الوزن والأسعار حسب المنطقة',
+    'shipping_weight_label'   : 'وزن المنتج',
+    'shipping_weight_hint'    : 'مثال: 0.5',
+    'shipping_weight_invalid' : 'يرجى إدخال وزن صحيح (مثال: 1.5)',
+    'shipping_company_label'  : 'شركة الشحن',
+    'shipping_zones_title'    : 'الأسعار حسب المنطقة الجغرافية',
+    'shipping_zones_subtitle' : 'فعّل المناطق التي توصّل إليها وحدد أسعارك',
+    'shipping_zone_unavailable': 'غير متاح مع هذه الشركة',
+    'shipping_base_price'     : 'السعر الأساسي (≤1 كغ)',
+    'shipping_per_kg'         : 'السعر / كغ إضافي',
+    'shipping_price_formula'  : 'السعر النهائي = الأساسي + (الوزن - 1) × السعر/كغ',
+    'shipping_summary_title'  : 'ملخص الأسعار',
+    'shipping_validation_hint'    : 'أدخل الوزن، اختر شركة شحن وفعّل منطقة واحدة على الأقل.',
+    'shipping_validation_required': 'الشحن إلزامي: الوزن + الشركة + منطقة واحدة على الأقل.',
 
   };
 

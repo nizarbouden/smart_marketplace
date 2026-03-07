@@ -10,8 +10,8 @@ import 'package:smart_marketplace/providers/language_provider.dart';
 import 'package:smart_marketplace/views/compte/profile/edit_profile_page.dart';
 import 'package:smart_marketplace/views/compte/security/security_settings_page.dart';
 import 'package:smart_marketplace/views/compte/terms&conditions/terms_conditions_page.dart';
-
 import '../../models/user_model.dart';
+import 'adress/add_address_page.dart';
 import 'help/help_page.dart';
 import 'notifications/notification_settings_page.dart';
 
@@ -403,6 +403,12 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                 ),
               );
             },
+          ),
+          _menuTile(
+            'seller_store_address', Icons.location_on_rounded,
+            isDesktop, isTablet, langProvider,
+            onTap: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const AddAddressPage(isSellerMode: true))),
           ),
           _menuTile(
             'notifications', Icons.notifications,

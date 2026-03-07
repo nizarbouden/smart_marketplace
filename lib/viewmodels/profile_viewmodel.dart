@@ -270,11 +270,7 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Pour l'instant, on ne sauvegarde pas la photo pour éviter le crash
-      // TODO: Implémenter une solution d'upload correcte plus tard
-      
       print('🔧 Début de la sauvegarde du profil...');
-      
       // Sauvegarder dans Firestore via le service (sans la photo)
       await _authService.updateProfile(
         nom: lastNameController.text.trim(),

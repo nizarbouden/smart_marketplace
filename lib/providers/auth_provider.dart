@@ -9,7 +9,7 @@ import '../services/firebase_auth_service.dart';
 class AuthProvider with ChangeNotifier {
   final FirebaseAuthService _authService = FirebaseAuthService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
@@ -20,8 +20,7 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
   bool get isGuest => _user == null;
-  
-  // Getters pour les informations utilisateur
+
   String? get nom => _user?.nom;
   String? get prenom => _user?.prenom;
   String? get genre => _user?.genre;
@@ -29,9 +28,17 @@ class AuthProvider with ChangeNotifier {
   String? get fullName => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
   int get points => _user?.points ?? 0;
 
-  // Constructeur - écouter les changements d'état
   AuthProvider() {
-    _checkAndForceSignOut();
+    _initAsync();
+  }
+
+  Future<void> _initAsync() async {
+    // 1️⃣ D'abord : vérifier et forcer la déconnexion si nécessaire
+    await _checkAndForceSignOut();
+
+    // 2️⃣ Ensuite seulement : ouvrir le listener
+    //    À ce stade, si l'utilisateur a été déconnecté, firebaseUser = null
+    //    et SplashScreen verra un état propre dès le début.
     _authService.authStateChanges.listen((User? firebaseUser) {
       if (firebaseUser != null) {
         _loadUserData();
@@ -42,31 +49,33 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  // Vérifier et forcer la déconnexion au démarrage si nécessaire
+  // ─────────────────────────────────────────────────────────────
+  //  Déconnexion forcée au démarrage si "Se souvenir de moi" OFF
+  // ─────────────────────────────────────────────────────────────
   Future<void> _checkAndForceSignOut() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      bool rememberMe = prefs.getBool('rememberMe') ?? false;
-      
-      // Si "se souvenir de moi" n'est pas coché et qu'il y a un utilisateur Firebase connecté
+      final rememberMe = prefs.getBool('rememberMe') ?? false;
+
       if (!rememberMe && _auth.currentUser != null) {
         print('🔄 AuthProvider: "Se souvenir de moi" non coché, déconnexion forcée au démarrage');
         await _auth.signOut();
         await prefs.remove('rememberMe');
         await prefs.remove('lastEmail');
+        // ✅ Mettre _user à null immédiatement — avant que le listener soit ouvert
+        _user = null;
       }
     } catch (e) {
       print('❌ AuthProvider: Erreur lors de la vérification au démarrage: $e');
     }
   }
 
-  // Vérifier l'état de connexion au démarrage
+  // Vérifier l'état de connexion (appelé depuis SplashScreen si besoin)
   Future<void> checkConnectionState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      bool rememberMe = prefs.getBool('rememberMe') ?? false;
-      
-      // Si "se souvenir de moi" n'est pas coché et qu'il y a un utilisateur Firebase connecté
+      final rememberMe = prefs.getBool('rememberMe') ?? false;
+
       if (!rememberMe && _auth.currentUser != null) {
         print('🔄 AuthProvider: Déconnexion automatique - "Se souvenir de moi" non coché');
         await _auth.signOut();
@@ -76,30 +85,13 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ AuthProvider: Erreur lors de la vérification de l\'état de connexion: $e');
+      print('❌ AuthProvider: Erreur checkConnectionState: $e');
     }
   }
 
-  // Charger les préférences au démarrage
-  Future<void> _loadPreferences() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      bool rememberMe = prefs.getBool('rememberMe') ?? false;
-      String? lastEmail = prefs.getString('lastEmail');
-      
-      print('🔄 AuthProvider: Préférences chargées - rememberMe: $rememberMe, lastEmail: $lastEmail');
-      
-      // Si "se souvenir de moi" est activé et qu'il y a un email sauvegardé
-      if (rememberMe && lastEmail != null) {
-        // Ne pas se reconnecter automatiquement, juste pré-remplir le formulaire
-        print('✅ AuthProvider: Préférences "se souvenir de moi" trouvées pour $lastEmail');
-      }
-    } catch (e) {
-      print('❌ AuthProvider: Erreur lors du chargement des préférences: $e');
-    }
-  }
-
-  // Charger les données utilisateur
+  // ─────────────────────────────────────────────────────────────
+  //  Charger les données utilisateur depuis Firestore
+  // ─────────────────────────────────────────────────────────────
   Future<void> _loadUserData() async {
     try {
       _setLoading(true);
@@ -114,14 +106,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Rafraîchir explicitement les données utilisateur
   Future<void> refreshUserProfile() async {
     print('🔄 AuthProvider: Rafraîchissement des données utilisateur...');
     await _loadUserData();
     print('✅ AuthProvider: Données rafraîchies');
   }
 
-  // Inscription avec email/mot de passe
+  Future<void> refreshUserData() async => _loadUserData();
+
+  // ─────────────────────────────────────────────────────────────
+  //  Inscription
+  // ─────────────────────────────────────────────────────────────
   Future<bool> signUp({
     required String email,
     required String password,
@@ -134,17 +129,15 @@ class AuthProvider with ChangeNotifier {
     try {
       _setLoading(true);
       _clearError();
-      
+
       _user = await _authService.signUpWithEmailAndPassword(
-        email,
-        password,
-        nom,
+        email, password, nom,
         prenom: prenom,
         genre: genre,
         countryCode: countryCode,
         phoneNumber: phoneNumber,
       );
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -156,28 +149,28 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Connexion avec email/mot de passe
+  // ─────────────────────────────────────────────────────────────
+  //  Connexion email / mot de passe
+  // ─────────────────────────────────────────────────────────────
   Future<bool> signIn({
     required String email,
     required String password,
     bool rememberMe = false,
   }) async {
     try {
-      print('🔄 AuthProvider: Début de la connexion pour $email (rememberMe: $rememberMe)');
+      print('🔄 AuthProvider: Connexion pour $email (rememberMe: $rememberMe)');
       _setLoading(true);
       _clearError();
 
-      // ✅ Après le signIn, on a le uid
+      // Vérifier statut avant connexion
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(firebaseUser.uid)
             .get();
-
         if (userDoc.exists) {
-          final userData = userDoc.data()!;
-          final status = userData['status'] as String? ?? 'active';
+          final status = userDoc.data()?['status'] as String? ?? 'active';
           if (status == 'deactivated') {
             await _auth.signOut();
             _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
@@ -186,33 +179,27 @@ class AuthProvider with ChangeNotifier {
           }
         }
       }
-      
-      print('🔄 AuthProvider: Appel de signInWithEmailAndPassword');
+
       _user = await _authService.signInWithEmailAndPassword(email, password);
-      print('🔄 AuthProvider: UserModel reçu: ${_user?.email}');
-      
-      // Sauvegarder la préférence "se souvenir de moi"
+
       final prefs = await SharedPreferences.getInstance();
       if (rememberMe) {
         await prefs.setBool('rememberMe', true);
         await prefs.setString('lastEmail', email);
-        print('✅ AuthProvider: Préférence rememberMe sauvegardée');
       } else {
         await prefs.remove('rememberMe');
         await prefs.remove('lastEmail');
-        print('✅ AuthProvider: Préférence rememberMe supprimée');
       }
-      
+
       notifyListeners();
-      print('✅ AuthProvider: Connexion réussie, retour true');
+      print('✅ AuthProvider: Connexion réussie');
       return true;
     } on EmailNotVerifiedException catch (e) {
-      print('🔄 AuthProvider: EmailNotVerifiedException capturée: ${e.toString()}');
       _setError(e.toString());
       notifyListeners();
       return false;
     } catch (e) {
-      print('❌ AuthProvider: Erreur lors de la connexion: $e');
+      print('❌ AuthProvider: Erreur connexion: $e');
       _setError(e.toString());
       notifyListeners();
       return false;
@@ -221,7 +208,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Connexion avec Google
+  // ─────────────────────────────────────────────────────────────
+  //  Connexion Google
+  // ─────────────────────────────────────────────────────────────
   Future<bool> signInWithGoogle() async {
     try {
       _setLoading(true);
@@ -230,16 +219,12 @@ class AuthProvider with ChangeNotifier {
       _user = await _authService.signInWithGoogle();
 
       if (_user != null) {
-        // ✅ Utiliser uid directement au lieu de where('email', ...)
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(_user!.uid) // ← uid connu directement
+            .doc(_user!.uid)
             .get();
-
         if (userDoc.exists) {
-          final userData = userDoc.data()!;
-          final status = userData['status'] as String? ?? 'active';
-
+          final status = userDoc.data()?['status'] as String? ?? 'active';
           if (status == 'deactivated') {
             print('❌ Compte Google désactivé pour ${_user!.email}');
             await _auth.signOut();
@@ -262,14 +247,14 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Mot de passe oublié
+  // ─────────────────────────────────────────────────────────────
+  //  Mot de passe oublié
+  // ─────────────────────────────────────────────────────────────
   Future<bool> resetPassword(String email) async {
     try {
       _setLoading(true);
       _clearError();
-      
       await _authService.resetPassword(email);
-      
       notifyListeners();
       return true;
     } catch (e) {
@@ -281,27 +266,27 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Déconnexion
+  // ─────────────────────────────────────────────────────────────
+  //  Déconnexion
+  // ─────────────────────────────────────────────────────────────
   Future<void> signOut({bool forceSignOut = false}) async {
     try {
       _setLoading(true);
       _clearError();
-      
-      // Vérifier si "se souvenir de moi" était activé
+
       final prefs = await SharedPreferences.getInstance();
-      bool rememberMe = prefs.getBool('rememberMe') ?? false;
-      
+      final rememberMe = prefs.getBool('rememberMe') ?? false;
+
+      await _authService.signOut();
+
       if (!rememberMe || forceSignOut) {
-        // Si "se souvenir de moi" n'était pas coché, forcer la déconnexion Firebase
-        await _authService.signOut();
         await prefs.remove('rememberMe');
         await prefs.remove('lastEmail');
-        print('✅ AuthProvider: Déconnexion forcée et préférences effacées');
+        print('✅ AuthProvider: Déconnexion forcée + préférences effacées');
       } else {
-        await _authService.signOut();
-        print('✅ AuthProvider: Déconnexion normale (rememberMe activé)');
+        print('✅ AuthProvider: Déconnexion normale (rememberMe actif)');
       }
-      
+
       _user = null;
       notifyListeners();
     } catch (e) {
@@ -312,7 +297,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Mettre à jour le profil
+  // ─────────────────────────────────────────────────────────────
+  //  Mise à jour profil
+  // ─────────────────────────────────────────────────────────────
   Future<bool> updateProfile({
     String? nom,
     String? prenom,
@@ -324,19 +311,13 @@ class AuthProvider with ChangeNotifier {
     try {
       _setLoading(true);
       _clearError();
-      
+
       await _authService.updateProfile(
-        nom: nom,
-        prenom: prenom,
-        genre: genre,
-        phoneNumber: phoneNumber,
-        countryCode: countryCode,
-        photoUrl: photoUrl,
+        nom: nom, prenom: prenom, genre: genre,
+        phoneNumber: phoneNumber, countryCode: countryCode, photoUrl: photoUrl,
       );
-      
-      // Recharger les données utilisateur
+
       await _loadUserData();
-      
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -347,15 +328,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Supprimer le compte
+  // ─────────────────────────────────────────────────────────────
+  //  Suppression compte
+  // ─────────────────────────────────────────────────────────────
   Future<bool> deleteAccount() async {
     try {
       _setLoading(true);
       _clearError();
-      
+
       await _authService.deleteAccount();
       _user = null;
-      
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -367,13 +350,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // Rafraîchir les données utilisateur
-  Future<void> refreshUserData() async {
-    await _loadUserData();
-  }
-
-
-  // Méthodes privées pour gérer l'état
+  // ─────────────────────────────────────────────────────────────
+  //  Helpers privés
+  // ─────────────────────────────────────────────────────────────
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -382,14 +361,9 @@ class AuthProvider with ChangeNotifier {
   void _setError(String error) {
     _errorMessage = error;
     notifyListeners();
-    
-    // Ne pas effacer automatiquement les erreurs de vérification email
-    bool isEmailVerificationError = error.contains('vérifier votre email');
+    final isEmailVerificationError = error.contains('vérifier votre email');
     if (!isEmailVerificationError) {
-      // Effacer automatiquement l'erreur après 5 secondes seulement pour les autres erreurs
-      Future.delayed(const Duration(seconds: 5), () {
-        _clearError();
-      });
+      Future.delayed(const Duration(seconds: 5), _clearError);
     }
   }
 
@@ -398,32 +372,21 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Méthode publique pour effacer l'erreur
-  void clearError() {
-    _clearError();
-  }
+  void clearError() => _clearError();
 
-  // Vérifier si l'email est valide
-  bool isValidEmail(String email) {
-    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
-  }
+  // ─────────────────────────────────────────────────────────────
+  //  Validation
+  // ─────────────────────────────────────────────────────────────
+  bool isValidEmail(String email) =>
+      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
-  // Vérifier si le mot de passe est valide
   String? validatePassword(String password) {
-    if (password.length < 6) {
-      return 'Le mot de passe doit contenir au moins 6 caractères';
-    }
-    if (!password.contains(RegExp(r'[A-Z]'))) {
-      return 'Le mot de passe doit contenir au moins une majuscule';
-    }
-    if (!password.contains(RegExp(r'[0-9]'))) {
-      return 'Le mot de passe doit contenir au moins un chiffre';
-    }
+    if (password.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
+    if (!password.contains(RegExp(r'[A-Z]'))) return 'Le mot de passe doit contenir au moins une majuscule';
+    if (!password.contains(RegExp(r'[0-9]'))) return 'Le mot de passe doit contenir au moins un chiffre';
     return null;
   }
 
-  // Vérifier si le numéro de téléphone est valide
-  bool isValidPhoneNumber(String phone) {
-    return RegExp(r'^[+]?[0-9]{10,15}$').hasMatch(phone.replaceAll(' ', ''));
-  }
+  bool isValidPhoneNumber(String phone) =>
+      RegExp(r'^[+]?[0-9]{10,15}$').hasMatch(phone.replaceAll(' ', ''));
 }
