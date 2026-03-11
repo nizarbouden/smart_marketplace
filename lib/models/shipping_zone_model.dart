@@ -120,7 +120,6 @@ extension ShippingZoneExt on ShippingZone {
     }
   }
 
-  /// Description courte expliquant le périmètre de la zone
   String desc(String langCode) {
     switch (langCode) {
       case 'ar': return descAr();
@@ -145,7 +144,7 @@ extension ShippingZoneExt on ShippingZone {
       'SL', 'LR', 'GM', 'GW', 'CV', 'ST', 'GQ', 'GA', 'CG', 'CD',
       'CF', 'MG', 'MU', 'SC', 'KM', 'NA', 'BW', 'LS', 'SZ'],
     'middle_east': ['SA', 'AE', 'QA', 'KW', 'BH', 'OM', 'YE', 'IQ', 'SY', 'LB',
-      'JO', 'PS', 'IL', 'IR', 'TR'],
+      'JO', 'PS', 'IL', 'IR', 'TR', 'AF'],
     'europe':      ['FR', 'DE', 'IT', 'ES', 'PT', 'BE', 'NL', 'LU', 'AT', 'CH',
       'GB', 'IE', 'DK', 'SE', 'NO', 'FI', 'IS', 'PL', 'CZ', 'SK',
       'HU', 'RO', 'BG', 'HR', 'SI', 'BA', 'RS', 'ME', 'MK', 'AL',
@@ -164,21 +163,33 @@ extension ShippingZoneExt on ShippingZone {
   }
 
   /// Extrait le code ISO alpha-2 depuis un emoji drapeau (Regional Indicator Symbols).
-  /// Exemple : 🇹🇳 → 'TN', 🇫🇷 → 'FR'
+  ///
+  /// Chaque caractère indicateur régional est un code point Unicode dans la
+  /// plage 0x1F1E6 (🇦) à 0x1F1FF (🇿).
+  /// Pour obtenir la lettre : codePoint - 0x1F1E6 + 0x41 ('A')
+  ///
+  /// ✅ Exemples : 🇹🇳 → 'TN', 🇫🇷 → 'FR', 🇦🇫 → 'AF'
+  ///
+  /// ⚠️ Bug corrigé : l'ancienne formule utilisait (0x1F1E6 - 0x41) comme base
+  /// puis ajoutait encore 0x41, ce qui décalait doublement le résultat → null.
   static String? isoFromFlag(String flag) {
-    final runes = flag.runes.toList();
-    if (runes.length < 2) return null;
-    const base = 0x1F1E6 - 0x41; // 0x41 = ord('A')
-    final c1 = runes[0] - base;
-    final c2 = runes[1] - base;
+    // Filtrer uniquement les Regional Indicator Symbols (0x1F1E6–0x1F1FF)
+    // pour ignorer les caractères invisibles (ZWJ, variation selectors, etc.)
+    final indicators = flag.runes
+        .where((r) => r >= 0x1F1E6 && r <= 0x1F1FF)
+        .toList();
+
+    if (indicators.length < 2) return null;
+
+    final c1 = indicators[0] - 0x1F1E6; // 0 = A, 1 = B, ..., 25 = Z
+    final c2 = indicators[1] - 0x1F1E6;
+
     if (c1 < 0 || c1 > 25 || c2 < 0 || c2 > 25) return null;
+
     return String.fromCharCode(c1 + 0x41) + String.fromCharCode(c2 + 0x41);
   }
 
   /// Retourne la zone à partir du nom de pays stocké dans Firestore (countryName).
-  /// Utilise [CountryData] comme source de vérité : cherche le pays par son nom,
-  /// déduit le code ISO depuis l'emoji drapeau, puis détermine la zone.
-  /// Aucun mapping manuel — CountryData est la seule source de vérité.
   static ShippingZone zoneForCountryName(String countryName) {
     final country = CountryData.findCountryByName(countryName);
     if (country == null) return ShippingZone.world;
@@ -194,9 +205,9 @@ extension ShippingZoneExt on ShippingZone {
 
 class ShippingZoneRate {
   final ShippingZone zone;
-  final bool   enabled;       // le vendeur livre dans cette zone ?
-  final double basePrice;     // prix de base (jusqu'à 1 kg)
-  final double pricePerKg;    // prix par kg supplémentaire
+  final bool   enabled;
+  final double basePrice;
+  final double pricePerKg;
 
   const ShippingZoneRate({
     required this.zone,
@@ -246,7 +257,7 @@ class ShippingCompany {
   final String name;
   final String logo;
   final int    colorValue;
-  final String serviceType; // 'express' | 'standard' | 'economy'
+  final String serviceType;
   final List<ShippingZone> coveredZones;
 
   const ShippingCompany({
@@ -267,7 +278,7 @@ class ShippingCompanies {
       logo:        '🟡',
       colorValue:  0xFFD97706,
       serviceType: 'express',
-      coveredZones: ShippingZone.values, // mondial
+      coveredZones: ShippingZone.values,
     ),
     ShippingCompany(
       id:          'fedex',
@@ -337,18 +348,14 @@ class ShippingCompanies {
 
   static ShippingCompany? findById(String? id) {
     if (id == null) return null;
-    try { return all.firstWhere((c) => c.id == id); }
-    catch (_) { return null; }
+    try { return all.firstWhere((c) => c.id == id); } catch (_) { return null; }
   }
 
   static String serviceLabel(String type, String lang) {
     switch (type) {
-      case 'express':
-        return lang == 'ar' ? 'سريع' : lang == 'en' ? 'Express' : 'Express';
-      case 'standard':
-        return lang == 'ar' ? 'عادي' : lang == 'en' ? 'Standard' : 'Standard';
-      case 'economy':
-        return lang == 'ar' ? 'اقتصادي' : lang == 'en' ? 'Economy' : 'Économique';
+      case 'express':  return lang == 'ar' ? 'سريع'    : lang == 'en' ? 'Express'  : 'Express';
+      case 'standard': return lang == 'ar' ? 'عادي'    : lang == 'en' ? 'Standard' : 'Standard';
+      case 'economy':  return lang == 'ar' ? 'اقتصادي' : lang == 'en' ? 'Economy'  : 'Économique';
       default: return type;
     }
   }

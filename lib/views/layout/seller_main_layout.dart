@@ -6,7 +6,7 @@ import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'package:smart_marketplace/providers/language_provider.dart';
 import '../compte/seller_profile_page.dart';
 import '../dashboard/seller_dashboard_page.dart';
-import '../orders/seller_orders_page.dart';
+import '../orders/seller_sub_orders_page.dart';
 import '../products/seller/seller_products_page.dart';
 
 class SellerMainLayout extends StatefulWidget {
@@ -24,7 +24,7 @@ class _SellerMainLayoutState extends State<SellerMainLayout> {
   final List<Widget> _pages = const [
     SellerDashboardPage(),
     SellerProductsPage(),
-    SellerOrdersPage(),
+    SellerSubOrdersPage(),
     SellerProfilePage(),
   ];
 

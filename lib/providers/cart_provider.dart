@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/cart_item_model.dart';
+import '../models/shipping_zone_model.dart';
 
-// ✅ Plus besoin de définir les modèles ici — juste importer
 export '../models/cart_item_model.dart';
 export '../models/address_model.dart';
 export '../models/payment_method_model.dart';
@@ -9,15 +9,43 @@ export '../models/payment_method_model.dart';
 class CartProvider extends ChangeNotifier {
   List<CartItemModel> _items = [];
 
+  // ── Adresse acheteur (zone effective) ────────────────────────
+  ShippingZone _buyerZone = ShippingZone.world;
+
   List<CartItemModel> get items => _items;
+
   List<CartItemModel> get selectedItems =>
       _items.where((i) => i.isSelected).toList();
 
-  int    get selectedCount  => selectedItems.length;
-  double get selectedTotal  => selectedItems.fold(0.0, (sum, i) => sum + i.price * i.quantity);
-  double get subtotal       => selectedTotal * 0.9;
-  double get shippingFee    => 5.0;
-  double get estimatedTotal => subtotal + shippingFee;
+  int    get selectedCount => selectedItems.length;
+
+  // ── Sous-total produits ──────────────────────────────────────
+  double get selectedProductsTotal =>
+      selectedItems.fold(0.0, (s, i) => s + i.price * i.quantity);
+
+  // ── Total livraison : somme de tous les produits sélectionnés × quantité ──
+  double get selectedShippingTotal {
+    double total = 0.0;
+    for (final item in selectedItems) {
+      final price = item.shippingPrice(_buyerZone);
+      if (price != null) total += price;
+    }
+    return total;
+  }
+
+  double get grandTotal => selectedProductsTotal + selectedShippingTotal;
+
+  // ── Compatibilité ancienne API ───────────────────────────────
+  double get selectedTotal  => selectedProductsTotal;
+  double get subtotal       => selectedProductsTotal;
+  double get shippingFee    => selectedShippingTotal;
+  double get estimatedTotal => grandTotal;
+
+  // ── Mise à jour zone acheteur (appelé depuis CartPage) ───────
+  void setBuyerZone(ShippingZone zone) {
+    _buyerZone = zone;
+    notifyListeners();
+  }
 
   void setItems(List<CartItemModel> items) {
     _items = items;
@@ -43,7 +71,8 @@ class CartProvider extends ChangeNotifier {
   }
 
   void toggleVendorSelection(String storeName) {
-    final vendorItems = _items.where((i) => i.storeName == storeName).toList();
+    final vendorItems =
+    _items.where((i) => i.storeName == storeName).toList();
     final allSelected = vendorItems.every((i) => i.isSelected);
     for (final item in vendorItems) {
       item.isSelected = !allSelected;

@@ -25,20 +25,21 @@ class AuthProvider with ChangeNotifier {
   String? get prenom => _user?.prenom;
   String? get genre => _user?.genre;
   String? get countryCode => _user?.countryCode;
-  String? get fullName => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
+  String? get fullName =>
+      _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
   int get points => _user?.points ?? 0;
 
   AuthProvider() {
     _initAsync();
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  INIT
+  //  ✅ FIX : Ne plus faire de signOut ici.
+  //  Le SplashScreen gère la logique "rememberMe" AVANT de naviguer.
+  //  L'AuthProvider écoute simplement l'état Firebase.
+  // ─────────────────────────────────────────────────────────────
   Future<void> _initAsync() async {
-    // 1️⃣ D'abord : vérifier et forcer la déconnexion si nécessaire
-    await _checkAndForceSignOut();
-
-    // 2️⃣ Ensuite seulement : ouvrir le listener
-    //    À ce stade, si l'utilisateur a été déconnecté, firebaseUser = null
-    //    et SplashScreen verra un état propre dès le début.
     _authService.authStateChanges.listen((User? firebaseUser) {
       if (firebaseUser != null) {
         _loadUserData();
@@ -47,46 +48,6 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     });
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  //  Déconnexion forcée au démarrage si "Se souvenir de moi" OFF
-  // ─────────────────────────────────────────────────────────────
-  Future<void> _checkAndForceSignOut() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final rememberMe = prefs.getBool('rememberMe') ?? false;
-
-      if (!rememberMe && _auth.currentUser != null) {
-        print('🔄 AuthProvider: "Se souvenir de moi" non coché, déconnexion forcée au démarrage');
-        await _auth.signOut();
-        await prefs.remove('rememberMe');
-        await prefs.remove('lastEmail');
-        // ✅ Mettre _user à null immédiatement — avant que le listener soit ouvert
-        _user = null;
-      }
-    } catch (e) {
-      print('❌ AuthProvider: Erreur lors de la vérification au démarrage: $e');
-    }
-  }
-
-  // Vérifier l'état de connexion (appelé depuis SplashScreen si besoin)
-  Future<void> checkConnectionState() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final rememberMe = prefs.getBool('rememberMe') ?? false;
-
-      if (!rememberMe && _auth.currentUser != null) {
-        print('🔄 AuthProvider: Déconnexion automatique - "Se souvenir de moi" non coché');
-        await _auth.signOut();
-        await prefs.remove('rememberMe');
-        await prefs.remove('lastEmail');
-        _user = null;
-        notifyListeners();
-      }
-    } catch (e) {
-      print('❌ AuthProvider: Erreur checkConnectionState: $e');
-    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -182,13 +143,16 @@ class AuthProvider with ChangeNotifier {
 
       _user = await _authService.signInWithEmailAndPassword(email, password);
 
+      // ✅ Sauvegarder rememberMe avec la clé 'rememberMe'
       final prefs = await SharedPreferences.getInstance();
       if (rememberMe) {
         await prefs.setBool('rememberMe', true);
         await prefs.setString('lastEmail', email);
+        print('✅ AuthProvider: rememberMe=true sauvegardé');
       } else {
         await prefs.remove('rememberMe');
         await prefs.remove('lastEmail');
+        print('✅ AuthProvider: rememberMe=false (clé supprimée)');
       }
 
       notifyListeners();
@@ -211,7 +175,7 @@ class AuthProvider with ChangeNotifier {
   // ─────────────────────────────────────────────────────────────
   //  Connexion Google
   // ─────────────────────────────────────────────────────────────
-  Future<bool> signInWithGoogle() async {
+  Future<bool> signInWithGoogle({bool rememberMe = false}) async {
     try {
       _setLoading(true);
       _clearError();
@@ -233,6 +197,17 @@ class AuthProvider with ChangeNotifier {
             notifyListeners();
             return false;
           }
+        }
+        // ✅ FIX : sauvegarder rememberMe pour Google comme pour email/password
+        final prefs = await SharedPreferences.getInstance();
+        if (rememberMe) {
+          await prefs.setBool('rememberMe', true);
+          await prefs.setString('lastEmail', _user!.email ?? '');
+          print('✅ AuthProvider: Google rememberMe=true sauvegardé');
+        } else {
+          await prefs.remove('rememberMe');
+          await prefs.remove('lastEmail');
+          print('✅ AuthProvider: Google rememberMe=false (clé supprimée)');
         }
       }
 
@@ -274,7 +249,7 @@ class AuthProvider with ChangeNotifier {
       _setLoading(true);
       _clearError();
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs      = await SharedPreferences.getInstance();
       final rememberMe = prefs.getBool('rememberMe') ?? false;
 
       await _authService.signOut();
@@ -314,7 +289,8 @@ class AuthProvider with ChangeNotifier {
 
       await _authService.updateProfile(
         nom: nom, prenom: prenom, genre: genre,
-        phoneNumber: phoneNumber, countryCode: countryCode, photoUrl: photoUrl,
+        phoneNumber: phoneNumber, countryCode: countryCode,
+        photoUrl: photoUrl,
       );
 
       await _loadUserData();
@@ -381,9 +357,12 @@ class AuthProvider with ChangeNotifier {
       RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
   String? validatePassword(String password) {
-    if (password.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
-    if (!password.contains(RegExp(r'[A-Z]'))) return 'Le mot de passe doit contenir au moins une majuscule';
-    if (!password.contains(RegExp(r'[0-9]'))) return 'Le mot de passe doit contenir au moins un chiffre';
+    if (password.length < 6)
+      return 'Le mot de passe doit contenir au moins 6 caractères';
+    if (!password.contains(RegExp(r'[A-Z]')))
+      return 'Le mot de passe doit contenir au moins une majuscule';
+    if (!password.contains(RegExp(r'[0-9]')))
+      return 'Le mot de passe doit contenir au moins un chiffre';
     return null;
   }
 

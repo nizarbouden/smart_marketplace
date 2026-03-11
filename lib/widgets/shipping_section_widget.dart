@@ -5,8 +5,8 @@ import '../../../../models/shipping_zone_model.dart';
 import '../../../../localization/app_localizations.dart';
 
 class ShippingSectionWidget extends StatefulWidget {
-  final String?               selectedCompanyId;
-  final double?               productWeight;
+  final String?                 selectedCompanyId;
+  final double?                 productWeight;
   final List<ShippingZoneRate>? zoneRates;
   final Function(String? companyId, double? weight, List<ShippingZoneRate> rates) onChanged;
 
@@ -26,11 +26,12 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
   String? _selectedCompanyId;
   final _weightCtrl = TextEditingController();
 
-  // Zone rates — une entrée par zone
   late List<ShippingZoneRate> _rates;
-
-  // Zones actuellement développées dans l'UI
   final Set<ShippingZone> _expandedZones = {};
+
+  // ✅ FIX: Controllers par zone au niveau du State — jamais réinitialisés
+  late final Map<ShippingZone, TextEditingController> _baseCtrlMap;
+  late final Map<ShippingZone, TextEditingController> _perKgCtrlMap;
 
   String get _lang => AppLocalizations.getLanguage();
   String _t(String k) => AppLocalizations.get(k);
@@ -43,15 +44,24 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
       _weightCtrl.text = widget.productWeight!.toString();
     }
     _rates = _initRates(widget.zoneRates);
+
+    // ✅ Initialiser les controllers une seule fois avec les valeurs des rates
+    _baseCtrlMap = {
+      for (final r in _rates)
+        r.zone: TextEditingController(text: r.basePrice.toStringAsFixed(2))
+    };
+    _perKgCtrlMap = {
+      for (final r in _rates)
+        r.zone: TextEditingController(text: r.pricePerKg.toStringAsFixed(2))
+    };
+
     _weightCtrl.addListener(_notify);
   }
 
-  /// Initialise les zones avec les données existantes ou des defaults
   List<ShippingZoneRate> _initRates(List<ShippingZoneRate>? existing) {
     return ShippingZone.values.map((zone) {
       final found = existing?.where((r) => r.zone == zone).firstOrNull;
       if (found != null) return found;
-      // Valeurs par défaut selon la zone
       return ShippingZoneRate(
         zone:       zone,
         enabled:    zone == ShippingZone.local || zone == ShippingZone.national,
@@ -88,6 +98,8 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
   @override
   void dispose() {
     _weightCtrl.dispose();
+    for (final c in _baseCtrlMap.values)  c.dispose();
+    for (final c in _perKgCtrlMap.values) c.dispose();
     super.dispose();
   }
 
@@ -104,11 +116,10 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
     _notify();
   }
 
-  bool get _isWeightValid => double.tryParse(_weightCtrl.text.trim()) != null;
+  bool get _isWeightValid    => double.tryParse(_weightCtrl.text.trim()) != null;
   bool get _isCompanySelected => _selectedCompanyId != null;
   bool get _hasAtLeastOneZone => _rates.any((r) => r.enabled);
 
-  // Zones disponibles pour la société sélectionnée
   List<ShippingZone> get _availableZones {
     final company = ShippingCompanies.findById(_selectedCompanyId);
     if (company == null) return ShippingZone.values.toList();
@@ -181,7 +192,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                 style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
           ],
         )),
-        // Indicateur de complétion
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child: (_isWeightValid && _isCompanySelected && _hasAtLeastOneZone)
@@ -258,10 +268,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(
                     color: Color(0xFF3B82F6), width: 1.5)),
-            errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                    color: Color(0xFFEF4444), width: 1.5)),
             contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16, vertical: 14),
           ),
@@ -293,7 +299,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
               fontWeight: FontWeight.bold)),
         ]),
       ),
-      // Grid de sociétés 2 par ligne
       GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -304,8 +309,7 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
           childAspectRatio: 2.4,
         ),
         itemCount: ShippingCompanies.all.length,
-        itemBuilder: (_, i) =>
-            _buildCompanyChip(ShippingCompanies.all[i]),
+        itemBuilder: (_, i) => _buildCompanyChip(ShippingCompanies.all[i]),
       ),
     ]);
   }
@@ -320,7 +324,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
       onTap: () {
         setState(() {
           _selectedCompanyId = isSelected ? null : company.id;
-          // Désactiver les zones non couvertes par la nouvelle société
           if (!isSelected) {
             for (int i = 0; i < _rates.length; i++) {
               if (!company.coveredZones.contains(_rates[i].zone)) {
@@ -357,8 +360,7 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: svcColor.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(4),
@@ -383,7 +385,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
   Widget _buildZoneRatesSection() {
     final weight = double.tryParse(_weightCtrl.text.trim());
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Titre section
       Row(children: [
         Container(width: 3, height: 16,
             decoration: BoxDecoration(
@@ -398,15 +399,11 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
       Text(_t('shipping_zones_subtitle'),
           style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
       const SizedBox(height: 14),
-
-      // Liste des zones
       ...ShippingZone.values.map((zone) {
         final available = _availableZones.contains(zone);
         final rate = _rates.firstWhere((r) => r.zone == zone);
         return _buildZoneTile(zone, rate, weight, available);
       }),
-
-      // Récap zones activées
       if (_rates.any((r) => r.enabled) && weight != null)
         _buildRatesSummary(weight),
     ]);
@@ -416,8 +413,8 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
       ShippingZone zone, ShippingZoneRate rate,
       double? weight, bool available) {
     final isExpanded = _expandedZones.contains(zone);
-    final price = weight != null ? rate.calculatePrice(weight) : null;
-    final isActive = rate.enabled && available;
+    final price      = weight != null ? rate.calculatePrice(weight) : null;
+    final isActive   = rate.enabled && available;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -439,7 +436,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
         ),
       ),
       child: Column(children: [
-        // Ligne principale
         InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: available && rate.enabled
@@ -452,13 +448,10 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
           })
               : null,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(children: [
-              // Emoji zone
               Text(zone.emoji, style: const TextStyle(fontSize: 18)),
               const SizedBox(width: 10),
-              // Nom + description zone
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -470,7 +463,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                             : const Color(0xFF94A3B8),
                       )),
                   const SizedBox(height: 2),
-                  // ✅ Description explicite du périmètre de la zone
                   Text(
                     !available
                         ? _t('shipping_zone_unavailable')
@@ -491,7 +483,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                   ],
                 ],
               )),
-              // Toggle
               if (available)
                 Transform.scale(
                   scale: 0.8,
@@ -505,7 +496,6 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-              // Chevron expand si activé
               if (available && rate.enabled)
                 AnimatedRotation(
                   duration: const Duration(milliseconds: 200),
@@ -516,19 +506,16 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
             ]),
           ),
         ),
-
-        // Formulaire prix (si zone activée et expanded)
         if (isActive && isExpanded)
           _buildZonePriceForm(zone, rate),
       ]),
     );
   }
 
+  // ✅ FIX PRINCIPAL: utilise les controllers du State, pas de nouveaux à chaque build
   Widget _buildZonePriceForm(ShippingZone zone, ShippingZoneRate rate) {
-    final baseCtrl = TextEditingController(
-        text: rate.basePrice.toStringAsFixed(2));
-    final perKgCtrl = TextEditingController(
-        text: rate.pricePerKg.toStringAsFixed(2));
+    final baseCtrl  = _baseCtrlMap[zone]!;
+    final perKgCtrl = _perKgCtrlMap[zone]!;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -560,21 +547,36 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
           )),
         ]),
         const SizedBox(height: 8),
-        // Info calcul
+        // ✅ Info formule enrichie
         Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFF0F9FF),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(children: [
-            const Icon(Icons.info_outline_rounded,
-                color: Color(0xFF3B82F6), size: 12),
-            const SizedBox(width: 6),
-            Text(_t('shipping_price_formula'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: Color(0xFF3B82F6), size: 12),
+              const SizedBox(width: 6),
+              Text(_t('shipping_price_formula'),
+                  style: const TextStyle(
+                      fontSize: 10, color: Color(0xFF1E40AF))),
+            ]),
+            const SizedBox(height: 4),
+            // Aperçu calcul en temps réel si poids renseigné
+            Builder(builder: (context) {
+              final weight = double.tryParse(_weightCtrl.text.trim());
+              if (weight == null) return const SizedBox.shrink();
+              final total = rate.basePrice + (weight * rate.pricePerKg);
+              return Text(
+                '${baseCtrl.text} + (${weight.toStringAsFixed(1)} kg × ${perKgCtrl.text}) = ${total.toStringAsFixed(2)} \$',
                 style: const TextStyle(
-                    fontSize: 10, color: Color(0xFF1E40AF))),
+                    fontSize: 10,
+                    color: Color(0xFF0284C7),
+                    fontWeight: FontWeight.w600),
+              );
+            }),
           ]),
         ),
       ]),
@@ -613,12 +615,10 @@ class _ShippingSectionWidgetState extends State<ShippingSectionWidget> {
           isDense: true,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                  color: Color(0xFFE2E8F0))),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                  color: Color(0xFFE2E8F0))),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(
