@@ -1,11 +1,26 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/sub_order_model.dart';
-import '../../models/shipping_company_model.dart';
+import '../../models/shipping_company_model.dart';  // ✅ ShippingCompanies
 
+// ─────────────────────────────────────────────────────────────────
+//  HISTORY PAGE — côté acheteur
+//  1 carte par sous-commande (1 article indépendant)
+//
+//  Query :
+//    collectionGroup('subOrders')
+//      .where('userId', isEqualTo: uid)
+//      .orderBy('createdAt', descending: true)
+//
+//  Index requis (Firebase Console) :
+//    Collection group : subOrders
+//    Fields           : userId ASC  +  createdAt DESC
+// ─────────────────────────────────────────────────────────────────
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -24,6 +39,9 @@ class HistoryPageState extends State<HistoryPage>
   List<SubOrderModel> _subOrders = [];
   late AnimationController _animController;
 
+  // Cache productId → true si l'utilisateur a déjà laissé un avis
+  final Map<String, bool> _hasReviewed = {};
+
   String _t(String key) => AppLocalizations.get(key);
 
   @override
@@ -34,7 +52,7 @@ class HistoryPageState extends State<HistoryPage>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    loadOrders();
+    loadOrders().then((_) => _checkReviews());
   }
 
   @override
@@ -76,6 +94,28 @@ class HistoryPageState extends State<HistoryPage>
       debugPrint('❌ Erreur chargement sous-commandes: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  VÉRIFICATION AVIS EXISTANTS
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _checkReviews() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    final delivered = _subOrders.where((o) => o.status == 'delivered');
+    for (final order in delivered) {
+      final snap = await _firestore
+          .collection('products')
+          .doc(order.productId)
+          .collection('reviews')
+          .where('userId', isEqualTo: uid)
+          .limit(1)
+          .get();
+      if (mounted) {
+        setState(() => _hasReviewed[order.productId] = snap.docs.isNotEmpty);
+      }
     }
   }
 
@@ -552,30 +592,222 @@ class HistoryPageState extends State<HistoryPage>
 
             const SizedBox(height: 10),
 
-            // ── Bouton détails ─────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showDetails(s, isTablet),
-                icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                label: Text(_t('details'), style: TextStyle(
-                    fontSize: isTablet ? 13 : 12,
-                    fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: EdgeInsets.symmetric(
-                      vertical: isTablet ? 12 : 10),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+            // ── Boutons ────────────────────────────────────
+            Row(children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showDetails(s, isTablet),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 15),
+                  label: Text(_t('details'), style: TextStyle(
+                      fontSize: isTablet ? 13 : 12,
+                      fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(
+                        vertical: isTablet ? 12 : 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ),
-            ),
+              // ✅ Bouton avis — visible uniquement si livré
+              if (s.status == 'delivered') ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _hasReviewed[s.productId] == true
+                  // Déjà noté
+                      ? Container(
+                    padding: EdgeInsets.symmetric(
+                        vertical: isTablet ? 12 : 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle_rounded,
+                            size: 15, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 6),
+                        Text(_t('review_done'),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF16A34A))),
+                      ],
+                    ),
+                  )
+                  // Pas encore noté
+                      : ElevatedButton.icon(
+                    onPressed: () => _showReviewSheet(s),
+                    icon: const Icon(Icons.star_rounded, size: 15),
+                    label: Text(_t('review_add'),
+                        style: TextStyle(
+                            fontSize: isTablet ? 13 : 12,
+                            fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(
+                          vertical: isTablet ? 12 : 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ]),
           ]),
         ),
       ]),
     );
+  }
+
+
+  // ─────────────────────────────────────────────────────────────
+  //  BOTTOM SHEET AVIS
+  // ─────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────
+  //  BOTTOM SHEET AVIS — avec image + statut modération
+  // ─────────────────────────────────────────────────────────────
+
+  void _showReviewSheet(SubOrderModel s) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      // ✅ Vrai StatefulWidget — controller géré dans son propre State.dispose()
+      builder: (ctx) => _ReviewSheet(
+        subOrder: s,
+        onSubmit: (rating, comment, image) =>
+            _submitReview(s, rating, comment, image),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  SOUMETTRE L'AVIS DANS FIRESTORE
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _submitReview(
+      SubOrderModel s, int rating, String comment, File? image) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      final reviewRef = _firestore
+          .collection('products')
+          .doc(s.productId)
+          .collection('reviews')
+          .doc();
+
+      // Récup infos acheteur
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      final rawName = userDoc.exists
+          ? ('${userDoc.data()?['prenom'] ?? ''} '
+          '${userDoc.data()?['nom'] ?? ''}')
+          .trim()
+          : '';
+      final userName = rawName.isEmpty ? 'Anonyme' : rawName;
+
+      // Encode image en base64 si présente
+      String? imageBase64;
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        imageBase64 = base64Encode(bytes);
+      }
+
+      // ✅ status: 'pending' — en attente de validation admin
+      await reviewRef.set({
+        'userId':      uid,
+        'userName':    userName,
+        'productId':   s.productId,
+        'productName': s.name,
+        'subOrderId':  s.subOrderId,
+        'sellerId':    s.sellerId,
+        'rating':      rating,
+        'comment':     comment,
+        'imageBase64': imageBase64,   // null si pas d'image
+        'hasImage':    imageBase64 != null,
+        'status':      'pending',     // pending | approved | rejected
+        'rejectedReason': null,
+        'reviewedAt':  null,
+        'reviewedBy':  null,
+        'createdAt':   Timestamp.now(),
+      });
+
+      // Le rating moyen n'est mis à jour qu'après approbation admin
+      // → pas d'appel _updateProductRating ici
+
+      if (mounted) {
+        setState(() => _hasReviewed[s.productId] = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_t('review_success'))),
+            ]),
+            backgroundColor: const Color(0xFF16A34A),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_t('review_error')),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    }
+  }
+
+  // Met à jour avgRating + reviewCount (seulement avis approuvés)
+  Future<void> _updateProductRating(String productId) async {
+    try {
+      final reviews = await _firestore
+          .collection('products')
+          .doc(productId)
+          .collection('reviews')
+          .where('status', isEqualTo: 'approved')
+          .get();
+
+      if (reviews.docs.isEmpty) {
+        await _firestore.collection('products').doc(productId).update({
+          'avgRating':   0.0,
+          'reviewCount': 0,
+        });
+        return;
+      }
+
+      final total = reviews.docs.fold<int>(
+          0,
+              (sum, d) =>
+          sum + ((d.data()['rating'] as num?) ?? 0).toInt());
+      final avg = total / reviews.docs.length;
+
+      await _firestore.collection('products').doc(productId).update({
+        'avgRating':   double.parse(avg.toStringAsFixed(1)),
+        'reviewCount': reviews.docs.length,
+      });
+    } catch (_) {}
   }
 
   Widget _imagePlaceholder(bool isTablet) => Container(
@@ -882,6 +1114,357 @@ class HistoryPageState extends State<HistoryPage>
               style: TextStyle(fontSize: 14,
                   color: Colors.grey.shade500, height: 1.5)),
         ]),
+      ),
+    );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+//  _ReviewSheet — StatefulWidget propre
+//  Le TextEditingController est dans son State.dispose() → jamais
+//  disposé avant que le widget soit vraiment détruit.
+// ─────────────────────────────────────────────────────────────────
+
+class _ReviewSheet extends StatefulWidget {
+  final SubOrderModel subOrder;
+  final Future<void> Function(int rating, String comment, File? image) onSubmit;
+
+  const _ReviewSheet({
+    required this.subOrder,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_ReviewSheet> createState() => _ReviewSheetState();
+}
+
+class _ReviewSheetState extends State<_ReviewSheet> {
+  final _commentCtrl = TextEditingController();
+  final _picker      = ImagePicker();
+
+  int   _rating     = 0;
+  File? _pickedImage;
+  bool  _submitting  = false;
+
+  String _t(String key) => AppLocalizations.get(key);
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final xFile = await _picker.pickImage(
+      source:       ImageSource.gallery,
+      maxWidth:     1080,
+      maxHeight:    1080,
+      imageQuality: 75,
+    );
+    if (xFile != null && mounted) {
+      setState(() => _pickedImage = File(xFile.path));
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_rating == 0 || _submitting) return;
+    setState(() => _submitting = true);
+    await widget.onSubmit(_rating, _commentCtrl.text.trim(), _pickedImage);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.subOrder;
+
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          maxChildSize:     0.95,
+          minChildSize:     0.5,
+          expand:           false,
+          builder: (_, controller) => ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            children: [
+
+              // ── Poignée ───────────────────────────────────────
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+
+              // ── Titre ─────────────────────────────────────────
+              Text(_t('review_title'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B))),
+              const SizedBox(height: 6),
+              Text(s.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+
+              const SizedBox(height: 24),
+
+              // ── Étoiles ───────────────────────────────────────
+              Text(_t('review_stars_label'),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  final filled = i < _rating;
+                  return GestureDetector(
+                    onTap: () => setState(() => _rating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                        size:  44,
+                        color: filled
+                            ? const Color(0xFFF59E0B)
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // Label note
+              if (_rating > 0) ...[
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    _rating == 1 ? _t('review_rate_1')
+                        : _rating == 2 ? _t('review_rate_2')
+                        : _rating == 3 ? _t('review_rate_3')
+                        : _rating == 4 ? _t('review_rate_4')
+                        : _t('review_rate_5'),
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _rating >= 4
+                            ? const Color(0xFF16A34A)
+                            : _rating == 3
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFDC2626)),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 22),
+
+              // ── Commentaire ───────────────────────────────────
+              Text(_t('review_comment_label'),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700)),
+              const SizedBox(height: 8),
+              TextField(
+                controller:  _commentCtrl,
+                maxLines:    4,
+                maxLength:   300,
+                decoration: InputDecoration(
+                  hintText:  _t('review_comment_hint'),
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  filled:    true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.grey.shade200)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.grey.shade200)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(
+                          color: Color(0xFFF59E0B), width: 1.5)),
+                  contentPadding: const EdgeInsets.all(14),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // ── Photo (optionnelle) ───────────────────────────
+              Text(_t('review_photo_label'),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700)),
+              const SizedBox(height: 10),
+
+              if (_pickedImage == null)
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: const Color(0xFFF59E0B).withOpacity(0.4),
+                          width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withOpacity(0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.add_photo_alternate_rounded,
+                              size: 30, color: Color(0xFFF59E0B)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(_t('review_photo_add'),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFF59E0B))),
+                        Text(_t('review_photo_optional'),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey.shade400)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Stack(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(_pickedImage!,
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _pickedImage = null),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                            color: Color(0xFFDC2626), shape: BoxShape.circle),
+                        child: const Icon(Icons.close_rounded,
+                            size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, left: 8,
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.edit_rounded,
+                              size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(_t('review_photo_change'),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ]),
+
+              const SizedBox(height: 10),
+
+              // ── Info modération ───────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF7DD3FC)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_rounded,
+                        size: 16, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_t('review_moderation_info'),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF0369A1),
+                              height: 1.4)),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Bouton soumettre ──────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: _rating == 0 || _submitting ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _rating == 0
+                        ? Colors.grey.shade300
+                        : const Color(0xFFF59E0B),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                      width: 22, height: 22,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.5, color: Colors.white))
+                      : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.send_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Text(_t('review_submit'),
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
