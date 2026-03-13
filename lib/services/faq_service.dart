@@ -8,19 +8,7 @@ class FAQService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ─────────────────────────────────────────────────────────────
-  // Structure Firestore attendue pour chaque document dans 'faq':
-  // {
-  //   title    : String,
-  //   content  : String,
-  //   category : String,
-  //   icon     : String,
-  //   color    : String,
-  //   isActive : bool,
-  //   role     : 'buyer' | 'seller',   ← champ discriminant
-  //   createdAt: Timestamp,
-  // }
-  // ─────────────────────────────────────────────────────────────
+
 
   /// Récupère le rôle de l'utilisateur connecté depuis Firestore.
   /// Retourne 'buyer' par défaut si non trouvé.
