@@ -732,7 +732,7 @@ class AppLocalizations {
     'confirm_ship_message':   'Confirmez que vous avez remis ce colis au transporteur.',
     'confirm_deliver_title':  'Marquer comme livrée ?',
     'confirm_deliver_message':'Confirmez que le client a bien reçu sa commande.',
-
+    'chat_order_delivered_closed': 'Commande livrée — conversation fermée',
 
     // Products page seller
     'seller_products_title':      'Mes Produits',
@@ -790,6 +790,16 @@ class AppLocalizations {
     'seller_order_status_shipping': 'En livraison',
     'seller_order_status_delivered':'Livré',
     'seller_order_status_cancelled':'Annulé',
+    'seller_stat_orders_breakdown': 'Répartition des commandes',
+    'seller_stat_performance'     : 'Performance',
+    'seller_stat_qty_sold'        : 'Qté vendue',
+    'seller_stat_avg_order'       : 'Panier moyen',
+    'seller_stat_delivery_rate'   : 'Taux livraison',
+    'seller_top_products'         : 'Top articles vendus',
+    'seller_top_delivered_only'   : 'Livrés uniquement',
+    'seller_no_top_products'      : 'Aucune vente livrée pour le moment',
+    'seller_units_sold'           : 'unités',
+    'seller_orders_label'         : 'commandes',
 
     //──── add product page ──────────────────────────────────────
     'add_product_section_images'     : 'Photos du produit',
@@ -855,7 +865,6 @@ class AppLocalizations {
     'seller_product_pending_info'  : 'En cours de vérification par l\'admin',
     'seller_product_rejected_info' : 'Votre produit a été refusé',
     'seller_reward_label'           : 'Reward',
-    'seller_action_edit'            : 'Modifier',
     'seller_action_delete'          : 'Supprimer',
     'seller_action_activate'        : 'Activer',
     'seller_action_deactivate'      : 'Désactiver',
@@ -926,6 +935,11 @@ class AppLocalizations {
     'detail_low_stock_warning':   'Dépêchez-vous ! Stock très limité',
     'detail_visible_for':         'Visible encore :',
     'detail_urgent':              'URGENT',
+    'reviews_title':       'Avis clients',
+    'reviews_count_label': 'avis',
+    'reviews_empty':       'Aucun avis pour l\'instant',
+    'reviews_empty_sub':   'Soyez le premier à donner votre avis sur ce produit.',
+    'reviews_anonymous':   'Anonyme',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Rechercher un produit...',
@@ -1006,6 +1020,18 @@ class AppLocalizations {
     'review_submit':           'Soumettre',
     'review_success':          'Merci ! Votre avis est en attente de validation.',
     'review_error':            'Erreur lors de l\'envoi. Réessayez.',
+    'seller_confirm_delivery':          'Confirmer la livraison',
+    'confirm_seller_delivery_title':    'Produit livré ?',
+    'confirm_seller_delivery_message':  'Confirmez-vous avoir livré ce produit ?',
+    'confirm_seller_delivery_note':     'L\'acheteur devra aussi confirmer la réception.',
+    'seller_buyer_already_confirmed':   'L\'acheteur a déjà confirmé la réception ✓',
+    'seller_waiting_buyer_confirm':     'En attente de confirmation de l\'acheteur',
+    'buyer_confirm_delivery':           'Confirmer la réception',
+    'buyer_waiting_seller_confirm':     'En attente du vendeur',
+    'confirm_delivery_title':           'Vous avez reçu le produit ?',
+    'confirm_delivery_message':         'Confirmez-vous avoir bien reçu ce produit ?',
+    'confirm_delivery_btn':             'Oui, je confirme',
+    'delivery_confirmed_success':       'Réception confirmée !',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'Livraison',
@@ -1042,6 +1068,13 @@ class AppLocalizations {
     'shipping_zone_europe': 'Europe',
     'shipping_zone_world': 'Monde entier',
 
+  // ── OrderChatPage ──────────────────────────────────────────────
+    'chat_with_buyer':   'Chat acheteur',
+    'chat_empty':        'Aucun message',
+    'chat_empty_sub':    'Soyez le premier à écrire !',
+    'chat_type_message': 'Écrire un message...',
+    'chat_today':        'Aujourd\'hui',
+    'chat_yesterday':    'Hier',
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1744,7 +1777,7 @@ class AppLocalizations {
     'seller_nav_orders':          'Orders',
     'seller_nav_profile':         'Profile',
 
-    // ──Selle SubOrders Page ───────────────────────────────────────
+    // ──Selle Sub Orders Page ───────────────────────────────────────
     'seller_orders_title':        'My Orders',
     'seller_no_orders':           'No orders found',
     'seller_buyer':               'Buyer',
@@ -1777,8 +1810,9 @@ class AppLocalizations {
     'confirm_ship_message':   'Confirm you have handed this package to the carrier.',
     'confirm_deliver_title':  'Mark as delivered?',
     'confirm_deliver_message':'Confirm the customer has received their order.',
+    'chat_order_delivered_closed': 'Order delivered — chat is now closed',
 
-    // Products page seller
+    // ──Products page seller ───────────────────────────────────────
     'seller_products_title':      'My Products',
     'seller_add_product':         'Add product',
     'seller_edit_product':        'Edit product',
@@ -1833,6 +1867,16 @@ class AppLocalizations {
     'seller_order_status_shipping': 'Shipping',
     'seller_order_status_delivered':'Delivered',
     'seller_order_status_cancelled':'Cancelled',
+    'seller_stat_orders_breakdown': 'Orders Breakdown',
+    'seller_stat_performance'     : 'Performance',
+    'seller_stat_qty_sold'        : 'Qty Sold',
+    'seller_stat_avg_order'       : 'Avg. Order',
+    'seller_stat_delivery_rate'   : 'Delivery Rate',
+    'seller_top_products'         : 'Top Selling Products',
+    'seller_top_delivered_only'   : 'Delivered only',
+    'seller_no_top_products'      : 'No delivered sales yet',
+    'seller_units_sold'           : 'units',
+    'seller_orders_label'         : 'orders',
 
     //──── add product page ──────────────────────────────────────
     'add_product_section_images'     : 'Product photos',
@@ -1963,6 +2007,11 @@ class AppLocalizations {
     'detail_low_stock_warning':   'Hurry! Very limited stock',
     'detail_visible_for':         'Available for:',
     'detail_urgent':              'URGENT',
+    'reviews_title':       'Customer Reviews',
+    'reviews_count_label': 'reviews',
+    'reviews_empty':       'No reviews yet',
+    'reviews_empty_sub':   'Be the first to share your experience with this product.',
+    'reviews_anonymous':   'Anonymous',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Search for a product...',
@@ -2043,6 +2092,18 @@ class AppLocalizations {
     'review_submit':           'Soumettre',
     'review_success':          'Merci ! Votre avis est en attente de validation.',
     'review_error':            'Erreur lors de l\'envoi. Réessayez.',
+    'seller_confirm_delivery':          'Confirm delivery',
+    'confirm_seller_delivery_title':    'Product delivered?',
+    'confirm_seller_delivery_message':  'Do you confirm that this product has been delivered?',
+    'confirm_seller_delivery_note':     'The buyer will also need to confirm receipt.',
+    'seller_buyer_already_confirmed':   'The buyer has already confirmed receipt ✓',
+    'seller_waiting_buyer_confirm':     'Waiting for buyer confirmation',
+    'buyer_confirm_delivery':           'Confirm receipt',
+    'buyer_waiting_seller_confirm':     'Waiting for seller confirmation',
+    'confirm_delivery_title':           'Did you receive the product?',
+    'confirm_delivery_message':         'Do you confirm that you have received this product?',
+    'confirm_delivery_btn':             'Yes, I confirm',
+    'delivery_confirmed_success':       'Receipt confirmed!',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'Shipping',
@@ -2078,6 +2139,14 @@ class AppLocalizations {
     'shipping_zone_middle_east': 'Middle East',
     'shipping_zone_europe': 'Europe',
     'shipping_zone_world': 'Worldwide',
+
+    // ── OrderChatPage ──────────────────────────────────────────────
+    'chat_with_buyer':   'Chat buyer',
+    'chat_empty':        'No messages',
+    'chat_empty_sub':    'Be the first to write!',
+    'chat_type_message': 'Type a message...',
+    'chat_today':        'Today',
+    'chat_yesterday':    'Yesterday',
 
   };
   //  ARABIC
@@ -2814,6 +2883,7 @@ class AppLocalizations {
     'confirm_ship_message':   'تأكيد تسليم الطرد للمورد.',
     'confirm_deliver_title':  'تحديد كمُسلَّم؟',
     'confirm_deliver_message':'تأكيد استلام العميل للطلب.',
+    'chat_order_delivered_closed': 'تم التسليم — المحادثة مغلقة',
 
     // seller product page
     'seller_products_title':      'منتجاتي',
@@ -2833,7 +2903,6 @@ class AppLocalizations {
     'seller_delete_product_title':'حذف المنتج',
     'seller_delete_product_confirm':'هل أنت متأكد من حذف هذا المنتج؟',
     'seller_reward_label'           : 'مكافأة',
-    'seller_action_edit'            : 'تعديل',
     'seller_action_delete'          : 'حذف',
     'seller_action_activate'        : 'تفعيل',
     'seller_action_deactivate'      : 'إلغاء التفعيل',
@@ -2878,7 +2947,6 @@ class AppLocalizations {
     //──── seller dashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'لوحة التحكم',
     'seller_welcome':               'مرحباً',
-
     'seller_welcome_subtitle':      'أدر منتجاتك وطلباتك بكل سهولة',
     'seller_stats_title':           'نظرة عامة على الإحصائيات',
     'seller_stat_products':         'المنتجات',
@@ -2891,6 +2959,16 @@ class AppLocalizations {
     'seller_order_status_shipping': 'قيد الشحن',
     'seller_order_status_delivered':'تم التسليم',
     'seller_order_status_cancelled':'ملغى',
+    'seller_stat_orders_breakdown': 'توزيع الطلبات',
+    'seller_stat_performance'     : 'الأداء',
+    'seller_stat_qty_sold'        : 'الكمية المباعة',
+    'seller_stat_avg_order'       : 'متوسط الطلب',
+    'seller_stat_delivery_rate'   : 'نسبة التسليم',
+    'seller_top_products'         : 'أفضل المنتجات مبيعاً',
+    'seller_top_delivered_only'   : 'المسلّمة فقط',
+    'seller_no_top_products'      : 'لا توجد مبيعات مسلّمة حتى الآن',
+    'seller_units_sold'           : 'وحدة',
+    'seller_orders_label'         : 'طلب',
 
     //──── add product page ──────────────────────────────────────
     'add_product_section_images'     : 'صور المنتج',
@@ -3004,6 +3082,11 @@ class AppLocalizations {
     'detail_low_stock_warning':   'أسرع! المخزون محدود جداً',
     'detail_visible_for':         'متاح لمدة:',
     'detail_urgent':              'عاجل',
+    'reviews_title':       'آراء العملاء',
+    'reviews_count_label': 'تقييم',
+    'reviews_empty':       'لا توجد تقييمات بعد',
+    'reviews_empty_sub':   'كن أول من يشارك رأيه حول هذا المنتج.',
+    'reviews_anonymous':   'مجهول',
 
       // ── home page    ─────────────────────────────────────
     'search_hint': 'البحث عن منتج...',
@@ -3085,6 +3168,18 @@ class AppLocalizations {
     'review_submit':           'إرسال',
     'review_success':          'شكراً! تقييمك قيد المراجعة.',
     'review_error':            'خطأ في الإرسال. حاول مجدداً.',
+    'seller_confirm_delivery':          'تأكيد التسليم',
+    'confirm_seller_delivery_title':    'هل تم تسليم المنتج؟',
+    'confirm_seller_delivery_message':  'هل تؤكد أنك قمت بتسليم هذا المنتج؟',
+    'confirm_seller_delivery_note':     'سيحتاج المشتري أيضاً إلى تأكيد الاستلام.',
+    'seller_buyer_already_confirmed':   'المشتري أكد الاستلام بالفعل ✓',
+    'seller_waiting_buyer_confirm':     'في انتظار تأكيد المشتري',
+    'buyer_confirm_delivery':           'تأكيد الاستلام',
+    'buyer_waiting_seller_confirm':     'في انتظار تأكيد البائع',
+    'confirm_delivery_title':           'هل استلمت المنتج؟',
+    'confirm_delivery_message':         'هل تؤكد استلام هذا المنتج؟',
+    'confirm_delivery_btn':             'نعم، أؤكد',
+    'delivery_confirmed_success':       'تم تأكيد الاستلام!',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'الشحن',
@@ -3120,6 +3215,14 @@ class AppLocalizations {
     'shipping_zone_middle_east': 'الشرق الأوسط',
     'shipping_zone_europe': 'أوروبا',
     'shipping_zone_world': 'العالم',
+
+    // ── OrderChatPage ──────────────────────────────────────────────
+    'chat_with_buyer':   'دردشة المشتري',
+    'chat_empty':        'لا رسائل',
+    'chat_empty_sub':    'كن أول من يكتب!',
+    'chat_type_message': 'اكتب رسالة...',
+    'chat_today':        'اليوم',
+    'chat_yesterday':    'أمس',
   };
 
   // ════════════════════════════════════════════════════════════════

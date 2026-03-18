@@ -43,6 +43,7 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
 
   StreamSubscription<QuerySnapshot>? _productsSub;
   StreamSubscription<QuerySnapshot>? _subOrdersSub;
+  StreamSubscription<User?>?         _authSub; // ✅ écoute déconnexion
 
   @override
   void initState() {
@@ -50,10 +51,19 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
     _loadUserData();
     _loadPhotoBase64();
     _listenStats();
+
+    // ✅ Annuler tous les streams dès que l'utilisateur se déconnecte
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        _productsSub?.cancel();
+        _subOrdersSub?.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _productsSub?.cancel();
     _subOrdersSub?.cancel();
     super.dispose();
@@ -680,6 +690,9 @@ class _SellerProfilePageState extends State<SellerProfilePage> {
                       child: ElevatedButton(
                         onPressed: () async {
                           try {
+                            // ✅ Annuler tous les streams avant signOut
+                            _productsSub?.cancel();
+                            _subOrdersSub?.cancel();
                             await FirebaseAuth.instance.signOut();
                           } catch (_) {}
                           Navigator.of(context).pop();

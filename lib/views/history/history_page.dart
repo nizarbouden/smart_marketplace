@@ -6,21 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/sub_order_model.dart';
-import '../../models/shipping_company_model.dart';  // ✅ ShippingCompanies
+import '../../models/shipping_company_model.dart';
+import '../order chat/order_chat_page.dart';
 
-// ─────────────────────────────────────────────────────────────────
-//  HISTORY PAGE — côté acheteur
-//  1 carte par sous-commande (1 article indépendant)
-//
-//  Query :
-//    collectionGroup('subOrders')
-//      .where('userId', isEqualTo: uid)
-//      .orderBy('createdAt', descending: true)
-//
-//  Index requis (Firebase Console) :
-//    Collection group : subOrders
-//    Fields           : userId ASC  +  createdAt DESC
-// ─────────────────────────────────────────────────────────────────
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -39,7 +27,7 @@ class HistoryPageState extends State<HistoryPage>
   List<SubOrderModel> _subOrders = [];
   late AnimationController _animController;
 
-  // Cache productId → true si l'utilisateur a déjà laissé un avis
+  // Cache subOrderId → true si l'utilisateur a déjà laissé un avis pour CETTE commande
   final Map<String, bool> _hasReviewed = {};
 
   String _t(String key) => AppLocalizations.get(key);
@@ -110,11 +98,12 @@ class HistoryPageState extends State<HistoryPage>
           .collection('products')
           .doc(order.productId)
           .collection('reviews')
-          .where('userId', isEqualTo: uid)
+          .where('userId',     isEqualTo: uid)
+          .where('subOrderId', isEqualTo: order.subOrderId) // ✅ par sous-commande
           .limit(1)
           .get();
       if (mounted) {
-        setState(() => _hasReviewed[order.productId] = snap.docs.isNotEmpty);
+        setState(() => _hasReviewed[order.subOrderId] = snap.docs.isNotEmpty);
       }
     }
   }
@@ -612,11 +601,70 @@ class HistoryPageState extends State<HistoryPage>
                   ),
                 ),
               ),
+              // ✅ Bouton Chat — visible dès que la commande est payée
+              if (s.status != 'cancelled') ...[
+                const SizedBox(width: 8),
+                _ChatButton(subOrderId: s.subOrderId, isSeller: false,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => OrderChatPage(subOrder: s, isSeller: false),
+                  )),
+                ),
+              ],
+              // ✅ Bouton "Confirmer la réception" — visible dès que la commande est en shipping
+              //    Peu importe si le vendeur a déjà confirmé ou pas
+              if (s.status == 'shipping' && !s.buyerConfirmed) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _confirmDelivery(s),
+                    icon: const Icon(Icons.verified_rounded, size: 15),
+                    label: Text(_t('buyer_confirm_delivery'),
+                        style: TextStyle(
+                            fontSize: isTablet ? 13 : 12,
+                            fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(
+                          vertical: isTablet ? 12 : 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+              // ✅ Acheteur a confirmé mais vendeur pas encore → bandeau attente
+              if (s.status == 'shipping' && s.buyerConfirmed) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                        vertical: isTablet ? 12 : 10, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFED7AA)),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.hourglass_top_rounded,
+                              size: 14, color: Color(0xFFF97316)),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(_t('buyer_waiting_seller_confirm'),
+                              style: const TextStyle(fontSize: 11,
+                                  color: Color(0xFFC2410C),
+                                  fontWeight: FontWeight.w500),
+                              maxLines: 2)),
+                        ]),
+                  ),
+                ),
+              ],
               // ✅ Bouton avis — visible uniquement si livré
               if (s.status == 'delivered') ...[
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _hasReviewed[s.productId] == true
+                  child: _hasReviewed[s.subOrderId] == true
                   // Déjà noté
                       ? Container(
                     padding: EdgeInsets.symmetric(
@@ -676,6 +724,155 @@ class HistoryPageState extends State<HistoryPage>
   // ─────────────────────────────────────────────────────────────
   //  BOTTOM SHEET AVIS — avec image + statut modération
   // ─────────────────────────────────────────────────────────────
+
+  // ✅ Confirmation réception par l'acheteur
+  Future<void> _confirmDelivery(SubOrderModel s) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF16A34A).withOpacity(0.15),
+                  blurRadius: 30, offset: const Offset(0, 10)),
+            ],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 68, height: 68,
+              decoration: BoxDecoration(
+                  color: const Color(0xFF16A34A).withOpacity(0.10),
+                  shape: BoxShape.circle),
+              child: const Icon(Icons.verified_rounded,
+                  color: Color(0xFF16A34A), size: 34),
+            ),
+            const SizedBox(height: 20),
+            Text(_t('confirm_delivery_title'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18,
+                    fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            const SizedBox(height: 10),
+            Text(_t('confirm_delivery_message'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14,
+                    color: Colors.grey.shade500, height: 1.5)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200)),
+              child: Text(s.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+            ),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade600,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(_t('cancel'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(_t('confirm_delivery_btn'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final docRef = _firestore
+          .collection('orders')
+          .doc(s.parentOrderId)
+          .collection('subOrders')
+          .doc(s.subOrderId);
+
+      // ✅ Lire l'état actuel pour savoir si vendeur a déjà confirmé
+      final snap = await docRef.get();
+      final data = snap.data() as Map<String, dynamic>? ?? {};
+      final sellerAlreadyConfirmed = data['sellerConfirmed'] as bool? ?? false;
+
+      // Si vendeur a déjà confirmé → livraison complète, sinon on attend
+      final Map<String, dynamic> update = {
+        'buyerConfirmed': true,
+        'updatedAt':      Timestamp.now(),
+      };
+      if (sellerAlreadyConfirmed) update['status'] = 'delivered';
+
+      await docRef.update(update);
+
+      // ✅ Recharger la liste pour mettre à jour le statut affiché
+      await loadOrders();
+      await _checkReviews();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(children: [
+            const Icon(Icons.check_circle_rounded,
+                color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(_t('delivery_confirmed_success'),
+                style: const TextStyle(color: Colors.white,
+                    fontWeight: FontWeight.w600))),
+          ]),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_t('error')),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    }
+  }
 
   void _showReviewSheet(SubOrderModel s) {
     showModalBottomSheet(
@@ -746,7 +943,7 @@ class HistoryPageState extends State<HistoryPage>
       // → pas d'appel _updateProductRating ici
 
       if (mounted) {
-        setState(() => _hasReviewed[s.productId] = true);
+        setState(() => _hasReviewed[s.subOrderId] = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(children: [
@@ -1466,6 +1663,79 @@ class _ReviewSheetState extends State<_ReviewSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  _ChatButton — bouton icône chat avec badge non-lus
+// ─────────────────────────────────────────────────────────────────
+
+class _ChatButton extends StatelessWidget {
+  final String   subOrderId;
+  final bool     isSeller;
+  final VoidCallback onTap;
+
+  const _ChatButton({
+    required this.subOrderId,
+    required this.isSeller,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('chats')
+          .doc(subOrderId)
+          .get(),
+      builder: (context, snap) {
+        int unread = 0;
+        if (snap.connectionState == ConnectionState.done &&
+            snap.hasData && snap.data!.exists && !snap.hasError) {
+          final data = snap.data!.data() as Map<String, dynamic>;
+          unread = isSeller
+              ? (data['unreadSeller'] as num? ?? 0).toInt()
+              : (data['unreadBuyer']  as num? ?? 0).toInt();
+        }
+
+        return GestureDetector(
+          onTap: onTap,
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: const Color(0xFF7C3AED).withOpacity(0.2)),
+              ),
+              child: const Icon(Icons.chat_rounded,
+                  color: Color(0xFF7C3AED), size: 18),
+            ),
+            if (unread > 0)
+              Positioned(
+                top: -5, right: -5,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  constraints:
+                  const BoxConstraints(minWidth: 18, minHeight: 18),
+                  child: Text(
+                    unread > 9 ? '9+' : '$unread',
+                    style: const TextStyle(color: Colors.white,
+                        fontSize: 9, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ]),
+        );
+      },
     );
   }
 }

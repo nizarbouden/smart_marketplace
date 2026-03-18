@@ -18,12 +18,17 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
-  // ── Stats ────────────────────────────────────────────────────
-  int    _totalProducts = 0;
-  int    _totalOrders   = 0;   // tous statuts sauf cancelled
-  double _totalRevenue  = 0;   // somme subtotal des subOrders delivered
-  int    _pendingOrders = 0;   // statut 'paid' (en attente expédition)
-  bool   _isLoading     = true;
+  // ── Stats de base ────────────────────────────────────────────
+  int    _totalProducts   = 0;
+  int    _totalOrders     = 0;   // tous statuts sauf cancelled
+  double _totalRevenue    = 0;   // somme subtotal des subOrders delivered
+  int    _pendingOrders   = 0;   // statut 'paid'
+  int    _shippingOrders  = 0;   // statut 'shipping'
+  int    _deliveredOrders = 0;   // statut 'delivered'
+  int    _cancelledOrders = 0;   // statut 'cancelled'
+  double _avgOrderValue   = 0;   // valeur moyenne par commande livrée
+  int    _totalQtySold    = 0;   // quantité totale vendue (delivered)
+  bool   _isLoading       = true;
 
   // ── Notifications ────────────────────────────────────────────
   int _unreadCount = 0;
@@ -32,19 +37,33 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   // ── Streams temps réel ───────────────────────────────────────
   StreamSubscription<QuerySnapshot>? _subOrdersSub;
   StreamSubscription<QuerySnapshot>? _productsSub;
+  StreamSubscription<User?>?         _authSub;
 
-  // Dernières sous-commandes pour activité récente
+  // ── Activité récente ─────────────────────────────────────────
   List<Map<String, dynamic>> _recentSubOrders = [];
+
+  // ── Top 3 articles vendus ────────────────────────────────────
+  // Structure : { productId, name, images, qtySold, revenue, orderCount }
+  List<Map<String, dynamic>> _topProducts = [];
 
   @override
   void initState() {
     super.initState();
     _listenUnreadCount();
     _listenStats();
+
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        _notifSub?.cancel();
+        _subOrdersSub?.cancel();
+        _productsSub?.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _notifSub?.cancel();
     _subOrdersSub?.cancel();
     _productsSub?.cancel();
@@ -68,14 +87,14 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  STREAM STATS — tout en temps réel via collectionGroup
+  //  STREAM STATS — temps réel
   // ─────────────────────────────────────────────────────────────
 
   void _listenStats() {
     final uid = _currentUser?.uid;
     if (uid == null) return;
 
-    // ── 1. Produits ─────────────────────────────────────────────
+    // ── Produits ─────────────────────────────────────────────
     _productsSub = _firestore
         .collection('products')
         .where('sellerId', isEqualTo: uid)
@@ -84,7 +103,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       if (mounted) setState(() => _totalProducts = snap.docs.length);
     });
 
-    // ── 2. SubOrders → commandes + revenus + en attente ─────────
+    // ── SubOrders ────────────────────────────────────────────
     _subOrdersSub = _firestore
         .collectionGroup('subOrders')
         .where('sellerId', isEqualTo: uid)
@@ -93,49 +112,87 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
         .listen((snap) {
       if (!mounted) return;
 
-      int    totalOrders   = 0;
-      double totalRevenue  = 0;
-      int    pendingOrders = 0;
-      final  recent        = <Map<String, dynamic>>[];
+      int    totalOrders     = 0;
+      double totalRevenue    = 0;
+      int    pendingOrders   = 0;
+      int    shippingOrders  = 0;
+      int    deliveredOrders = 0;
+      int    cancelledOrders = 0;
+      int    totalQtySold    = 0;
+
+      final recent = <Map<String, dynamic>>[];
+
+      // Agrégation par produit pour le top
+      // clé = productId (ou name si absent)
+      final Map<String, Map<String, dynamic>> productAgg = {};
 
       for (final doc in snap.docs) {
         final d      = doc.data();
         final status = d['status'] as String? ?? 'paid';
+        final price  = (d['price']    as num? ?? 0).toDouble();
+        final qty    = (d['quantity'] as num? ?? 1).toInt();
 
-        // On exclut les annulées du compteur commandes
-        if (status != 'cancelled') totalOrders++;
-
-        // Revenu = sous-total des commandes livrées uniquement
-        if (status == 'delivered') {
-          final price = (d['price'] as num? ?? 0).toDouble();
-          final qty   = (d['quantity'] as num? ?? 1).toInt();
-          totalRevenue += price * qty;
+        // Compteurs statuts
+        switch (status) {
+          case 'paid':      pendingOrders++;   totalOrders++; break;
+          case 'shipping':  shippingOrders++;  totalOrders++; break;
+          case 'delivered': deliveredOrders++; totalOrders++; break;
+          case 'cancelled': cancelledOrders++; break;
         }
 
-        // En attente = statut 'paid' (pas encore expédié)
-        if (status == 'paid') pendingOrders++;
+        // Revenu + quantités vendues uniquement si livré
+        if (status == 'delivered') {
+          totalRevenue += price * qty;
+          totalQtySold += qty;
+
+          // Agrégation produit
+          final productId = (d['productId'] as String?)
+              ?? (d['name']      as String? ?? doc.id);
+          if (!productAgg.containsKey(productId)) {
+            productAgg[productId] = {
+              'productId':  productId,
+              'name':       d['name']   as String? ?? '—',
+              'images':     d['images'] as List<dynamic>? ?? [],
+              'qtySold':    0,
+              'revenue':    0.0,
+              'orderCount': 0,
+            };
+          }
+          productAgg[productId]!['qtySold']    = (productAgg[productId]!['qtySold'] as int) + qty;
+          productAgg[productId]!['revenue']    = (productAgg[productId]!['revenue'] as double) + price * qty;
+          productAgg[productId]!['orderCount'] = (productAgg[productId]!['orderCount'] as int) + 1;
+        }
 
         // Activité récente — 5 dernières
-        if (recent.length < 5) {
-          recent.add({...d, '_docId': doc.id});
-        }
+        if (recent.length < 5) recent.add({...d, '_docId': doc.id});
       }
 
+      // Top 3 triés par qtySold décroissant
+      final topList = productAgg.values.toList()
+        ..sort((a, b) =>
+            (b['qtySold'] as int).compareTo(a['qtySold'] as int));
+
+      final double avgVal = deliveredOrders > 0
+          ? totalRevenue / deliveredOrders
+          : 0;
+
       setState(() {
-        _totalOrders   = totalOrders;
-        _totalRevenue  = totalRevenue;
-        _pendingOrders = pendingOrders;
+        _totalOrders     = totalOrders;
+        _totalRevenue    = totalRevenue;
+        _pendingOrders   = pendingOrders;
+        _shippingOrders  = shippingOrders;
+        _deliveredOrders = deliveredOrders;
+        _cancelledOrders = cancelledOrders;
+        _totalQtySold    = totalQtySold;
+        _avgOrderValue   = avgVal;
         _recentSubOrders = recent;
-        _isLoading     = false;
+        _topProducts     = topList.take(3).toList();
+        _isLoading       = false;
       });
     }, onError: (_) {
       if (mounted) setState(() => _isLoading = false);
     });
   }
-
-  // ─────────────────────────────────────────────────────────────
-  //  PULL TO REFRESH — inutile puisque temps réel, mais garde UX
-  // ─────────────────────────────────────────────────────────────
 
   Future<void> _onRefresh() async {
     await Future.delayed(const Duration(milliseconds: 600));
@@ -178,6 +235,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                     _buildWelcomeCard(t),
                     const SizedBox(height: 24),
                     _buildStatsGrid(t),
+                    const SizedBox(height: 24),
+                    _buildOrderStatusBreakdown(t),
+                    const SizedBox(height: 24),
+                    _buildExtraStats(t),
+                    const SizedBox(height: 24),
+                    _buildTopProducts(t),
                     const SizedBox(height: 24),
                     _buildRecentActivity(t),
                     const SizedBox(height: 80),
@@ -314,7 +377,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  STATS GRID — données temps réel
+  //  STATS GRID PRINCIPALE
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildStatsGrid(String Function(String) t) {
@@ -362,7 +425,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               value:   '$_pendingOrders',
               color:   const Color(0xFFF59E0B),
               bgColor: const Color(0xFFFFFBEB),
-              // badge rouge si commandes en attente
               showBadge: _pendingOrders > 0,
             ),
           ],
@@ -406,7 +468,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),
-              // Indicateur point rouge si badge actif
               if (showBadge)
                 Container(
                   width: 10, height: 10,
@@ -430,7 +491,456 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  ACTIVITÉ RÉCENTE — depuis _recentSubOrders (temps réel)
+  //  RÉPARTITION STATUTS DES COMMANDES (barres horizontales)
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildOrderStatusBreakdown(String Function(String) t) {
+    final total = _totalOrders + _cancelledOrders;
+    if (total == 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.pie_chart_rounded,
+                color: Color(0xFF16A34A), size: 18),
+            const SizedBox(width: 8),
+            Text(t('seller_stat_orders_breakdown'),
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B))),
+          ]),
+          const SizedBox(height: 18),
+          _buildStatusBar(
+            label:  t('seller_status_paid'),
+            count:  _pendingOrders,
+            total:  total,
+            color:  const Color(0xFFF59E0B),
+            icon:   Icons.pending_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildStatusBar(
+            label:  t('seller_status_shipping'),
+            count:  _shippingOrders,
+            total:  total,
+            color:  const Color(0xFF3B82F6),
+            icon:   Icons.local_shipping_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildStatusBar(
+            label:  t('seller_status_delivered'),
+            count:  _deliveredOrders,
+            total:  total,
+            color:  const Color(0xFF16A34A),
+            icon:   Icons.check_circle_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildStatusBar(
+            label:  t('seller_status_cancelled'),
+            count:  _cancelledOrders,
+            total:  total,
+            color:  const Color(0xFFDC2626),
+            icon:   Icons.cancel_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBar({
+    required String  label,
+    required int     count,
+    required int     total,
+    required Color   color,
+    required IconData icon,
+  }) {
+    final pct = total > 0 ? count / total : 0.0;
+    return Row(children: [
+      Icon(icon, color: color, size: 14),
+      const SizedBox(width: 8),
+      SizedBox(
+        width: 80,
+        child: Text(label,
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            overflow: TextOverflow.ellipsis),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 8,
+            backgroundColor: color.withOpacity(0.12),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      SizedBox(
+        width: 28,
+        child: Text('$count',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color)),
+      ),
+    ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  STATS SUPPLÉMENTAIRES (ligne de 3 mini-cartes)
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildExtraStats(String Function(String) t) {
+    // Taux de livraison réussie
+    final totalAttempted = _deliveredOrders + _cancelledOrders;
+    final deliveryRate   = totalAttempted > 0
+        ? (_deliveredOrders / totalAttempted * 100).toStringAsFixed(0)
+        : '—';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(t('seller_stat_performance'),
+            style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B))),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _buildMiniStatCard(
+            icon:    Icons.local_mall_rounded,
+            label:   t('seller_stat_qty_sold'),
+            value:   '$_totalQtySold',
+            color:   const Color(0xFF0EA5E9),
+            bgColor: const Color(0xFFE0F2FE),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: _buildMiniStatCard(
+            icon:    Icons.trending_up_rounded,
+            label:   t('seller_stat_avg_order'),
+            value:   _avgOrderValue > 0
+                ? '${_avgOrderValue.toStringAsFixed(1)} TND'
+                : '—',
+            color:   const Color(0xFF8B5CF6),
+            bgColor: const Color(0xFFF5F3FF),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: _buildMiniStatCard(
+            icon:    Icons.verified_rounded,
+            label:   t('seller_stat_delivery_rate'),
+            value:   deliveryRate != '—' ? '$deliveryRate%' : '—',
+            color:   const Color(0xFF16A34A),
+            bgColor: const Color(0xFFF0FDF4),
+          )),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildMiniStatCard({
+    required IconData icon,
+    required String   label,
+    required String   value,
+    required Color    color,
+    required Color    bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 10),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  TOP 3 ARTICLES VENDUS
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildTopProducts(String Function(String) t) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(children: [
+              const Text('🏆', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(t('seller_top_products'),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B))),
+            ]),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Text(t('seller_top_delivered_only'),
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFF97316))),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (_topProducts.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+            ),
+            child: Center(child: Column(children: [
+              Icon(Icons.emoji_events_outlined,
+                  size: 44, color: Colors.grey[300]),
+              const SizedBox(height: 10),
+              Text(t('seller_no_top_products'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+            ])),
+          )
+        else
+          ...(_topProducts.asMap().entries.map(
+                (e) => _buildTopProductTile(e.key, e.value, t),
+          )),
+      ],
+    );
+  }
+
+  Widget _buildTopProductTile(
+      int rank, Map<String, dynamic> data, String Function(String) t) {
+
+    // Médailles
+    final medals   = ['🥇', '🥈', '🥉'];
+    final medal    = rank < medals.length ? medals[rank] : '${rank + 1}';
+
+    // Couleurs podium
+    final rankColors = [
+      const Color(0xFFFFB800), // or
+      const Color(0xFF94A3B8), // argent
+      const Color(0xFFCD7F32), // bronze
+    ];
+    final rankColor = rank < rankColors.length
+        ? rankColors[rank]
+        : const Color(0xFF94A3B8);
+
+    final name       = data['name']       as String? ?? '—';
+    final qtySold    = data['qtySold']    as int;
+    final revenue    = data['revenue']    as double;
+    final orderCount = data['orderCount'] as int;
+    final images     = data['images']     as List<dynamic>? ?? [];
+
+    // Image produit
+    Widget imgWidget;
+    if (images.isNotEmpty) {
+      try {
+        final bytes = base64Decode(images.first as String);
+        imgWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(bytes, width: 60, height: 60, fit: BoxFit.cover),
+        );
+      } catch (_) { imgWidget = _topImgPlaceholder(rankColor); }
+    } else {
+      imgWidget = _topImgPlaceholder(rankColor);
+    }
+
+    // Barre de progression relative au top 1
+    final maxQty = (_topProducts.isNotEmpty
+        ? _topProducts.first['qtySold'] as int
+        : 1);
+    final progress = maxQty > 0 ? qtySold / maxQty : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: rank == 0
+            ? Border.all(color: const Color(0xFFFFB800).withOpacity(0.4),
+            width: 1.5)
+            : null,
+        boxShadow: [BoxShadow(
+            color: rank == 0
+                ? const Color(0xFFFFB800).withOpacity(0.10)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: 10, offset: const Offset(0, 3))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Médaille
+            Text(medal, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+
+            // Image
+            Stack(children: [
+              imgWidget,
+              if (rank == 0)
+                Positioned(
+                  top: -4, right: -4,
+                  child: Container(
+                    width: 18, height: 18,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFB800),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.star_rounded,
+                        color: Colors.white, size: 10),
+                  ),
+                ),
+            ]),
+            const SizedBox(width: 12),
+
+            // Nom + stats texte
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF1E293B)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 6),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  _topChip(
+                    icon: Icons.shopping_bag_rounded,
+                    label: '$qtySold ${t("seller_units_sold")}',
+                    color: rankColor,
+                  ),
+                  _topChip(
+                    icon: Icons.receipt_rounded,
+                    label: '$orderCount ${t("seller_orders_label")}',
+                    color: const Color(0xFF6366F1),
+                  ),
+                ]),
+              ],
+            )),
+
+            // Revenu
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(revenue.toStringAsFixed(2),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: rankColor)),
+              Text('TND', style: TextStyle(
+                  fontSize: 10, color: Colors.grey[400])),
+            ]),
+          ]),
+
+          // Barre de progression relative
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: rankColor.withOpacity(0.12),
+                  valueColor: AlwaysStoppedAnimation<Color>(rankColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('${(progress * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: rankColor)),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _topChip({
+    required IconData icon,
+    required String   label,
+    required Color    color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color)),
+      ]),
+    );
+  }
+
+  Widget _topImgPlaceholder(Color color) => Container(
+    width: 60, height: 60,
+    decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12)),
+    child: Icon(Icons.inventory_2_rounded,
+        color: color.withOpacity(0.5), size: 26),
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  //  ACTIVITÉ RÉCENTE
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildRecentActivity(String Function(String) t) {
@@ -445,7 +955,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1E293B))),
-            // Indicateur temps réel
             Row(children: [
               Container(
                 width: 8, height: 8,
@@ -469,21 +978,16 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10),
-              ],
+              boxShadow: [BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10)],
             ),
-            child: Center(
-              child: Column(children: [
-                Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[300]),
-                const SizedBox(height: 12),
-                Text(t('seller_no_orders_yet'),
-                    style:
-                    TextStyle(color: Colors.grey[500], fontSize: 14)),
-              ]),
-            ),
+            child: Center(child: Column(children: [
+              Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[300]),
+              const SizedBox(height: 12),
+              Text(t('seller_no_orders_yet'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+            ])),
           )
         else
           ...(_recentSubOrders.map((data) => _buildSubOrderTile(data, t))),
@@ -493,17 +997,16 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
   Widget _buildSubOrderTile(
       Map<String, dynamic> data, String Function(String) t) {
-    final status   = data['status']   as String? ?? 'paid';
-    final name     = data['name']     as String? ?? '—';
-    final price    = (data['price']   as num?    ?? 0).toDouble();
-    final qty      = (data['quantity'] as num?   ?? 1).toInt();
+    final status   = data['status']    as String? ?? 'paid';
+    final name     = data['name']      as String? ?? '—';
+    final price    = (data['price']    as num?    ?? 0).toDouble();
+    final qty      = (data['quantity'] as num?    ?? 1).toInt();
     final total    = price * qty;
-    final rawId    = data['_docId']   as String? ?? '';
+    final rawId    = data['_docId']    as String? ?? '';
     final shortId  = rawId.length >= 8
         ? rawId.substring(0, 8).toUpperCase()
         : rawId.toUpperCase();
 
-    // Image produit (base64)
     Widget leading;
     final images = data['images'] as List<dynamic>? ?? [];
     if (images.isNotEmpty) {
@@ -514,25 +1017,21 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           child: Image.memory(bytes, width: 46, height: 46,
               fit: BoxFit.cover),
         );
-      } catch (_) {
-        leading = _tileImagePlaceholder(status);
-      }
+      } catch (_) { leading = _tileImagePlaceholder(status); }
     } else {
       leading = _tileImagePlaceholder(status);
     }
 
-    // Config statut
-    final cfg = _statusConfig(status);
-    final Color statusColor = cfg['color'] as Color;
+    final cfg         = _statusConfig(status);
+    final Color  statusColor = cfg['color'] as Color;
     final IconData statusIcon = cfg['icon'] as IconData;
 
-    // Date
     String dateStr = '—';
     final ts = data['createdAt'];
     if (ts is Timestamp) {
       final d = ts.toDate();
-      dateStr = '${d.day.toString().padLeft(2,'0')}/'
-          '${d.month.toString().padLeft(2,'0')}/'
+      dateStr = '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')}/'
           '${d.year}';
     }
 
@@ -542,13 +1041,10 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04), blurRadius: 8),
-        ],
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.04), blurRadius: 8)],
       ),
       child: Row(children: [
-        // Image ou icône statut
         Stack(children: [
           leading,
           Positioned(
@@ -564,16 +1060,13 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             ),
           ),
         ]),
-
         const SizedBox(width: 12),
-
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -581,15 +1074,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
               const SizedBox(height: 2),
               Row(children: [
                 Text('#$shortId',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey[400])),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400])),
                 const SizedBox(width: 6),
                 Text('• $dateStr',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey[400])),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400])),
               ]),
               const SizedBox(height: 3),
-              // Badge statut inline
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 7, vertical: 2),
@@ -608,10 +1098,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             ],
           ),
         ),
-
         const SizedBox(width: 8),
-
-        // Total
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text('${total.toStringAsFixed(2)}',
               style: const TextStyle(

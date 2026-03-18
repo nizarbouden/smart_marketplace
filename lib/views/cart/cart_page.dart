@@ -4,11 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../localization/app_localizations.dart';
-import '../../models/cart_item_model.dart';
 import '../../models/shipping_zone_model.dart';
 import '../../providers/cart_provider.dart';
 import '../payment/checkout_page.dart';
-import '../compte/adress/address_page.dart'; // ✅ AddressPage
+import '../compte/adress/address_page.dart';
 import '../../main.dart' show routeObserver;
 
 // ✅ GlobalKey accessible depuis MainLayout
@@ -43,7 +42,7 @@ class CartPageState extends State<CartPage>
   List<CartItemModel> _cartItems       = [];
   bool                _isLoading       = true;
   bool                _showSummary     = false;
-  int                 _hiddenItemCount = 0; // produits filtrés (isActive=false)
+  int                 _hiddenItemCount = 0;
 
   // ── Adresse acheteur ─────────────────────────────────────────
   Map<String, dynamic>? _buyerAddress;
@@ -96,7 +95,7 @@ class CartPageState extends State<CartPage>
     final zone = _effectiveZone;
     double total = 0.0;
     for (final item in _selectedItems) {
-      final price = item.shippingPrice(zone); // déjà × quantity
+      final price = item.shippingPrice(zone);
       if (price != null) total += price;
     }
     return total;
@@ -190,6 +189,20 @@ class CartPageState extends State<CartPage>
   }
 
   // ─────────────────────────────────────────────────────────────
+  //  NAVIGATION VERS AJOUT D'ADRESSE
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _goToAddAddress() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddressPage()),
+    );
+    if (!mounted) return;
+    setState(() => _loadingAddress = true);
+    await _init();
+  }
+
+  // ─────────────────────────────────────────────────────────────
   //  CHARGEMENT PANIER
   // ─────────────────────────────────────────────────────────────
 
@@ -213,7 +226,7 @@ class CartPageState extends State<CartPage>
           setState(() {
             _cartItems       = [];
             _isLoading       = false;
-            _hiddenItemCount = 0; // panier vide proprement, pas de banner
+            _hiddenItemCount = 0;
           });
           _notifyParent();
         }
@@ -235,8 +248,6 @@ class CartPageState extends State<CartPage>
           if (!productDoc.exists) continue;
           final p = productDoc.data()!;
 
-          // ✅ Filtrer les produits désactivés par le vendeur (isActive == false)
-          // Le produit peut avoir été ajouté au panier avant d'être rendu invisible
           final isActive = p['isActive'] as bool? ?? true;
           if (!isActive) { hiddenCount++; continue; }
 
@@ -345,10 +356,8 @@ class CartPageState extends State<CartPage>
   void _removeItem(int index) {
     if (index < 0 || index >= _cartItems.length) return;
     final docId = _cartItems[index].cartDocId;
-    // ✅ FIX BUG DISPARITION : supprimer localement puis sync provider
-    // avec la liste complète — pas removeItem(index) qui peut décaler
     _cartItems.removeAt(index);
-    setState(() {}); // rebuild avec la liste locale mise à jour
+    setState(() {});
     context.read<CartProvider>().setItems(List.from(_cartItems));
     _removeFirestore(docId);
     _notifyParent();
@@ -504,42 +513,53 @@ class CartPageState extends State<CartPage>
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  BANNIÈRE : PAS D'ADRESSE
+  //  BANNIÈRE : PAS D'ADRESSE  ✅ CLIQUABLE → AddressPage
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildNoAddressBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
-      ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-              color: const Color(0xFF3B82F6).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.add_location_alt_rounded,
-              color: Color(0xFF3B82F6), size: 22),
+    return GestureDetector(
+      onTap: _goToAddAddress, // ✅ tap sur toute la bannière
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_t('cart_no_address_title'),
-              style: const TextStyle(fontSize: 13,
-                  fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
-          const SizedBox(height: 3),
-          Text(_t('cart_no_address_desc'),
-              style: const TextStyle(fontSize: 12,
-                  color: Color(0xFF2563EB), height: 1.4)),
-        ])),
-        const SizedBox(width: 8),
-        const Icon(Icons.chevron_right_rounded,
-            color: Color(0xFF3B82F6), size: 20),
-      ]),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.add_location_alt_rounded,
+                color: Color(0xFF3B82F6), size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_t('cart_no_address_title'),
+                style: const TextStyle(fontSize: 13,
+                    fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+            const SizedBox(height: 3),
+            Text(_t('cart_no_address_desc'),
+                style: const TextStyle(fontSize: 12,
+                    color: Color(0xFF2563EB), height: 1.4)),
+          ])),
+          const SizedBox(width: 8),
+          // ✅ flèche animée pour indiquer que c'est cliquable
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.arrow_forward_rounded,
+                color: Color(0xFF3B82F6), size: 18),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -604,16 +624,7 @@ class CartPageState extends State<CartPage>
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
-              // ✅ Navigation vers AddressPage
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddressPage()),
-                );
-                if (!mounted) return;
-                setState(() => _loadingAddress = true);
-                await _init();
-              },
+              onTap: _goToAddAddress, // ✅ réutilise la même méthode
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
@@ -654,7 +665,6 @@ class CartPageState extends State<CartPage>
   Widget _buildEmpty(bool isTablet, {int hiddenCount = 0}) {
     final hasHidden = hiddenCount > 0;
     return ListView(children: [
-      // ✅ Bannière "produits masqués" visible même quand le panier est vide
       if (hasHidden)
         Padding(
           padding: EdgeInsets.fromLTRB(
@@ -778,7 +788,7 @@ class CartPageState extends State<CartPage>
       double sum = 0.0;
       bool anyDeliverable = false;
       for (final item in selectedVendorItems) {
-        final p = item.shippingPrice(zone); // déjà × quantity
+        final p = item.shippingPrice(zone);
         if (p != null) { sum += p; anyDeliverable = true; }
       }
       if (anyDeliverable) vendorShipping = sum;
@@ -832,7 +842,6 @@ class CartPageState extends State<CartPage>
 
         ...items.asMap().entries.map((e) {
           final item  = e.value;
-          // ✅ FIX BUG : trouver le bon index par cartDocId, pas par référence objet
           final index = _cartItems.indexWhere((c) => c.cartDocId == item.cartDocId);
           return _buildItemCard(item, index, isTablet);
         }),
@@ -1007,7 +1016,6 @@ class CartPageState extends State<CartPage>
           ])),
         ]),
       ),
-      // ✅ FIX BUG : ne pas comparer les objets item — utiliser l'index
       if (index >= 0 && index < _cartItems.length - 1)
         const Divider(height: 1, indent: 12, endIndent: 12,
             color: Color(0xFFF0F0F0)),
@@ -1015,7 +1023,7 @@ class CartPageState extends State<CartPage>
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  BOTTOM BAR  ← FIX OVERFLOW ICI
+  //  BOTTOM BAR
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildBottomBar(bool isTablet) {
@@ -1035,7 +1043,6 @@ class CartPageState extends State<CartPage>
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-        // ── Ligne sous-totaux ───────────────────────────────
         if (_selectedCount > 0) ...[
           Row(children: [
             Text(_t('cart_products_subtotal'),
@@ -1076,11 +1083,7 @@ class CartPageState extends State<CartPage>
           ),
         ],
 
-        // ── Ligne actions (select all + total + bouton) ─────
-        // ✅ FIX : Row avec contraintes explicites pour éviter l'overflow
         Row(children: [
-
-          // Sélectionner tout
           GestureDetector(
             onTap: _toggleAll,
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -1097,7 +1100,6 @@ class CartPageState extends State<CartPage>
           const Spacer(),
 
           if (_selectedCount > 0) ...[
-            // Total
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
@@ -1118,7 +1120,6 @@ class CartPageState extends State<CartPage>
             ),
             const SizedBox(width: 10),
 
-            // Bouton commander — largeur contrainte + ellipsis
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
               child: GestureDetector(
@@ -1173,7 +1174,7 @@ class CartPageState extends State<CartPage>
 
     final vendorShipping = <String, double>{};
     for (final item in selectedItems) {
-      final p = item.shippingPrice(zone); // déjà × quantity
+      final p = item.shippingPrice(zone);
       if (p == null) continue;
       vendorShipping[item.storeName] = (vendorShipping[item.storeName] ?? 0.0) + p;
     }

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
 import '../../localization/app_localizations.dart';
 
@@ -14,12 +16,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool isLoading = true;
   bool _isSeller = false; // ← rôle de l'utilisateur
   final FirebaseAuthService _authService = FirebaseAuthService();
+  StreamSubscription<User?>? _authSub; // ✅ écoute déconnexion
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
     _loadNotifications();
+
+    // ✅ Si l'utilisateur se déconnecte, fermer la page proprement
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   // ── Charge le rôle de l'utilisateur ──────────────────────────
@@ -35,6 +51,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _loadNotifications() async {
     setState(() => isLoading = true);
     try {
+      // ✅ Vérifier que l'utilisateur est encore connecté
+      if (FirebaseAuth.instance.currentUser == null) {
+        if (mounted) setState(() => isLoading = false);
+        return;
+      }
       List<Map<String, dynamic>> userNotifications =
       await _authService.getUserNotifications();
       setState(() {

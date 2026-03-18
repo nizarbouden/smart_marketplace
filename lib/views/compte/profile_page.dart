@@ -189,6 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     _autoLogoutService.addLogoutListener((event) {
       if (mounted) {
+        _pointsSubscription?.cancel(); // ✅ Annuler avant déconnexion
         final langProvider =
         Provider.of<LanguageProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -732,17 +733,14 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: ElevatedButton(
                                 onPressed: () async {
                                   try {
-                                    _autoLogoutService
-                                        .stopAutoLogout();
-                                    await FirebaseAuth.instance
-                                        .signOut();
+                                    _autoLogoutService.stopAutoLogout();
+                                    _pointsSubscription?.cancel(); // ✅ AJOUTER CETTE LIGNE
+                                    await FirebaseAuth.instance.signOut();
                                     Navigator.of(context).pop();
-                                    Navigator.pushReplacementNamed(
-                                        context, '/login');
+                                    Navigator.pushReplacementNamed(context, '/login');
                                   } catch (_) {
                                     Navigator.of(context).pop();
-                                    Navigator.pushReplacementNamed(
-                                        context, '/login');
+                                    Navigator.pushReplacementNamed(context, '/login');
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(

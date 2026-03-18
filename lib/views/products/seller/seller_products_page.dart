@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_marketplace/providers/language_provider.dart';
 import 'package:smart_marketplace/views/notifications/notifications_page.dart';
+import 'package:smart_marketplace/models/product_model.dart';
+import 'package:smart_marketplace/views/products/buyer/Product_detail_page.dart';
 import 'add_product_page.dart';
 
 class SellerProductsPage extends StatefulWidget {
@@ -29,14 +31,10 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
 
   bool get _isRtl => Directionality.of(context) == TextDirection.rtl;
 
-  // Unités traduites — en arabe ce sont des lettres arabes natives (ي س د)
-  // donc le bidi les gère naturellement, pas besoin de Directionality
   String get _d   => _translate('time_days');
   String get _h   => _translate('time_hours');
   String get _min => _translate('time_minutes');
 
-  // Retourne la durée formatée en string simple
-  // FR/EN: "5j 4h" | AR: "5ي 4س" — le bidi arabe gère naturellement
   String _formatRemaining(Duration diff) {
     if (diff.inDays > 0) {
       final hours = diff.inHours % 24;
@@ -53,6 +51,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   bool _isRefreshing = false;
   int  _streamKey    = 0;
   StreamSubscription<QuerySnapshot>? _notifSub;
+  StreamSubscription<User?>?         _authSub; // ✅ écoute déconnexion
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery  = '';
@@ -62,10 +61,19 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   void initState() {
     super.initState();
     _listenUnreadCount();
+
+    // ✅ Annuler les streams dès déconnexion
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        _notifSub?.cancel();
+        if (mounted) setState(() => _streamKey++); // ✅ tue le StreamBuilder
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _notifSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
@@ -98,8 +106,36 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (_) =>
-                  AddProductPage(docId: docId, existing: existing)));
+              builder: (_) => AddProductPage(docId: docId, existing: existing)));
+
+  // ✅ Navigation vers ProductDetailPage depuis une Map brute
+  void _goToProductDetail(String docId, Map<String, dynamic> data) {
+    final product = Product(
+      id:              docId,
+      name:            data['name']            as String? ?? '',
+      price:           (data['price']          as num? ?? 0).toDouble(),
+      category:        data['category']        as String? ?? '',
+      description:     data['description']     as String? ?? '',
+      images:          List<String>.from(data['images'] ?? []),
+      isActive:        data['isActive']        as bool? ?? false,
+      status:          data['status']          as String? ?? '',
+      stock:           (data['stock']          as num? ?? 0).toInt(),
+      sellerId:        data['sellerId']        as String? ?? '',
+      discountPercent: (data['discountPercent'] as num?)?.toDouble(),
+      discountEndsAt:  (data['discountEndsAt']  as Timestamp?)?.toDate(),
+      initialStock:    (data['initialStock']    as num?)?.toInt(),
+      hiddenAfterAt:   (data['hiddenAfterAt']   as Timestamp?)?.toDate(),
+      reward: data['reward'] != null
+          ? Reward.fromMap(data['reward'] as Map<String, dynamic>)
+          : null,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,34 +229,22 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         cursorColor: Colors.white,
         decoration: InputDecoration(
           hintText: _translate('seller_search_products'),
-          hintStyle: TextStyle(
-              color: Colors.white.withOpacity(0.6), fontSize: 15),
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 15),
           border: InputBorder.none,
           isDense: true,
-          prefixIcon: const Icon(Icons.search_rounded,
-              color: Colors.white70, size: 22),
-          prefixIconConstraints:
-          const BoxConstraints(minWidth: 36, minHeight: 36),
+          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 22),
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
-        onChanged: (v) =>
-            setState(() => _searchQuery = v.trim().toLowerCase()),
+        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
       )
           : Text(_translate('seller_products_title'),
-          style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20)),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
       actions: [
         IconButton(
-          icon: Icon(
-              _searchActive ? Icons.close_rounded : Icons.search_rounded,
-              color: Colors.white),
+          icon: Icon(_searchActive ? Icons.close_rounded : Icons.search_rounded, color: Colors.white),
           onPressed: () => setState(() {
             _searchActive = !_searchActive;
-            if (!_searchActive) {
-              _searchCtrl.clear();
-              _searchQuery = '';
-            }
+            if (!_searchActive) { _searchCtrl.clear(); _searchQuery = ''; }
           }),
         ),
         Padding(
@@ -228,8 +252,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
           child: GestureDetector(
             onTap: _openNotifications,
             child: Stack(clipBehavior: Clip.none, children: [
-              const Icon(Icons.notifications_rounded,
-                  color: Colors.white, size: 30),
+              const Icon(Icons.notifications_rounded, color: Colors.white, size: 30),
               if (_unreadCount > 0)
                 Positioned(
                     top: -5, right: -5,
@@ -239,14 +262,9 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.white, width: 1.5)),
-                      constraints:
-                      const BoxConstraints(minWidth: 18, minHeight: 18),
-                      child: Text(
-                          _unreadCount > 99 ? '99+' : '$_unreadCount',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Text(_unreadCount > 99 ? '99+' : '$_unreadCount',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center),
                     )),
             ]),
@@ -259,98 +277,64 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   // ── Empty / No result ─────────────────────────────────────────
 
   Widget _buildNoResultState() {
-    return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-              height: MediaQuery.of(context).size.height * 0.65,
-              child: Center(
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                            width: 90, height: 90,
-                            decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.08),
-                                shape: BoxShape.circle),
-                            child: Icon(Icons.search_off_rounded,
-                                size: 42, color: Colors.grey[400])),
-                        const SizedBox(height: 20),
-                        Text(_translate('seller_search_no_result'),
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B)),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 8),
-                        Text('"$_searchQuery"',
-                            style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF16A34A),
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Text(_translate('seller_search_no_result_hint'),
-                            style: const TextStyle(
-                                color: Color(0xFF94A3B8), fontSize: 13),
-                            textAlign: TextAlign.center),
-                      ]))),
-        ]);
+    return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+      SizedBox(
+          height: MediaQuery.of(context).size.height * 0.65,
+          child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(width: 90, height: 90,
+                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.08), shape: BoxShape.circle),
+                child: Icon(Icons.search_off_rounded, size: 42, color: Colors.grey[400])),
+            const SizedBox(height: 20),
+            Text(_translate('seller_search_no_result'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text('"$_searchQuery"',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text(_translate('seller_search_no_result_hint'),
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                textAlign: TextAlign.center),
+          ]))),
+    ]);
   }
 
   Widget _buildEmptyState() {
-    return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-              height: MediaQuery.of(context).size.height * 0.72,
-              child: Center(
-                  child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                                width: 110, height: 110,
-                                decoration: BoxDecoration(
-                                    gradient: LinearGradient(colors: [
-                                      const Color(0xFF16A34A).withOpacity(0.15),
-                                      const Color(0xFF22C55E).withOpacity(0.08)
-                                    ]),
-                                    shape: BoxShape.circle),
-                                child: const Icon(Icons.inventory_2_rounded,
-                                    size: 52, color: Color(0xFF16A34A))),
-                            const SizedBox(height: 24),
-                            Text(_translate('seller_no_products'),
-                                style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B)),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 10),
-                            Text(_translate('seller_no_products_subtitle'),
-                                style: const TextStyle(
-                                    color: Color(0xFF94A3B8), fontSize: 14),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 32),
-                            ElevatedButton.icon(
-                              onPressed: _goToAddProduct,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 28, vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                                elevation: 4,
-                              ),
-                              icon: const Icon(Icons.add_rounded),
-                              label: Text(
-                                  _translate('seller_add_first_product'),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ])))),
-        ]);
+    return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+      SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Center(child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(width: 110, height: 110,
+                    decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [
+                          const Color(0xFF16A34A).withOpacity(0.15),
+                          const Color(0xFF22C55E).withOpacity(0.08)
+                        ]), shape: BoxShape.circle),
+                    child: const Icon(Icons.inventory_2_rounded, size: 52, color: Color(0xFF16A34A))),
+                const SizedBox(height: 24),
+                Text(_translate('seller_no_products'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 10),
+                Text(_translate('seller_no_products_subtitle'),
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _goToAddProduct,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A), foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 4,
+                  ),
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(_translate('seller_add_first_product'),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+              ])))),
+    ]);
   }
 
   // ── Product Card ──────────────────────────────────────────────
@@ -371,11 +355,9 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         (discountEnds == null || DateTime.now().isBefore(discountEnds));
 
     final hiddenAfterAt = (data['hiddenAfterAt'] as Timestamp?)?.toDate();
-    final hasHideTimer  = hiddenAfterAt != null &&
-        DateTime.now().isBefore(hiddenAfterAt);
+    final hasHideTimer  = hiddenAfterAt != null && DateTime.now().isBefore(hiddenAfterAt);
 
-    final images =
-    (data['images'] as List<dynamic>?)?.map((e) => e.toString()).toList();
+    final images = (data['images'] as List<dynamic>?)?.map((e) => e.toString()).toList();
     final legacyUrl = data['imageUrl'] as String?;
 
     Color    statusColor;
@@ -397,169 +379,127 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
           : _translate('seller_product_inactive');
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.07),
-              blurRadius: 20,
-              offset: const Offset(0, 6))
-        ],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    // ✅ GestureDetector sur toute la card → ProductDetailPage
+    return GestureDetector(
+      onTap: () => _goToProductDetail(docId, data),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 20, offset: const Offset(0, 6))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-        Stack(children: [
-          ClipRRect(
-            borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(20)),
-            child: SizedBox(
-                height: 190,
-                width: double.infinity,
-                child: _buildHeroImage(images, legacyUrl)),
-          ),
-          Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: Container(
-                  height: 90,
-                  decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(20)),
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.6)
-                          ])))),
-          Positioned(
-              bottom: 12, left: 12,
-              child: _buildPriceBadge(price, hasDiscount, discountPct)),
-          Positioned(
-              top: 10, right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(20)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(statusIcon, color: statusColor, size: 11),
-                  const SizedBox(width: 4),
-                  Text(statusLabel,
-                      style: TextStyle(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold)),
-                ]),
-              )),
-          Positioned(
-              top: 10, left: 10,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (hasReward)
-                      _buildBadge(
-                          icon: Icons.card_giftcard_rounded,
-                          label: _translate('seller_reward_label'),
-                          color: const Color(0xFFF59E0B)),
-                    if (hasDiscount) ...[
-                      if (hasReward) const SizedBox(height: 4),
-                      _buildBadge(
-                          label: '-${discountPct!.toStringAsFixed(0)}%',
-                          color: const Color(0xFFEF4444)),
-                    ],
-                    if (hasHideTimer) ...[
-                      if (hasReward || hasDiscount) const SizedBox(height: 4),
-                      _buildHideTimerBadge(hiddenAfterAt!),
-                    ],
-                  ])),
-          if (images != null && images.length > 1)
-            Positioned(
-                bottom: 12, right: 12,
+          Stack(children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: SizedBox(height: 190, width: double.infinity,
+                  child: _buildHeroImage(images, legacyUrl)),
+            ),
+            Positioned(bottom: 0, left: 0, right: 0,
+                child: Container(height: 90,
+                    decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        gradient: LinearGradient(
+                            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black.withOpacity(0.6)])))),
+            Positioned(bottom: 12, left: 12,
+                child: _buildPriceBadge(price, hasDiscount, discountPct)),
+            Positioned(top: 10, right: 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12)),
+                      color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(20)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.photo_library_rounded,
-                        color: Colors.white, size: 11),
-                    const SizedBox(width: 3),
-                    Text('${images.length}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600)),
+                    Icon(statusIcon, color: statusColor, size: 11),
+                    const SizedBox(width: 4),
+                    Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
                   ]),
                 )),
-        ]),
+            Positioned(top: 10, left: 10,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (hasReward)
+                    _buildBadge(icon: Icons.card_giftcard_rounded,
+                        label: _translate('seller_reward_label'), color: const Color(0xFFF59E0B)),
+                  if (hasDiscount) ...[
+                    if (hasReward) const SizedBox(height: 4),
+                    _buildBadge(label: '-${discountPct!.toStringAsFixed(0)}%', color: const Color(0xFFEF4444)),
+                  ],
+                  if (hasHideTimer) ...[
+                    if (hasReward || hasDiscount) const SizedBox(height: 4),
+                    _buildHideTimerBadge(hiddenAfterAt!),
+                  ],
+                ])),
+            if (images != null && images.length > 1)
+              Positioned(bottom: 12, right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(12)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.photo_library_rounded, color: Colors.white, size: 11),
+                      const SizedBox(width: 3),
+                      Text('${images.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                    ]),
+                  )),
+          ]),
 
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Color(0xFF1E293B),
-                        height: 1.2),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 12),
-                _buildStockProgressBar(stock, initialStock),
-                if (hasHideTimer) ...[
-                  const SizedBox(height: 10),
-                  _buildHideTimerInfoRow(hiddenAfterAt!),
-                ],
-                if (hasDiscount && discountEnds != null) ...[
-                  const SizedBox(height: 8),
-                  _buildDiscountEndRow(discountEnds),
-                ],
-                const SizedBox(height: 12),
-                Divider(height: 1, thickness: 1,
-                    color: Colors.grey.withOpacity(0.1)),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                      child: _actionBtn(
-                          label: _translate('seller_action_edit'),
-                          icon: Icons.edit_rounded,
-                          color: const Color(0xFF3B82F6),
-                          onTap: () =>
-                              _goToAddProduct(docId: docId, existing: data))),
-                  const SizedBox(width: 8),
-                  _iconBtn(
-                    icon: status == 'pending'
-                        ? Icons.hourglass_empty_rounded
-                        : status == 'rejected'
-                        ? Icons.block_rounded
-                        : isActive
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    color: status == 'pending'
-                        ? const Color(0xFFF59E0B)
-                        : status == 'rejected'
-                        ? const Color(0xFFDC2626)
-                        : isActive
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF16A34A),
-                    onTap: status == 'approved'
-                        ? () => _toggleStatus(docId, !isActive)
-                        : () => _showStatusInfo(status),
-                  ),
-                  const SizedBox(width: 8),
-                  _iconBtn(
-                      icon: Icons.delete_rounded,
-                      color: const Color(0xFFEF4444),
-                      onTap: () => _confirmDelete(docId)),
-                ]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15,
+                      color: Color(0xFF1E293B), height: 1.2),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 12),
+              _buildStockProgressBar(stock, initialStock),
+              if (hasHideTimer) ...[
+                const SizedBox(height: 10),
+                _buildHideTimerInfoRow(hiddenAfterAt!),
+              ],
+              if (hasDiscount && discountEnds != null) ...[
+                const SizedBox(height: 8),
+                _buildDiscountEndRow(discountEnds),
+              ],
+              const SizedBox(height: 12),
+              Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
+              const SizedBox(height: 12),
+              // ✅ Les boutons d'action stoppent la propagation du tap avec GestureDetector
+              Row(children: [
+                Expanded(
+                    child: _actionBtn(
+                        label: _translate('edit'),
+                        icon: Icons.edit_rounded,
+                        color: const Color(0xFF3B82F6),
+                        onTap: () => _goToAddProduct(docId: docId, existing: data))),
+                const SizedBox(width: 8),
+                _iconBtn(
+                  icon: status == 'pending'
+                      ? Icons.hourglass_empty_rounded
+                      : status == 'rejected'
+                      ? Icons.block_rounded
+                      : isActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: status == 'pending'
+                      ? const Color(0xFFF59E0B)
+                      : status == 'rejected'
+                      ? const Color(0xFFDC2626)
+                      : isActive ? const Color(0xFFF59E0B) : const Color(0xFF16A34A),
+                  onTap: status == 'approved'
+                      ? () => _toggleStatus(docId, !isActive)
+                      : () => _showStatusInfo(status),
+                ),
+                const SizedBox(width: 8),
+                _iconBtn(
+                    icon: Icons.delete_rounded,
+                    color: const Color(0xFFEF4444),
+                    onTap: () => _confirmDelete(docId)),
               ]),
-        ),
-      ]),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -569,29 +509,21 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     if (!hasDiscount) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-            color: const Color(0xFF16A34A),
-            borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(12)),
         child: Text('${price.toStringAsFixed(2)} TND',
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
       );
     }
     final newPrice = price * (1 - discountPct! / 100);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.55),
-          borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${price.toStringAsFixed(2)} TND',
-            style: const TextStyle(
-                fontSize: 10, color: Colors.white60,
-                decoration: TextDecoration.lineThrough,
-                decorationColor: Colors.white60)),
+            style: const TextStyle(fontSize: 10, color: Colors.white60,
+                decoration: TextDecoration.lineThrough, decorationColor: Colors.white60)),
         Text('${newPrice.toStringAsFixed(2)} TND',
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
       ]),
     );
   }
@@ -599,25 +531,17 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   Widget _buildBadge({IconData? icon, required String label, required Color color}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration:
-      BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[
-          Icon(icon, size: 10, color: Colors.white),
-          const SizedBox(width: 3)
-        ],
-        Text(label,
-            style: const TextStyle(
-                fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+        if (icon != null) ...[Icon(icon, size: 10, color: Colors.white), const SizedBox(width: 3)],
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
       ]),
     );
   }
 
-  // Badge durée — simple Text, bidi arabe natif gère tout
   Widget _buildHideTimerBadge(DateTime hiddenAfterAt) {
     final diff     = hiddenAfterAt.difference(DateTime.now());
     final isUrgent = diff.inHours < 24;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -626,21 +550,15 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.timer_off_rounded, size: 10, color: Colors.white),
         const SizedBox(width: 3),
-        Text(
-          _formatRemaining(diff),
-          style: const TextStyle(
-              fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        Text(_formatRemaining(diff),
+            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
       ]),
     );
   }
 
   Widget _buildStockProgressBar(int stock, int? initialStock) {
-    final max = (initialStock != null && initialStock > 0)
-        ? initialStock
-        : (stock > 0 ? stock : 1);
+    final max = (initialStock != null && initialStock > 0) ? initialStock : (stock > 0 ? stock : 1);
     final ratio = (stock / max).clamp(0.0, 1.0);
-
     Color barColor;
     if (stock == 0)       barColor = const Color(0xFFEF4444);
     else if (ratio < 0.3) barColor = const Color(0xFFF97316);
@@ -650,30 +568,20 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Row(children: [
-          Icon(
-              stock == 0
-                  ? Icons.remove_circle_outline_rounded
-                  : Icons.layers_rounded,
+          Icon(stock == 0 ? Icons.remove_circle_outline_rounded : Icons.layers_rounded,
               size: 12, color: barColor),
           const SizedBox(width: 4),
           Text('${_translate('seller_stock')}: $stock',
-              style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: barColor)),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: barColor)),
         ]),
         Text('${(ratio * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
-                fontSize: 10, color: Colors.grey[500],
-                fontWeight: FontWeight.w500)),
+            style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.w500)),
       ]),
       const SizedBox(height: 6),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: LinearProgressIndicator(
-          value: ratio, minHeight: 7,
-          backgroundColor: barColor.withOpacity(0.12),
-          valueColor: AlwaysStoppedAnimation<Color>(barColor),
-        ),
-      ),
+      ClipRRect(borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(value: ratio, minHeight: 7,
+              backgroundColor: barColor.withOpacity(0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(barColor))),
     ]);
   }
 
@@ -682,31 +590,21 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     final isUrgent  = diff.inHours < 24;
     final mainColor = isUrgent ? const Color(0xFFDC2626) : const Color(0xFFC2410C);
     final iconColor = isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF97316);
-    final remaining = _formatRemaining(diff);
-
-    // AR: "5ي يُخفى خلال" | FR/EN: "Masqué dans 5j"
-    final label = _isRtl
-        ? '$remaining ${_translate('seller_hidden_in')}'
-        : '${_translate('seller_hidden_in')} $remaining';
-
+    final label     = _isRtl
+        ? '${_formatRemaining(diff)} ${_translate('seller_hidden_in')}'
+        : '${_translate('seller_hidden_in')} ${_formatRemaining(diff)}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
           color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFFFF7ED),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: isUrgent ? const Color(0xFFFFCDD2) : const Color(0xFFFED7AA))),
+          border: Border.all(color: isUrgent ? const Color(0xFFFFCDD2) : const Color(0xFFFED7AA))),
       child: Row(children: [
         Icon(Icons.timer_off_rounded, size: 13, color: iconColor),
         const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            label,
+        Expanded(child: Text(label,
             textAlign: _isRtl ? TextAlign.right : TextAlign.left,
-            style: TextStyle(
-                fontSize: 11, color: mainColor, fontWeight: FontWeight.w500),
-          ),
-        ),
+            style: TextStyle(fontSize: 11, color: mainColor, fontWeight: FontWeight.w500))),
       ]),
     );
   }
@@ -717,18 +615,10 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     final mainColor = isUrgent ? const Color(0xFFDC2626) : const Color(0xFFC2410C);
     final subColor  = isUrgent ? const Color(0xFFEF4444) : const Color(0xFFF97316);
     final remaining = _formatRemaining(diff);
-
-    final dateStr =
-        '${endsAt.day.toString().padLeft(2, '0')}/'
-        '${endsAt.month.toString().padLeft(2, '0')}/'
-        '${endsAt.year}';
-
-    // AR: "01/06/2025 تخفيض حتى" | FR/EN: "Remise jusqu'au 01/06/2025"
+    final dateStr   = '${endsAt.day.toString().padLeft(2,'0')}/${endsAt.month.toString().padLeft(2,'0')}/${endsAt.year}';
     final dateLabel = _isRtl
         ? '$dateStr ${_translate('seller_discount_until')}'
         : '${_translate('seller_discount_until')} $dateStr';
-
-    // AR: "5ي ينتهي خلال" | FR/EN: "Expire dans 5j"
     final expiresLabel = _isRtl
         ? '$remaining ${_translate('seller_expires_in')}'
         : '${_translate('seller_expires_in')} $remaining';
@@ -738,56 +628,30 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       decoration: BoxDecoration(
           color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFFFF7ED),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: isUrgent ? const Color(0xFFFFCDD2) : const Color(0xFFFED7AA))),
+          border: Border.all(color: isUrgent ? const Color(0xFFFFCDD2) : const Color(0xFFFED7AA))),
       child: Row(children: [
         Icon(Icons.local_offer_rounded, size: 13, color: subColor),
         const SizedBox(width: 6),
-        Expanded(
-            child: Column(
-                crossAxisAlignment: _isRtl
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dateLabel,
-                    textAlign: _isRtl ? TextAlign.right : TextAlign.left,
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: mainColor,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisAlignment: _isRtl
-                        ? MainAxisAlignment.end
-                        : MainAxisAlignment.start,
-                    children: [
-                      Icon(Icons.hourglass_bottom_rounded,
-                          size: 11, color: subColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        expiresLabel,
-                        textAlign: _isRtl ? TextAlign.right : TextAlign.left,
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: subColor,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ])),
+        Expanded(child: Column(
+            crossAxisAlignment: _isRtl ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(dateLabel, textAlign: _isRtl ? TextAlign.right : TextAlign.left,
+                  style: TextStyle(fontSize: 11, color: mainColor, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Row(mainAxisAlignment: _isRtl ? MainAxisAlignment.end : MainAxisAlignment.start, children: [
+                Icon(Icons.hourglass_bottom_rounded, size: 11, color: subColor),
+                const SizedBox(width: 4),
+                Text(expiresLabel, textAlign: _isRtl ? TextAlign.right : TextAlign.left,
+                    style: TextStyle(fontSize: 10, color: subColor, fontWeight: FontWeight.w500)),
+              ]),
+            ])),
         if (isUrgent) ...[
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-                color: const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(6)),
             child: Text(_translate('seller_urgent'),
-                style: const TextStyle(
-                    fontSize: 9, color: Colors.white,
-                    fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ]),
@@ -803,8 +667,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       } catch (_) {}
     }
     if (legacyUrl != null) {
-      return Image.network(legacyUrl,
-          fit: BoxFit.cover, width: double.infinity,
+      return Image.network(legacyUrl, fit: BoxFit.cover, width: double.infinity,
           errorBuilder: (_, __, ___) => _heroPlaceholder());
     }
     return _heroPlaceholder();
@@ -812,10 +675,10 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
 
   Widget _heroPlaceholder() => Container(
       color: const Color(0xFFF0FDF4),
-      child: const Center(
-          child: Icon(Icons.image_rounded,
-              color: Color(0xFFBBF7D0), size: 52)));
+      child: const Center(child: Icon(Icons.image_rounded, color: Color(0xFFBBF7D0), size: 52)));
 
+  // ✅ _actionBtn et _iconBtn avec GestureDetector.behavior = HitTestBehavior.opaque
+  // pour absorber le tap et NE PAS propager vers le GestureDetector parent de la card
   Widget _actionBtn({
     required String label,
     required IconData icon,
@@ -824,6 +687,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
@@ -833,9 +697,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: color, size: 14),
           const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -848,6 +710,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.all(9),
         decoration: BoxDecoration(
@@ -869,10 +732,9 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       content: Row(children: [
         Icon(icon, color: Colors.white, size: 18),
         const SizedBox(width: 10),
-        Expanded(
-            child: Text(isPending
-                ? '${_translate('seller_product_pending')} — ${_translate('seller_product_pending_info')}'
-                : '${_translate('seller_product_rejected')} — ${_translate('seller_product_rejected_info')}')),
+        Expanded(child: Text(isPending
+            ? '${_translate('seller_product_pending')} — ${_translate('seller_product_pending_info')}'
+            : '${_translate('seller_product_rejected')} — ${_translate('seller_product_rejected_info')}')),
       ]),
       backgroundColor: color,
       behavior: SnackBarBehavior.floating,
@@ -882,10 +744,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   }
 
   Future<void> _toggleStatus(String docId, bool isActive) async {
-    await _firestore
-        .collection('products')
-        .doc(docId)
-        .update({'isActive': isActive});
+    await _firestore.collection('products').doc(docId).update({'isActive': isActive});
   }
 
   void _confirmDelete(String docId) {
@@ -900,91 +759,56 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFDC2626),
-                  Color(0xFFEF4444),
-                  Color(0xFFF87171)
-                ]),
+            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                colors: [Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171)]),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(padding: const EdgeInsets.all(28),
+                child: Container(width: 70, height: 70,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withOpacity(0.3), width: 2)),
+                    child: const Icon(Icons.delete_rounded, color: Colors.white, size: 32))),
             Container(
-                padding: const EdgeInsets.all(28),
-                child: Container(
-                    width: 70, height: 70,
-                    decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withOpacity(0.3), width: 2)),
-                    child: const Icon(Icons.delete_rounded,
-                        color: Colors.white, size: 32))),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(28),
-              decoration: const BoxDecoration(
-                  color: Colors.white,
+              width: double.infinity, padding: const EdgeInsets.all(28),
+              decoration: const BoxDecoration(color: Colors.white,
                   borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24))),
+                      bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24))),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(_translate('seller_delete_product_title'),
-                    style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFDC2626),
-                        letterSpacing: 0.5)),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                        color: Color(0xFFDC2626), letterSpacing: 0.5)),
                 const SizedBox(height: 12),
                 Text(_translate('seller_delete_product_confirm'),
-                    style: const TextStyle(
-                        fontSize: 16, color: Color(0xFF64748B), height: 1.4),
+                    style: const TextStyle(fontSize: 16, color: Color(0xFF64748B), height: 1.4),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 28),
                 Row(children: [
-                  Expanded(
-                      child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                    color: Color(0xFFDC2626), width: 1.5),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16))),
-                            child: Text(_translate('cancel'),
-                                style: const TextStyle(
-                                    color: Color(0xFFDC2626),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600)),
-                          ))),
+                  Expanded(child: SizedBox(height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                        child: Text(_translate('cancel'),
+                            style: const TextStyle(color: Color(0xFFDC2626), fontSize: 15,
+                                fontWeight: FontWeight.w600)),
+                      ))),
                   const SizedBox(width: 12),
-                  Expanded(
-                      child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              Navigator.of(context).pop();
-                              await _firestore
-                                  .collection('products')
-                                  .doc(docId)
-                                  .delete();
-                            },
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFDC2626),
-                                foregroundColor: Colors.white,
-                                shadowColor:
-                                const Color(0xFFDC2626).withOpacity(0.3),
-                                elevation: 4,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16))),
-                            child: FittedBox(
-                                child: Text(_translate('delete'),
-                                    style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600))),
-                          ))),
+                  Expanded(child: SizedBox(height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _firestore.collection('products').doc(docId).delete();
+                        },
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            shadowColor: const Color(0xFFDC2626).withOpacity(0.3),
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                        child: FittedBox(child: Text(_translate('delete'),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                      ))),
                 ]),
               ]),
             ),

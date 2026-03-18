@@ -22,7 +22,9 @@ class SubOrderModel {
   final DateTime? estimatedDateMin;   // date au plus tôt
   final DateTime? estimatedDateMax;   // date au plus tard
   final String    estimatedDelayLabel; // ex: "3–5 jours"
-  final String    status;           // paid | shipping | delivered | cancelled
+  final String    status;             // paid | shipping | delivered | cancelled
+  final bool      sellerConfirmed;    // vendeur a confirmé la livraison
+  final bool      buyerConfirmed;     // acheteur a confirmé la réception
   final DateTime  createdAt;
   final DateTime? updatedAt;
 
@@ -44,6 +46,8 @@ class SubOrderModel {
     required this.estimatedDateMax,
     required this.estimatedDelayLabel,
     required this.status,
+    this.sellerConfirmed = false,
+    this.buyerConfirmed  = false,
     required this.createdAt,
     this.updatedAt,
   });
@@ -71,7 +75,9 @@ class SubOrderModel {
       estimatedDateMin:    (d['estimatedDateMin'] as Timestamp?)?.toDate(),
       estimatedDateMax:    (d['estimatedDateMax'] as Timestamp?)?.toDate(),
       estimatedDelayLabel: d['estimatedDelayLabel'] as String? ?? '—',
-      status:         d['status']         as String?   ?? 'paid',
+      status:          d['status']          as String?   ?? 'paid',
+      sellerConfirmed: d['sellerConfirmed'] as bool?     ?? false,
+      buyerConfirmed:  d['buyerConfirmed']  as bool?     ?? false,
       createdAt:      (d['createdAt']     as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt:      (d['updatedAt']     as Timestamp?)?.toDate(),
     );
@@ -96,12 +102,19 @@ class SubOrderModel {
     'estimatedDateMax':    estimatedDateMax != null
         ? Timestamp.fromDate(estimatedDateMax!) : null,
     'estimatedDelayLabel': estimatedDelayLabel,
-    'status':   status,
+    'status':           status,
+    'sellerConfirmed':  sellerConfirmed,
+    'buyerConfirmed':   buyerConfirmed,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
   };
 
-  SubOrderModel copyWith({String? status, DateTime? updatedAt}) {
+  SubOrderModel copyWith({
+    String?   status,
+    bool?     sellerConfirmed,
+    bool?     buyerConfirmed,
+    DateTime? updatedAt,
+  }) {
     return SubOrderModel(
       subOrderId:     subOrderId,
       parentOrderId:  parentOrderId,
@@ -119,9 +132,11 @@ class SubOrderModel {
       estimatedDateMin:    estimatedDateMin,
       estimatedDateMax:    estimatedDateMax,
       estimatedDelayLabel: estimatedDelayLabel,
-      status:         status         ?? this.status,
-      createdAt:      createdAt,
-      updatedAt:      updatedAt      ?? this.updatedAt,
+      status:          status          ?? this.status,
+      sellerConfirmed: sellerConfirmed ?? this.sellerConfirmed,
+      buyerConfirmed:  buyerConfirmed  ?? this.buyerConfirmed,
+      createdAt:       createdAt,
+      updatedAt:       updatedAt       ?? this.updatedAt,
     );
   }
 }
