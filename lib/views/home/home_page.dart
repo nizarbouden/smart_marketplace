@@ -3,9 +3,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';                          // ✅
 import '../../localization/app_localizations.dart';
 import '../../models/product_categories.dart';
 import '../../models/product_model.dart';
+import '../../providers/currency_provider.dart';                   // ✅
 import '../../services/product_service.dart';
 import '../../widgets/filter_drawer.dart';
 import '../products/buyer/Product_detail_page.dart';
@@ -72,11 +74,9 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  /// Appelé uniquement par pull-to-refresh
   Future<void> _onRefresh() async {
     setState(() => _productsLoading = true);
     _subscribe();
-    // Attendre que les données arrivent (max 3s)
     int waited = 0;
     while (_productsLoading && waited < 30) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -222,7 +222,6 @@ class HomePageState extends State<HomePage> {
                       (context, i) => Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: _ProductCard(
-                      // ✅ Key stable basée sur l'id — empêche Flutter de reconstruire
                       key: ValueKey(filtered[i].id),
                       product: filtered[i],
                       labelOutOfStock: _t('out_of_stock'),
@@ -379,9 +378,6 @@ class _Tag extends StatelessWidget {
 }
 
 // ── Product Card ─────────────────────────────────────────────────
-// ✅ Aucun timer dans la carte elle-même.
-//    Les chronos (discount / hide) sont dans des sous-widgets isolés
-//    qui gèrent leur propre setState sans toucher à la carte parent.
 
 class _ProductCard extends StatelessWidget {
   final Product product;
@@ -419,6 +415,9 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // ✅ context.watch → rebuild automatique quand l'utilisateur change de devise
+    final currency = context.watch<CurrencyProvider>();
+
     final p   = product;
     final now = DateTime.now();
     final sw = MediaQuery.of(context).size.width;
@@ -432,15 +431,12 @@ class _ProductCard extends StatelessWidget {
     final discountActive = p.isDiscountActive;
     final effectivePrice = p.discountedPrice;
 
-    // Countdown discount
     final discountEndsAt       = p.discountEndsAt;
     final hasDiscountCountdown = discountActive && discountEndsAt != null && now.isBefore(discountEndsAt);
 
-    // Countdown visibilité
     final hiddenAfterAt = p.hiddenAfterAt;
     final hasHideTimer  = hiddenAfterAt != null && now.isBefore(hiddenAfterAt);
 
-    // Stock
     final stock        = p.stock;
     final initialStock = p.initialStock;
     final hasInitial   = initialStock != null && initialStock > 0;
@@ -471,7 +467,6 @@ class _ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // ① Chrono remise — widget isolé avec son propre timer
             if (hasDiscountCountdown)
               _CountdownBanner(
                 key: ValueKey('discount_${p.id}'),
@@ -482,14 +477,12 @@ class _ProductCard extends StatelessWidget {
                 labelUrgent: labelUrgent,
               ),
 
-            // ② Corps : image gauche | infos droite — hauteur responsive
             SizedBox(
               height: MediaQuery.of(context).size.height * 0.22,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
 
-                  // Image produit — largeur responsive (35% de la carte)
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.32,
                     child: Stack(
@@ -498,7 +491,7 @@ class _ProductCard extends StatelessWidget {
                         imageBytes != null
                             ? Image.memory(
                           imageBytes,
-                          fit: BoxFit.contain,   // ✅ affiche l'image entière sans crop
+                          fit: BoxFit.contain,
                           gaplessPlayback: true,
                         )
                             : Container(
@@ -506,7 +499,6 @@ class _ProductCard extends StatelessWidget {
                           child: Icon(Icons.image_outlined, size: 44, color: Colors.grey.shade300),
                         ),
 
-                        // Overlay épuisé
                         if (stock <= 0)
                           Container(
                             color: Colors.black.withOpacity(0.55),
@@ -524,7 +516,6 @@ class _ProductCard extends StatelessWidget {
                             ),
                           ),
 
-                        // Badge % remise
                         if (discountActive && p.discountPercent != null)
                           Positioned(
                             top: 0, left: 0,
@@ -545,7 +536,6 @@ class _ProductCard extends StatelessWidget {
 
                   Container(width: 1, color: const Color(0xFFF1F5F9)),
 
-                  // Infos droite — prend l'espace restant, hauteur = 160
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
@@ -553,7 +543,6 @@ class _ProductCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Catégorie
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -569,7 +558,6 @@ class _ProductCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 5),
 
-                          // Nom
                           Text(p.name,
                               style: TextStyle(
                                   fontWeight: FontWeight.w800, fontSize: isSmall ? 13 : (isLarge ? 15 : 14),
@@ -577,19 +565,22 @@ class _ProductCard extends StatelessWidget {
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 3),
 
-                          // Description
                           Text(p.description,
                               style: TextStyle(
                                   fontSize: isSmall ? 10 : 11, color: const Color(0xFF94A3B8), height: 1.3),
                               maxLines: 2, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 6),
 
-                          // Prix
-                          _buildPriceBlock(effectivePrice, discountActive ? p.price : null,
-                              theme, labelSavings),
+                          // ✅ currency passé à _buildPriceBlock
+                          _buildPriceBlock(
+                            effectivePrice,
+                            discountActive ? p.price : null,
+                            theme,
+                            labelSavings,
+                            currency,
+                          ),
                           const SizedBox(height: 6),
 
-                          // Barre stock
                           _buildStockBar(stock, initialStock, stockRatio, stockColor, labelInStock, labelOutOfStock),
                         ],
                       ),
@@ -597,9 +588,8 @@ class _ProductCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ), // fin SizedBox 160
+            ),
 
-            // ③ Reward pleine largeur
             if (hasReward)
               _RewardBanner(
                 key: ValueKey('reward_${p.id}'),
@@ -609,7 +599,6 @@ class _ProductCard extends StatelessWidget {
                 labelDrawSub: labelRewardDrawSub,
               ),
 
-            // ④ Chrono visibilité — widget isolé avec son propre timer
             if (hasHideTimer)
               _CountdownBanner(
                 key: ValueKey('hide_${p.id}'),
@@ -625,40 +614,60 @@ class _ProductCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceBlock(double effectivePrice, double? originalPrice,
-      ThemeData theme, String labelSavings) {
+  // ✅ currency param ajouté — formatPrice() au lieu de TND hardcodé
+  Widget _buildPriceBlock(
+      double effectivePrice,
+      double? originalPrice,
+      ThemeData theme,
+      String labelSavings,
+      CurrencyProvider currency,
+      ) {
     if (originalPrice == null) {
-      return Text('${effectivePrice.toStringAsFixed(2)} TND',
-          style: TextStyle(
-              fontSize: 17, fontWeight: FontWeight.w900,
-              color: theme.colorScheme.primary, letterSpacing: -0.3));
+      // Prix simple — aucune remise
+      return Text(
+        currency.formatPrice(effectivePrice),
+        style: TextStyle(
+            fontSize: 17, fontWeight: FontWeight.w900,
+            color: theme.colorScheme.primary, letterSpacing: -0.3),
+      );
     }
+
+    // Prix avec remise
+    final savingsPct = ((originalPrice - effectivePrice) / originalPrice * 100)
+        .toStringAsFixed(0);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text('${originalPrice.toStringAsFixed(2)} TND',
-            style: const TextStyle(
-                fontSize: 11, color: Color(0xFFCBD5E1),
-                decoration: TextDecoration.lineThrough,
-                decorationColor: Color(0xFFCBD5E1), decorationThickness: 2)),
+        // ✅ Prix barré dans la devise choisie
+        Text(
+          currency.formatPrice(originalPrice),
+          style: const TextStyle(
+              fontSize: 11, color: Color(0xFFCBD5E1),
+              decoration: TextDecoration.lineThrough,
+              decorationColor: Color(0xFFCBD5E1), decorationThickness: 2),
+        ),
         const SizedBox(width: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           decoration: BoxDecoration(
               color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
           child: Text(
-            '-${((originalPrice - effectivePrice) / originalPrice * 100).toStringAsFixed(0)}%',
+            '-$savingsPct%',
             style: const TextStyle(
                 fontSize: 9, color: Color(0xFF16A34A), fontWeight: FontWeight.w800),
           ),
         ),
       ]),
       const SizedBox(height: 2),
-      Text('${effectivePrice.toStringAsFixed(2)} TND',
-          style: const TextStyle(
-              fontSize: 17, fontWeight: FontWeight.w900,
-              color: Color(0xFF16A34A), letterSpacing: -0.5)),
+      // ✅ Prix réduit dans la devise choisie
+      Text(
+        currency.formatPrice(effectivePrice),
+        style: const TextStyle(
+            fontSize: 17, fontWeight: FontWeight.w900,
+            color: Color(0xFF16A34A), letterSpacing: -0.5),
+      ),
     ]);
   }
+
   Widget _buildStockBar(int stock, int? initialStock, double ratio, Color color,
       String labelInStock, String labelOutOfStock) {
     final hasInitial = initialStock != null && initialStock > 0;
@@ -667,7 +676,6 @@ class _ProductCard extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        // Gauche : stock restant
         Row(children: [
           Container(width: 7, height: 7,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
@@ -677,7 +685,6 @@ class _ProductCard extends StatelessWidget {
             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
           ),
         ]),
-        // Droite : vendus + % restant
         Row(children: [
           if (hasInitial && sold > 0) ...[
             Text('$sold vendus',
@@ -691,13 +698,10 @@ class _ProductCard extends StatelessWidget {
         ]),
       ]),
       const SizedBox(height: 5),
-      // Barre : fond = vendus (gris), avant-plan = restant (coloré)
       ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Stack(children: [
-          // Fond gris = totalité du stock initial
           Container(height: 5, color: const Color(0xFFF1F5F9)),
-          // Couleur = stock restant
           FractionallySizedBox(
             widthFactor: ratio,
             child: Container(
@@ -715,7 +719,7 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-// ── Reward Banner (StatelessWidget — aucun timer) ─────────────────
+// ── Reward Banner ─────────────────────────────────────────────────
 
 class _RewardBanner extends StatelessWidget {
   final Uint8List? imageBytes;
@@ -817,13 +821,11 @@ class _RewardBanner extends StatelessWidget {
   }
 }
 
-// ── Countdown Banner — StatefulWidget ISOLÉ ───────────────────────
-// ✅ Son setState ne touche QUE cette bannière, jamais la carte parent
-//    ni les images.
+// ── Countdown Banner ──────────────────────────────────────────────
 
 class _CountdownBanner extends StatefulWidget {
   final DateTime endsAt;
-  final bool isDiscount;   // true = bannière rouge (remise) | false = bleue (visibilité)
+  final bool isDiscount;
   final String labelFlash;
   final String labelExpires;
   final String labelUrgent;
@@ -856,7 +858,6 @@ class _CountdownBannerState extends State<_CountdownBanner>
     _pulse = Tween<double>(begin: 1.0, end: 1.04)
         .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _tick();
-    // ✅ Timer UNIQUEMENT pour mettre à jour CE widget
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       _tick();
@@ -906,7 +907,6 @@ class _CountdownBannerState extends State<_CountdownBanner>
     final segments   = _parse(_fmt(_remaining));
 
     if (widget.isDiscount) {
-      // ── Bannière remise (rouge / orange) ─────────────────────
       return AnimatedBuilder(
         animation: _pulse,
         builder: (_, child) => Transform.scale(
@@ -956,7 +956,6 @@ class _CountdownBannerState extends State<_CountdownBanner>
         ),
       );
     } else {
-      // ── Bannière visibilité (bleu / violet) ──────────────────
       return Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -1014,7 +1013,7 @@ class _CountdownBannerState extends State<_CountdownBanner>
   );
 }
 
-// ── Time Segment helper ──────────────────────────────────────────
+// ── Time Segment ──────────────────────────────────────────────────
 
 class _TimeSegment {
   final String value;
@@ -1022,7 +1021,7 @@ class _TimeSegment {
   const _TimeSegment(this.value, this.unit);
 }
 
-// ── Empty State ──────────────────────────────────────────────────
+// ── Empty State ───────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   final bool hasFilters;

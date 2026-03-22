@@ -1,9 +1,11 @@
 // lib/widgets/shipping_price_display_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';                    // ✅
 import '../models/shipping_zone_model.dart';
 import '../models/countries.dart';
 import '../localization/app_localizations.dart';
+import '../providers/currency_provider.dart';               // ✅
 
 class ShippingPriceDisplayWidget extends StatelessWidget {
   final String  buyerCountryCode;
@@ -12,7 +14,6 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
   final String? shippingCompanyName;
   final bool    compact;
 
-  // Données contextuelles calculées par la page
   final ShippingZone effectiveZone;
   final bool   isSameCity;
   final bool   isSameCountry;
@@ -46,7 +47,7 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
     final rate      = zoneRates.where((r) => r.zone == effectiveZone).firstOrNull;
     final available = rate != null && rate.enabled;
 
-    if (compact) return _buildCompact(rate, available);
+    if (compact) return _buildCompact(context, rate, available);
 
     return Directionality(
       textDirection: _isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -64,7 +65,7 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: available
-                ? _buildAvailable(rate!)
+                ? _buildAvailable(context, rate!)
                 : _buildUnavailable(),
           ),
         ]),
@@ -74,7 +75,7 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
 
   // ── Compact ───────────────────────────────────────────────────────
 
-  Widget _buildCompact(ShippingZoneRate? rate, bool available) {
+  Widget _buildCompact(BuildContext context, ShippingZoneRate? rate, bool available) {
     if (!available) {
       return Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.block_rounded, color: Color(0xFF94A3B8), size: 13),
@@ -83,12 +84,14 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
             style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
       ]);
     }
-    final price = rate!.calculatePrice(productWeight);
+    final price    = rate!.calculatePrice(productWeight);
+    // ✅ devise choisie
+    final currency = context.watch<CurrencyProvider>();
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.local_shipping_rounded,
           color: _zoneColor(effectiveZone), size: 13),
       const SizedBox(width: 4),
-      Text('${price.toStringAsFixed(2)} \$',
+      Text(currency.formatPrice(price),
           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
               color: _zoneColor(effectiveZone))),
     ]);
@@ -116,7 +119,6 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
             style: const TextStyle(fontSize: 15,
                 fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
         const Spacer(),
-        // Badge zone
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -124,8 +126,7 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(effectiveZone.emoji,
-                style: const TextStyle(fontSize: 12)),
+            Text(effectiveZone.emoji, style: const TextStyle(fontSize: 12)),
             const SizedBox(width: 5),
             Text(effectiveZone.label(_lang),
                 style: TextStyle(fontSize: 11,
@@ -139,21 +140,14 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
 
   // ── Disponible ────────────────────────────────────────────────────
 
-  Widget _buildAvailable(ShippingZoneRate rate) {
+  Widget _buildAvailable(BuildContext context, ShippingZoneRate rate) {
     final price = rate.calculatePrice(productWeight);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-      // ✅ Bannière contextuelle selon la situation
       _buildContextBanner(),
       const SizedBox(height: 14),
-
-      // Carte prix
-      _buildPriceCard(price),
+      _buildPriceCard(context, price),     // ✅ context passé
       const SizedBox(height: 12),
-
-      // Détail calcul
-      _buildBreakdown(rate, price),
-
+      _buildBreakdown(context, rate, price), // ✅ context passé
       if (shippingCompanyName != null) ...[
         const SizedBox(height: 10),
         _buildCompanyRow(),
@@ -161,26 +155,22 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
     ]);
   }
 
-  // ✅ Bannière qui s'adapte à TOUS les cas
+  // ── Bannière contextuelle ─────────────────────────────────────────
+
   Widget _buildContextBanner() {
-    // ── CAS 1 : Même ville ────────────────────────────────────────
     if (isSameCity) {
       return _buildBanner(
-        leftWidget: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                const Text('📍', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(buyerCity,
-                    style: const TextStyle(fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF065F46))),
-              ]),
-              const SizedBox(height: 4),
-              Text(_t('shipping_same_city_desc'),
-                  style: const TextStyle(fontSize: 11,
-                      color: Color(0xFF059669))),
-            ]),
+        leftWidget: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('📍', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(buyerCity, style: const TextStyle(fontSize: 14,
+                fontWeight: FontWeight.w700, color: Color(0xFF065F46))),
+          ]),
+          const SizedBox(height: 4),
+          Text(_t('shipping_same_city_desc'),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF059669))),
+        ]),
         badgeText: _t('shipping_zone_local'),
         badgeIcon: Icons.location_on_rounded,
         color: const Color(0xFF10B981),
@@ -188,26 +178,19 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
         borderColor: const Color(0xFFBBF7D0),
       );
     }
-
-    // ── CAS 2 : Même pays, ville différente ───────────────────────
     if (isSameCountry) {
       return _buildBanner(
-        leftWidget: Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Text(buyerCountryFlag,
-                    style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 8),
-                Text(buyerCountryName,
-                    style: const TextStyle(fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E3A8A))),
-              ]),
-              const SizedBox(height: 4),
-              Text('$buyerCity → ${_t('shipping_same_country_desc')}',
-                  style: const TextStyle(fontSize: 11,
-                      color: Color(0xFF2563EB))),
-            ]),
+        leftWidget: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(buyerCountryFlag, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 8),
+            Text(buyerCountryName, style: const TextStyle(fontSize: 14,
+                fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A))),
+          ]),
+          const SizedBox(height: 4),
+          Text('$buyerCity → ${_t('shipping_same_country_desc')}',
+              style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB))),
+        ]),
         badgeText: _t('shipping_zone_national'),
         badgeIcon: Icons.flag_rounded,
         color: const Color(0xFF3B82F6),
@@ -215,67 +198,42 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
         borderColor: const Color(0xFFBFDBFE),
       );
     }
-
-    // ── CAS 3 : Maghreb ───────────────────────────────────────────
     if (effectiveZone == ShippingZone.maghreb) {
       return _buildBanner(
-        leftWidget: _buildInternationalLeft(
-            '🌍', buyerCountryFlag, buyerCountryName, buyerCity),
-        badgeText: _t('shipping_zone_maghreb'),
-        badgeIcon: Icons.public_rounded,
-        color: const Color(0xFF8B5CF6),
-        bgColor: const Color(0xFFF5F3FF),
+        leftWidget: _buildInternationalLeft('🌍', buyerCountryFlag, buyerCountryName, buyerCity),
+        badgeText: _t('shipping_zone_maghreb'), badgeIcon: Icons.public_rounded,
+        color: const Color(0xFF8B5CF6), bgColor: const Color(0xFFF5F3FF),
         borderColor: const Color(0xFFDDD6FE),
       );
     }
-
-    // ── CAS 4 : Afrique ───────────────────────────────────────────
     if (effectiveZone == ShippingZone.africa) {
       return _buildBanner(
-        leftWidget: _buildInternationalLeft(
-            '🌍', buyerCountryFlag, buyerCountryName, buyerCity),
-        badgeText: _t('shipping_zone_africa'),
-        badgeIcon: Icons.public_rounded,
-        color: const Color(0xFFF59E0B),
-        bgColor: const Color(0xFFFFFBEB),
+        leftWidget: _buildInternationalLeft('🌍', buyerCountryFlag, buyerCountryName, buyerCity),
+        badgeText: _t('shipping_zone_africa'), badgeIcon: Icons.public_rounded,
+        color: const Color(0xFFF59E0B), bgColor: const Color(0xFFFFFBEB),
         borderColor: const Color(0xFFFDE68A),
       );
     }
-
-    // ── CAS 5 : Moyen-Orient ──────────────────────────────────────
     if (effectiveZone == ShippingZone.middleEast) {
       return _buildBanner(
-        leftWidget: _buildInternationalLeft(
-            '🕌', buyerCountryFlag, buyerCountryName, buyerCity),
-        badgeText: _t('shipping_zone_middle_east'),
-        badgeIcon: Icons.public_rounded,
-        color: const Color(0xFFEF4444),
-        bgColor: const Color(0xFFFFF1F2),
+        leftWidget: _buildInternationalLeft('🕌', buyerCountryFlag, buyerCountryName, buyerCity),
+        badgeText: _t('shipping_zone_middle_east'), badgeIcon: Icons.public_rounded,
+        color: const Color(0xFFEF4444), bgColor: const Color(0xFFFFF1F2),
         borderColor: const Color(0xFFFFCDD2),
       );
     }
-
-    // ── CAS 6 : Europe ────────────────────────────────────────────
     if (effectiveZone == ShippingZone.europe) {
       return _buildBanner(
-        leftWidget: _buildInternationalLeft(
-            '🇪🇺', buyerCountryFlag, buyerCountryName, buyerCity),
-        badgeText: _t('shipping_zone_europe'),
-        badgeIcon: Icons.public_rounded,
-        color: const Color(0xFF06B6D4),
-        bgColor: const Color(0xFFF0FDFF),
+        leftWidget: _buildInternationalLeft('🇪🇺', buyerCountryFlag, buyerCountryName, buyerCity),
+        badgeText: _t('shipping_zone_europe'), badgeIcon: Icons.public_rounded,
+        color: const Color(0xFF06B6D4), bgColor: const Color(0xFFF0FDFF),
         borderColor: const Color(0xFFBAE6FD),
       );
     }
-
-    // ── CAS 7 : Monde entier ──────────────────────────────────────
     return _buildBanner(
-      leftWidget: _buildInternationalLeft(
-          '🌐', buyerCountryFlag, buyerCountryName, buyerCity),
-      badgeText: _t('shipping_zone_world'),
-      badgeIcon: Icons.language_rounded,
-      color: const Color(0xFF6366F1),
-      bgColor: const Color(0xFFEEF2FF),
+      leftWidget: _buildInternationalLeft('🌐', buyerCountryFlag, buyerCountryName, buyerCity),
+      badgeText: _t('shipping_zone_world'), badgeIcon: Icons.language_rounded,
+      color: const Color(0xFF6366F1), bgColor: const Color(0xFFEEF2FF),
       borderColor: const Color(0xFFC7D2FE),
     );
   }
@@ -294,11 +252,9 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
       if (city.isNotEmpty) ...[
         const SizedBox(height: 3),
         Row(children: [
-          const Icon(Icons.location_on_rounded,
-              size: 11, color: Color(0xFF94A3B8)),
+          const Icon(Icons.location_on_rounded, size: 11, color: Color(0xFF94A3B8)),
           const SizedBox(width: 3),
-          Text(city,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+          Text(city, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
         ]),
       ],
     ]);
@@ -332,18 +288,19 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(badgeIcon, size: 11, color: color),
             const SizedBox(width: 5),
-            Text(badgeText,
-                style: TextStyle(fontSize: 10,
-                    fontWeight: FontWeight.w800, color: color)),
+            Text(badgeText, style: TextStyle(fontSize: 10,
+                fontWeight: FontWeight.w800, color: color)),
           ]),
         ),
       ]),
     );
   }
 
-  // ── Carte prix ────────────────────────────────────────────────────
+  // ── Carte prix ✅ ─────────────────────────────────────────────────
 
-  Widget _buildPriceCard(double price) {
+  Widget _buildPriceCard(BuildContext context, double price) {
+    // ✅ devise choisie par l'utilisateur
+    final currency = context.watch<CurrencyProvider>();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -355,40 +312,27 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
             blurRadius: 14, offset: const Offset(0, 5))],
       ),
       child: Row(children: [
-        Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_t('shipping_cost_label'),
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.white70)),
-              const SizedBox(height: 4),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(price.toStringAsFixed(2),
-                    style: const TextStyle(fontSize: 30,
-                        fontWeight: FontWeight.w900, color: Colors.white)),
-                const SizedBox(width: 4),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 4),
-                  child: Text('\$', style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700,
-                      color: Colors.white70)),
-                ),
-              ]),
-              if (price == 0)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(_t('shipping_free'),
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.white,
-                          fontWeight: FontWeight.bold)),
-                ),
-            ])),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(_t('shipping_cost_label'),
+              style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          const SizedBox(height: 4),
+          // ✅ Prix formaté dans la devise choisie
+          Text(currency.formatPrice(price),
+              style: const TextStyle(fontSize: 30,
+                  fontWeight: FontWeight.w900, color: Colors.white)),
+          if (price == 0)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(_t('shipping_free'),
+                  style: const TextStyle(fontSize: 11, color: Colors.white,
+                      fontWeight: FontWeight.bold)),
+            ),
+        ])),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -402,10 +346,16 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
     );
   }
 
-  // ── Détail calcul ─────────────────────────────────────────────────
+  // ── Détail calcul ✅ ──────────────────────────────────────────────
 
-  Widget _buildBreakdown(ShippingZoneRate rate, double total) {
-    final color = _zoneColor(effectiveZone);
+  Widget _buildBreakdown(BuildContext context, ShippingZoneRate rate, double total) {
+    // ✅ devise choisie par l'utilisateur
+    final currency = context.watch<CurrencyProvider>();
+    final color    = _zoneColor(effectiveZone);
+
+    final extraWeight   = productWeight > 1 ? productWeight - 1 : 0.0;
+    final extraCost     = rate.pricePerKg * extraWeight;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -414,13 +364,15 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.15)),
       ),
       child: Column(children: [
+        // ✅ Prix de base dans la devise choisie
         _breakdownRow(Icons.home_rounded,
             _t('shipping_base_price'),
-            '${rate.basePrice.toStringAsFixed(2)} \$'),
+            currency.formatPrice(rate.basePrice)),
         const SizedBox(height: 8),
+        // ✅ Prix par kg dans la devise choisie
         _breakdownRow(Icons.scale_rounded,
             '${_t('shipping_per_kg')} × ${productWeight.toStringAsFixed(2)} kg',
-            '+ ${(rate.pricePerKg * (productWeight > 1 ? productWeight - 1 : 0)).toStringAsFixed(2)} \$'),
+            '+ ${currency.formatPrice(extraCost)}'),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Divider(height: 1, color: color.withOpacity(0.2)),
@@ -431,7 +383,8 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
           Expanded(child: Text(_t('shipping_total_label'),
               style: TextStyle(fontSize: 12,
                   fontWeight: FontWeight.bold, color: color))),
-          Text('${total.toStringAsFixed(2)} \$',
+          // ✅ Total dans la devise choisie
+          Text(currency.formatPrice(total),
               style: TextStyle(fontSize: 14,
                   fontWeight: FontWeight.w900, color: color)),
         ]),
@@ -445,9 +398,8 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
       const SizedBox(width: 8),
       Expanded(child: Text(label,
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
-      Text(value,
-          style: const TextStyle(fontSize: 12,
-              fontWeight: FontWeight.w500, color: Color(0xFF1E293B))),
+      Text(value, style: const TextStyle(fontSize: 12,
+          fontWeight: FontWeight.w500, color: Color(0xFF1E293B))),
     ]);
   }
 
@@ -489,8 +441,7 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
                 color: Color(0xFFF97316), size: 20),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_t('shipping_unavailable_title'),
                 style: const TextStyle(fontSize: 13,
                     fontWeight: FontWeight.bold, color: Color(0xFF9A3412))),
@@ -500,7 +451,6 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
                     color: Color(0xFFC2410C), height: 1.5)),
           ])),
         ]),
-        // Affiche la zone concernée
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -508,13 +458,11 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
               color: Colors.orange.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(effectiveZone.emoji,
-                style: const TextStyle(fontSize: 14)),
+            Text(effectiveZone.emoji, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 6),
             Text(effectiveZone.label(_lang),
                 style: const TextStyle(fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFF97316))),
+                    fontWeight: FontWeight.w600, color: Color(0xFFF97316))),
           ]),
         ),
       ]),
@@ -561,7 +509,6 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
     }
   }
 
-  // Icône header selon zone
   IconData _zoneIcon(ShippingZone zone) {
     switch (zone) {
       case ShippingZone.local:      return Icons.electric_moped_rounded;
@@ -574,7 +521,6 @@ class ShippingPriceDisplayWidget extends StatelessWidget {
     }
   }
 
-  // Icône dans la carte prix
   IconData _zoneDeliveryIcon(ShippingZone zone) {
     switch (zone) {
       case ShippingZone.local:      return Icons.electric_moped_rounded;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/currency_provider.dart';
 import 'package:smart_marketplace/providers/language_provider.dart';
 import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 
@@ -208,6 +209,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final currency = context.watch<CurrencyProvider>(); // ✅ devise sélectionnée
     String t(String key) => lang.translate(key);
 
     return Scaffold(
@@ -234,15 +236,15 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
                   else ...[
                     _buildWelcomeCard(t),
                     const SizedBox(height: 24),
-                    _buildStatsGrid(t),
+                    _buildStatsGrid(t, currency),
                     const SizedBox(height: 24),
                     _buildOrderStatusBreakdown(t),
                     const SizedBox(height: 24),
-                    _buildExtraStats(t),
+                    _buildExtraStats(t, currency),
                     const SizedBox(height: 24),
-                    _buildTopProducts(t),
+                    _buildTopProducts(t, currency),
                     const SizedBox(height: 24),
-                    _buildRecentActivity(t),
+                    _buildRecentActivity(t, currency),
                     const SizedBox(height: 80),
                   ],
                 ]),
@@ -380,7 +382,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   //  STATS GRID PRINCIPALE
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildStatsGrid(String Function(String) t) {
+  Widget _buildStatsGrid(String Function(String) t, CurrencyProvider currency) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -415,7 +417,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             _buildStatCard(
               icon:    Icons.attach_money_rounded,
               label:   t('seller_stat_revenue'),
-              value:   '${_totalRevenue.toStringAsFixed(2)} TND',
+              value:   currency.formatPrice(_totalRevenue),
               color:   const Color(0xFF16A34A),
               bgColor: const Color(0xFFF0FDF4),
             ),
@@ -603,7 +605,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   //  STATS SUPPLÉMENTAIRES (ligne de 3 mini-cartes)
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildExtraStats(String Function(String) t) {
+  Widget _buildExtraStats(String Function(String) t, CurrencyProvider currency) {
     // Taux de livraison réussie
     final totalAttempted = _deliveredOrders + _cancelledOrders;
     final deliveryRate   = totalAttempted > 0
@@ -632,7 +634,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             icon:    Icons.trending_up_rounded,
             label:   t('seller_stat_avg_order'),
             value:   _avgOrderValue > 0
-                ? '${_avgOrderValue.toStringAsFixed(1)} TND'
+                ? currency.formatPrice(_avgOrderValue)
                 : '—',
             color:   const Color(0xFF8B5CF6),
             bgColor: const Color(0xFFF5F3FF),
@@ -697,7 +699,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   //  TOP 3 ARTICLES VENDUS
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildTopProducts(String Function(String) t) {
+  Widget _buildTopProducts(String Function(String) t, CurrencyProvider currency) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -749,14 +751,14 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           )
         else
           ...(_topProducts.asMap().entries.map(
-                (e) => _buildTopProductTile(e.key, e.value, t),
+                (e) => _buildTopProductTile(e.key, e.value, t, currency),
           )),
       ],
     );
   }
 
   Widget _buildTopProductTile(
-      int rank, Map<String, dynamic> data, String Function(String) t) {
+      int rank, Map<String, dynamic> data, String Function(String) t, CurrencyProvider currency) {
 
     // Médailles
     final medals   = ['🥇', '🥈', '🥉'];
@@ -871,12 +873,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
 
             // Revenu
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(revenue.toStringAsFixed(2),
+              Text(currency.formatPrice(revenue),
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: rankColor)),
-              Text('TND', style: TextStyle(
+              Text(currency.selectedCode, style: TextStyle(
                   fontSize: 10, color: Colors.grey[400])),
             ]),
           ]),
@@ -943,7 +945,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
   //  ACTIVITÉ RÉCENTE
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildRecentActivity(String Function(String) t) {
+  Widget _buildRecentActivity(String Function(String) t, CurrencyProvider currency) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -990,13 +992,13 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
             ])),
           )
         else
-          ...(_recentSubOrders.map((data) => _buildSubOrderTile(data, t))),
+          ...(_recentSubOrders.map((data) => _buildSubOrderTile(data, t, currency))),
       ],
     );
   }
 
   Widget _buildSubOrderTile(
-      Map<String, dynamic> data, String Function(String) t) {
+      Map<String, dynamic> data, String Function(String) t, CurrencyProvider currency) {
     final status   = data['status']    as String? ?? 'paid';
     final name     = data['name']      as String? ?? '—';
     final price    = (data['price']    as num?    ?? 0).toDouble();
@@ -1100,12 +1102,12 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
         ),
         const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('${total.toStringAsFixed(2)}',
+          Text(currency.formatPrice(total),
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                   color: Color(0xFF16A34A))),
-          Text('TND',
+          Text(currency.selectedCode,
               style: TextStyle(fontSize: 10, color: Colors.grey[400])),
         ]),
       ]),

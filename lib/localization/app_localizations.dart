@@ -461,7 +461,14 @@ class AppLocalizations {
     'security_auto_logout_activated': 'Déconnexion automatique activée',
     'security_auto_logout_deactivated': 'Déconnexion automatique désactivée',
     'security_delay_changed': 'Délai d\'inactivité changé à',
-
+    'email_not_verified_message': "Votre email n'est pas encore vérifié. Consultez votre boîte mail.",
+    'resend_verification_email':  "Renvoyer l'email de vérification",
+    'verification_email_resent':  "Email de vérification renvoyé !",
+    'resend_email_error':         "Impossible d'envoyer l'email. Réessayez.",
+    'login_error_generic':        "Une erreur est survenue. Réessayez.",
+    'email_already_verified': 'Email déjà vérifié !',
+    'wrong_password_for_resend': 'Mot de passe incorrect.',
+    'enter_password_to_resend': 'Saisissez votre mot de passe pour renvoyer l\'email.',
     // ── Layout principal ──────────────────────────────────────────
     'main_smart_market': 'Winzy',
     'main_purchase_history': 'Historique d\'achat',
@@ -773,6 +780,14 @@ class AppLocalizations {
     'seller_edit_store_address': 'Modifier adresse boutique',
     'seller_store_address_hint': 'Cette adresse sera visible par vos acheteurs',
     'addr_phone_section':        'Téléphone',
+    'currency'               : 'Devise',
+    'currency_updated'       : 'Mis à jour :',
+    'currency_sheet_subtitle': 'Taux en temps réel',
+    'currency_refresh'       : 'Actualiser',
+    'currency_error_offline' : 'Taux hors ligne (cache)',
+    'currency_search'   : 'Rechercher une devise...',
+    'currency_results'  : 'résultats',
+    'currency_no_result': 'Aucune devise trouvée',
 
     //──── sellerdashboard page ──────────────────────────────────────
 
@@ -889,7 +904,9 @@ class AppLocalizations {
     'favorites_removed':      'Retiré des favoris',
     'favorites_remove_title': 'Retirer des favoris',
     'favorites_remove_desc':  'Voulez-vous retirer ce produit de vos favoris ?',
-
+    'favorites_items_count': 'articles sauvegardés',
+    'swipe_to_remove'      : 'glisser pour retirer',
+    'favorites_empty_sub'  : 'Aucun article sauvegardé',
     // ── Filter drawer  ─────────────────────────────────────────────
     'filter_title':          'Filtres',
     'filter_reset':          'Réinitialiser',
@@ -963,7 +980,7 @@ class AppLocalizations {
     'reward_draw_label':      'Gagnez ce cadeau !',
     'reward_draw_sub':        'Achetez ce produit pour participer au tirage au sort',
 
-    // ── chckout page    ─────────────────────────────────────
+    // ── checkout page    ─────────────────────────────────────
     'checkout_title': 'Récapitulatif',
     'my_articles': 'Mes articles',
     'select_address_error': 'Veuillez sélectionner une adresse de livraison',
@@ -988,6 +1005,8 @@ class AppLocalizations {
     'checkout_back_to_cart':           'Retour au panier',
     'checkout_blocked_message':        "Certains articles ne peuvent pas être livrés ici. Changez d'adresse ou revenez au panier.",
     'checkout_fix_selection':          'Corriger la sélection',
+    'checkout_zone_label': 'Zone',
+    'checkout_payment_usd_note': 'Paiement débité en USD :',
 
     // ── history page    ─────────────────────────────────────
     'orders_count':     'commandes',
@@ -1032,6 +1051,7 @@ class AppLocalizations {
     'confirm_delivery_message':         'Confirmez-vous avoir bien reçu ce produit ?',
     'confirm_delivery_btn':             'Oui, je confirme',
     'delivery_confirmed_success':       'Réception confirmée !',
+    'buyer_confirm_delivery_subtitle': 'Confirmez que vous avez bien reçu votre commande',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'Livraison',
@@ -1116,11 +1136,18 @@ class AppLocalizations {
     'understand': 'OK, I understand',
     'signing_up': 'Signing up...',
     'account_deactivated_error': 'This account has been deactivated and will be deleted in 30 days.',
-  'account_deactivated_title': 'Account Deactivated',
-  'account_deactivated_message': 'Your account has been deactivated and will be permanently deleted in 30 days. A reactivation email has been sent.',
-  'reactivation_email_sent': 'Reactivation email sent',
-  'reactivation_email_error': 'Error sending reactivation email',
-
+    'account_deactivated_title': 'Account Deactivated',
+    'account_deactivated_message': 'Your account has been deactivated and will be permanently deleted in 30 days. A reactivation email has been sent.',
+    'reactivation_email_sent': 'Reactivation email sent',
+    'reactivation_email_error': 'Error sending reactivation email',
+    'email_not_verified_message': "Your email is not verified yet. Please check your inbox.",
+    'resend_verification_email':  "Resend verification email",
+    'verification_email_resent':  "Verification email sent!",
+    'resend_email_error':         "Failed to send email. Please try again.",
+    'login_error_generic':        "An error occurred. Please try again.",
+    'email_already_verified': 'Email already verified!',
+    'wrong_password_for_resend': 'Wrong password.',
+    'enter_password_to_resend': 'Enter your password to resend the email.',
     // ── role page──────────────────────────────────────
     'role_page_title': 'Choose a role',
     'role_page_subtitle': 'How would you like to use Winzy ?',
@@ -1851,6 +1878,14 @@ class AppLocalizations {
     'seller_edit_store_address': 'Edit store address',
     'seller_store_address_hint': 'This address will be visible to your buyers',
     'addr_phone_section':        'Phone',
+    'currency'               : 'Currency',
+    'currency_updated'       : 'Updated:',
+    'currency_sheet_subtitle': 'Live exchange rates',
+    'currency_refresh'       : 'Refresh',
+    'currency_error_offline' : 'Offline rates (cached)',
+    'currency_search'   : 'Search currency...',
+    'currency_results'  : 'results',
+    'currency_no_result': 'No currency found',
 
     //──── sellerdashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'Dashboard',
@@ -1961,7 +1996,7 @@ class AppLocalizations {
   'favorites_browse_btn':   'Browse products',
   'favorites_removed':      'Removed from favorites',
   'favorites_remove_title': 'Remove from favorites',
-  'favorites_remove_desc':  'Do you want to remove this product from your favorites?',
+  'favorites_remove_desc':  'Do you want to remove this product from your favorites?', 'favorites_items_count': 'saved items', 'swipe_to_remove'      : 'swipe to remove', 'favorites_empty_sub'  : 'No saved items',
 
     // ── Filter drawer  ─────────────────────────────────────────────
     'filter_title':          'Filters',
@@ -2035,7 +2070,7 @@ class AppLocalizations {
     'reward_draw_label':      'Win this reward!',
     'reward_draw_sub':        'Buy this product to enter the prize draw',
 
-    // ── chckout page    ─────────────────────────────────────
+    // ── checkout page    ─────────────────────────────────────
     'checkout_title': 'Order Summary',
     'my_articles': 'My items',
     'select_address_error': 'Please select a delivery address',
@@ -2060,6 +2095,8 @@ class AppLocalizations {
     'checkout_back_to_cart':           'Back to cart',
     'checkout_blocked_message':        'Some items cannot be delivered here. Change your address or go back to the cart.',
     'checkout_fix_selection':          'Fix selection',
+    'checkout_payment_usd_note': 'Payment charged in USD:',
+    'checkout_zone_label': 'Zone',
 
     // ── history page    ─────────────────────────────────────
     'orders_count':     'orders',
@@ -2104,6 +2141,7 @@ class AppLocalizations {
     'confirm_delivery_message':         'Do you confirm that you have received this product?',
     'confirm_delivery_btn':             'Yes, I confirm',
     'delivery_confirmed_success':       'Receipt confirmed!',
+    'buyer_confirm_delivery_subtitle': 'Confirm that you have received your order',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'Shipping',
@@ -2191,6 +2229,14 @@ class AppLocalizations {
     'account_deactivated_message': 'تم تعطيل حسابك وسيتم حذفه نهائياً خلال 30 يوماً. تم إرسال بريد إلكتروني لإعادة التنشيط.',
     'reactivation_email_sent': 'تم إرسال بريد إلكتروني لإعادة التنشيط',
     'reactivation_email_error': 'خطأ في إرسال بريد إلكتروني لإعادة التنشيط',
+    'email_not_verified_message': "لم يتم التحقق من بريدك الإلكتروني بعد. تحقق من صندوق الوارد.",
+    'resend_verification_email':  "إعادة إرسال بريد التحقق",
+    'verification_email_resent':  "تم إرسال بريد التحقق!",
+    'resend_email_error':         "تعذر إرسال البريد. حاول مرة أخرى.",
+    'login_error_generic':        "حدث خطأ ما. حاول مرة أخرى.",
+    'email_already_verified': 'تم التحقق بالفعل!',
+    'wrong_password_for_resend': 'كلمة مرور خاطئة.',
+    'enter_password_to_resend': 'أدخل كلمة المرور لإعادة إرسال البريد.',
     // ── role page──────────────────────────────────────
     'role_page_title': 'اختر دورًا',
     'role_page_subtitle': 'كيف تريد استخدام Winzy ؟',
@@ -2943,6 +2989,14 @@ class AppLocalizations {
     'seller_edit_store_address': 'تعديل عنوان المتجر',
     'seller_store_address_hint': 'هذا العنوان سيكون مرئياً للمشترين',
     'addr_phone_section':        'الهاتف',
+    'currency'               : 'العملة',
+    'currency_updated'       : 'آخر تحديث:',
+    'currency_sheet_subtitle': 'أسعار صرف لحظية',
+    'currency_refresh'       : 'تحديث',
+    'currency_error_offline' : 'أسعار محلية (بدون إنترنت)',
+    'currency_search'   : 'ابحث عن عملة...',
+    'currency_results'  : 'نتيجة',
+    'currency_no_result': 'لا توجد نتائج',
 
     //──── seller dashboard page ──────────────────────────────────────
     'seller_dashboard_title':       'لوحة التحكم',
@@ -3038,7 +3092,9 @@ class AppLocalizations {
     'favorites_removed':      'تمت الإزالة من المفضلة',
     'favorites_remove_title': 'إزالة من المفضلة',
     'favorites_remove_desc':  'هل تريد إزالة هذا المنتج من مفضلتك؟',
-
+    'favorites_items_count': 'عنصر محفوظ',
+    'swipe_to_remove'      : 'اسحب للإزالة',
+    'favorites_empty_sub'  : 'لا توجد عناصر محفوظة',
     // ── Filter drawer  ─────────────────────────────────────────────
     'filter_title':          'الفلاتر',
     'filter_reset':          'إعادة تعيين',
@@ -3110,7 +3166,7 @@ class AppLocalizations {
     'reward_draw_label':      'اربح هذه الجائزة!',
     'reward_draw_sub':        'اشتر هذا المنتج للمشاركة في السحب على الجوائز',
 
-    // ── chckout page    ─────────────────────────────────────
+    // ── checkout page    ─────────────────────────────────────
     'checkout_title': 'ملخص الطلب',
     'my_articles': 'مقالاتي',
     'select_address_error': 'يرجى اختيار عنوان التسليم',
@@ -3135,7 +3191,8 @@ class AppLocalizations {
     'checkout_back_to_cart':           'العودة إلى السلة',
     'checkout_blocked_message':        'بعض المنتجات لا يمكن توصيلها إلى هذا العنوان. غيّر العنوان أو ارجع إلى السلة.',
     'checkout_fix_selection':          'تصحيح الاختيار',
-
+    'checkout_zone_label': 'المنطقة',
+    'checkout_payment_usd_note': 'المبلغ المدفوع بالدولار :',
 
     // ── history page    ─────────────────────────────────────
     'orders_count':     'طلبات',
@@ -3180,6 +3237,7 @@ class AppLocalizations {
     'confirm_delivery_message':         'هل تؤكد استلام هذا المنتج؟',
     'confirm_delivery_btn':             'نعم، أؤكد',
     'delivery_confirmed_success':       'تم تأكيد الاستلام!',
+    'buyer_confirm_delivery_subtitle': 'أكّد أنك استلمت طلبك بنجاح',
 
     // ──  Shipping Section Widget     ─────────────────────────────────────
     'shipping_section_title'    : 'الشحن',

@@ -6,16 +6,12 @@ import 'package:provider/provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/shipping_zone_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/currency_provider.dart'; // ✅
 import '../payment/checkout_page.dart';
 import '../compte/adress/address_page.dart';
 import '../../main.dart' show routeObserver;
 
-// ✅ GlobalKey accessible depuis MainLayout
 final GlobalKey<CartPageState> cartPageKey = GlobalKey<CartPageState>();
-
-// ─────────────────────────────────────────────────────────────────
-//  PAGE PANIER
-// ─────────────────────────────────────────────────────────────────
 
 class CartPage extends StatefulWidget {
   final Function(int)?         onTotalCartItemsChanged;
@@ -44,20 +40,17 @@ class CartPageState extends State<CartPage>
   bool                _showSummary     = false;
   int                 _hiddenItemCount = 0;
 
-  // ── Adresse acheteur ─────────────────────────────────────────
   Map<String, dynamic>? _buyerAddress;
   Map<String, dynamic>? _sellerStoreAddress;
   String?               _buyerCountryCode;
   bool                  _loadingAddress = true;
 
-  // ── Animation summary ─────────────────────────────────────────
   late AnimationController _summaryCtrl;
   late Animation<Offset>   _summarySlide;
 
   User?  get _currentUser => _auth.currentUser;
   String _t(String k) => AppLocalizations.get(k);
 
-  // ── Zone effective acheteur → vendeur ─────────────────────────
   ShippingZone get _effectiveZone {
     if (_buyerCountryCode == null) return ShippingZone.world;
     if (_isSameCity)    return ShippingZone.local;
@@ -80,8 +73,6 @@ class CartPageState extends State<CartPage>
     final sFlag = _sellerStoreAddress!['countryFlag'] as String? ?? '';
     return bFlag.isNotEmpty && bFlag == sFlag;
   }
-
-  // ── Résumé financier ─────────────────────────────────────────
 
   List<CartItemModel> get _selectedItems =>
       _cartItems.where((i) => i.isSelected).toList();
@@ -107,10 +98,6 @@ class CartPageState extends State<CartPage>
       _selectedItems.where((i) => !i.canDeliverTo(_effectiveZone)).toList();
 
   bool get _hasUndeliverableSelected => _selectedUndeliverable.isNotEmpty;
-
-  // ─────────────────────────────────────────────────────────────
-  //  INIT / DISPOSE
-  // ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -149,10 +136,6 @@ class CartPageState extends State<CartPage>
   @override
   void didPopNext() => _init();
 
-  // ─────────────────────────────────────────────────────────────
-  //  CHARGEMENT ADRESSE ACHETEUR
-  // ─────────────────────────────────────────────────────────────
-
   Future<void> _loadBuyerAddress() async {
     final uid = _currentUser?.uid;
     if (uid == null) {
@@ -188,10 +171,6 @@ class CartPageState extends State<CartPage>
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  NAVIGATION VERS AJOUT D'ADRESSE
-  // ─────────────────────────────────────────────────────────────
-
   Future<void> _goToAddAddress() async {
     await Navigator.push(
       context,
@@ -201,10 +180,6 @@ class CartPageState extends State<CartPage>
     setState(() => _loadingAddress = true);
     await _init();
   }
-
-  // ─────────────────────────────────────────────────────────────
-  //  CHARGEMENT PANIER
-  // ─────────────────────────────────────────────────────────────
 
   Future<void> loadCart() async {
     if (!mounted) return;
@@ -326,10 +301,6 @@ class CartPageState extends State<CartPage>
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  ACTIONS
-  // ─────────────────────────────────────────────────────────────
-
   Future<void> _updateQtyFirestore(String docId, int qty) async {
     final uid = _currentUser?.uid;
     if (uid == null) return;
@@ -425,6 +396,8 @@ class CartPageState extends State<CartPage>
 
   @override
   Widget build(BuildContext context) {
+    // ✅ context.watch → rebuild auto quand devise change
+    final currency = context.watch<CurrencyProvider>();
     final isRtl    = AppLocalizations.isRtl;
     final isTablet = MediaQuery.of(context).size.width > 600;
 
@@ -442,13 +415,10 @@ class CartPageState extends State<CartPage>
                 ? _buildEmpty(isTablet, hiddenCount: _hiddenItemCount)
                 : ListView(
               padding: EdgeInsets.fromLTRB(
-                  isTablet ? 24 : 16,
-                  isTablet ? 30 : 20,
-                  isTablet ? 24 : 16,
-                  120),
+                  isTablet ? 24 : 16, isTablet ? 30 : 20,
+                  isTablet ? 24 : 16, 120),
               children: [
-                if (_hiddenItemCount > 0)
-                  _buildHiddenProductsBanner(),
+                if (_hiddenItemCount > 0) _buildHiddenProductsBanner(),
                 if (!_loadingAddress && _buyerAddress == null)
                   _buildNoAddressBanner(),
                 if (!_loadingAddress &&
@@ -456,23 +426,23 @@ class CartPageState extends State<CartPage>
                     _hasUndeliverableSelected)
                   _buildUndeliverableWarning(),
                 ..._grouped.entries.map((e) =>
-                    _buildVendorSection(e.key, e.value, isTablet)),
+                    _buildVendorSection(e.key, e.value, isTablet, currency)),
               ],
             ),
           ),
           if (_cartItems.isNotEmpty)
             Positioned(
               bottom: 0, left: 0, right: 0,
-              child: _buildBottomBar(isTablet),
+              child: _buildBottomBar(isTablet, currency),
             ),
-          if (_showSummary) _buildSummaryOverlay(),
+          if (_showSummary) _buildSummaryOverlay(currency),
         ]),
       ),
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  BANNIÈRE : PRODUITS MASQUÉS PAR LE VENDEUR
+  //  BANNIÈRES
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildHiddenProductsBanner() {
@@ -494,31 +464,25 @@ class CartPageState extends State<CartPage>
               color: Colors.deepPurple, size: 20),
         ),
         const SizedBox(width: 12),
-        Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
             _hiddenItemCount == 1
                 ? _t('cart_hidden_single')
                 : _t('cart_hidden_multi').replaceFirst('{n}', '$_hiddenItemCount'),
-            style: const TextStyle(fontSize: 13,
-                fontWeight: FontWeight.bold, color: Color(0xFF6B21A8)),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                color: Color(0xFF6B21A8)),
           ),
           const SizedBox(height: 3),
           Text(_t('cart_hidden_desc'),
-              style: const TextStyle(fontSize: 12,
-                  color: Color(0xFF7E22CE), height: 1.4)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF7E22CE), height: 1.4)),
         ])),
       ]),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  BANNIÈRE : PAS D'ADRESSE  ✅ CLIQUABLE → AddressPage
-  // ─────────────────────────────────────────────────────────────
-
   Widget _buildNoAddressBanner() {
     return GestureDetector(
-      onTap: _goToAddAddress, // ✅ tap sur toute la bannière
+      onTap: _goToAddAddress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(14),
@@ -537,18 +501,15 @@ class CartPageState extends State<CartPage>
                 color: Color(0xFF3B82F6), size: 22),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(_t('cart_no_address_title'),
-                style: const TextStyle(fontSize: 13,
-                    fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E40AF))),
             const SizedBox(height: 3),
             Text(_t('cart_no_address_desc'),
-                style: const TextStyle(fontSize: 12,
-                    color: Color(0xFF2563EB), height: 1.4)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), height: 1.4)),
           ])),
           const SizedBox(width: 8),
-          // ✅ flèche animée pour indiquer que c'est cliquable
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
@@ -562,10 +523,6 @@ class CartPageState extends State<CartPage>
       ),
     );
   }
-
-  // ─────────────────────────────────────────────────────────────
-  //  BANNIÈRE : PRODUIT NON LIVRABLE SÉLECTIONNÉ
-  // ─────────────────────────────────────────────────────────────
 
   Widget _buildUndeliverableWarning() {
     final count = _selectedUndeliverable.length;
@@ -588,93 +545,70 @@ class CartPageState extends State<CartPage>
                 color: Color(0xFFF97316), size: 20),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
               count == 1
                   ? _t('cart_undeliverable_warning_single')
-                  : _t('cart_undeliverable_warning_multi')
-                  .replaceFirst('{n}', '$count'),
-              style: const TextStyle(fontSize: 13,
-                  fontWeight: FontWeight.bold, color: Color(0xFF9A3412)),
+                  : _t('cart_undeliverable_warning_multi').replaceFirst('{n}', '$count'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                  color: Color(0xFF9A3412)),
             ),
             const SizedBox(height: 3),
             Text(_t('cart_undeliverable_desc'),
-                style: const TextStyle(fontSize: 12,
-                    color: Color(0xFFC2410C), height: 1.4)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFFC2410C), height: 1.4)),
           ])),
         ]),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: _deselectUndeliverable,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF97316),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(child: Text(_t('cart_deselect_undeliverable'),
-                    style: const TextStyle(color: Colors.white,
-                        fontSize: 13, fontWeight: FontWeight.w700))),
-              ),
+          Expanded(child: GestureDetector(
+            onTap: _deselectUndeliverable,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF97316), borderRadius: BorderRadius.circular(10)),
+              child: Center(child: Text(_t('cart_deselect_undeliverable'),
+                  style: const TextStyle(color: Colors.white,
+                      fontSize: 13, fontWeight: FontWeight.w700))),
             ),
-          ),
+          )),
           const SizedBox(width: 10),
-          Expanded(
-            child: GestureDetector(
-              onTap: _goToAddAddress, // ✅ réutilise la même méthode
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFF97316)),
-                ),
-                child: Center(child: Text(_t('cart_change_address'),
-                    style: const TextStyle(color: Color(0xFFF97316),
-                        fontSize: 13, fontWeight: FontWeight.w700))),
-              ),
+          Expanded(child: GestureDetector(
+            onTap: _goToAddAddress,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF97316))),
+              child: Center(child: Text(_t('cart_change_address'),
+                  style: const TextStyle(color: Color(0xFFF97316),
+                      fontSize: 13, fontWeight: FontWeight.w700))),
             ),
-          ),
+          )),
         ]),
       ]),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  LOADING
-  // ─────────────────────────────────────────────────────────────
-
   Widget _buildLoading() {
-    return Center(child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, children: [
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       const CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation(Colors.deepPurple), strokeWidth: 3),
       const SizedBox(height: 16),
-      Text(_t('loading'),
-          style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+      Text(_t('loading'), style: TextStyle(color: Colors.grey[600], fontSize: 14)),
     ]));
   }
-
-  // ─────────────────────────────────────────────────────────────
-  //  PANIER VIDE
-  // ─────────────────────────────────────────────────────────────
 
   Widget _buildEmpty(bool isTablet, {int hiddenCount = 0}) {
     final hasHidden = hiddenCount > 0;
     return ListView(children: [
       if (hasHidden)
         Padding(
-          padding: EdgeInsets.fromLTRB(
-              isTablet ? 24 : 16, isTablet ? 24 : 16,
+          padding: EdgeInsets.fromLTRB(isTablet ? 24 : 16, isTablet ? 24 : 16,
               isTablet ? 24 : 16, 0),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAF5FF),
-              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xFFFAF5FF), borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFD8B4FE), width: 1.5),
             ),
             child: Row(children: [
@@ -687,19 +621,17 @@ class CartPageState extends State<CartPage>
                     color: Colors.deepPurple, size: 20),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   hiddenCount == 1
                       ? _t('cart_hidden_single')
                       : _t('cart_hidden_multi').replaceFirst('{n}', '$hiddenCount'),
-                  style: const TextStyle(fontSize: 13,
-                      fontWeight: FontWeight.bold, color: Color(0xFF6B21A8)),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                      color: Color(0xFF6B21A8)),
                 ),
                 const SizedBox(height: 3),
                 Text(_t('cart_hidden_desc'),
-                    style: const TextStyle(fontSize: 12,
-                        color: Color(0xFF7E22CE), height: 1.4)),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF7E22CE), height: 1.4)),
               ])),
             ]),
           ),
@@ -714,33 +646,24 @@ class CartPageState extends State<CartPage>
             tween: Tween(begin: 0.8, end: 1.0),
             duration: const Duration(milliseconds: 600),
             curve: Curves.elasticOut,
-            builder: (_, scale, child) =>
-                Transform.scale(scale: scale, child: child),
+            builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
             child: Container(
-              width: isTablet ? 140 : 110,
-              height: isTablet ? 140 : 110,
+              width: isTablet ? 140 : 110, height: isTablet ? 140 : 110,
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
+                  color: Colors.deepPurple.withOpacity(0.08), shape: BoxShape.circle),
               child: Icon(Icons.shopping_cart_outlined,
-                  size: isTablet ? 70 : 54,
-                  color: Colors.deepPurple.withOpacity(0.35)),
+                  size: isTablet ? 70 : 54, color: Colors.deepPurple.withOpacity(0.35)),
             ),
           ),
           const SizedBox(height: 28),
-          Text(
-            hasHidden ? _t('cart_empty_after_hidden') : _t('cart_empty_title'),
-            style: TextStyle(fontSize: isTablet ? 22 : 20,
-                fontWeight: FontWeight.w800, color: Colors.black87),
-            textAlign: TextAlign.center,
-          ),
+          Text(hasHidden ? _t('cart_empty_after_hidden') : _t('cart_empty_title'),
+              style: TextStyle(fontSize: isTablet ? 22 : 20,
+                  fontWeight: FontWeight.w800, color: Colors.black87),
+              textAlign: TextAlign.center),
           const SizedBox(height: 10),
-          Text(
-            hasHidden ? _t('cart_empty_after_hidden_desc') : _t('cart_empty_desc'),
-            style: TextStyle(fontSize: 14, color: Colors.grey[500], height: 1.5),
-            textAlign: TextAlign.center,
-          ),
+          Text(hasHidden ? _t('cart_empty_after_hidden_desc') : _t('cart_empty_desc'),
+              style: TextStyle(fontSize: 14, color: Colors.grey[500], height: 1.5),
+              textAlign: TextAlign.center),
           const SizedBox(height: 36),
           SizedBox(
             width: double.infinity,
@@ -749,22 +672,17 @@ class CartPageState extends State<CartPage>
                 if (widget.onGoHome != null) {
                   widget.onGoHome!();
                 } else {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/home', (r) => false);
+                  Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
                 }
               },
               icon: const Icon(Icons.shopping_bag_outlined, size: 20),
               label: Text(_t('cart_discover_products'),
-                  style: const TextStyle(fontSize: 15,
-                      fontWeight: FontWeight.w700)),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: 4,
-                shadowColor: Colors.deepPurple.withOpacity(0.35),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 4, shadowColor: Colors.deepPurple.withOpacity(0.35),
               ),
             ),
           ),
@@ -777,10 +695,9 @@ class CartPageState extends State<CartPage>
   //  SECTION VENDEUR
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildVendorSection(
-      String storeName, List<CartItemModel> items, bool isTablet) {
+  Widget _buildVendorSection(String storeName, List<CartItemModel> items,
+      bool isTablet, CurrencyProvider currency) {
     final allSelected = items.every((i) => i.isSelected);
-
     final zone = _effectiveZone;
     final selectedVendorItems = items.where((i) => i.isSelected).toList();
     double? vendorShipping;
@@ -797,13 +714,11 @@ class CartPageState extends State<CartPage>
     return Container(
       margin: EdgeInsets.only(bottom: isTablet ? 20 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white, borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
             blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
         GestureDetector(
           onTap: () => _toggleVendor(storeName),
           child: Container(
@@ -815,8 +730,7 @@ class CartPageState extends State<CartPage>
             child: Row(children: [
               _CheckCircle(checked: allSelected),
               const SizedBox(width: 10),
-              const Icon(Icons.storefront_rounded,
-                  size: 18, color: Colors.deepPurple),
+              const Icon(Icons.storefront_rounded, size: 18, color: Colors.deepPurple),
               const SizedBox(width: 8),
               Expanded(child: Text(storeName,
                   style: TextStyle(fontSize: isTablet ? 16 : 15,
@@ -837,26 +751,22 @@ class CartPageState extends State<CartPage>
             ]),
           ),
         ),
-
         const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
         ...items.asMap().entries.map((e) {
           final item  = e.value;
           final index = _cartItems.indexWhere((c) => c.cartDocId == item.cartDocId);
-          return _buildItemCard(item, index, isTablet);
+          return _buildItemCard(item, index, isTablet, currency);
         }),
-
         if (!_loadingAddress && _buyerAddress != null)
-          _buildVendorShippingRow(vendorShipping, selectedVendorItems.isEmpty),
+          _buildVendorShippingRow(vendorShipping, selectedVendorItems.isEmpty, currency),
       ]),
     );
   }
 
-  Widget _buildVendorShippingRow(double? shippingPrice, bool noneSelected) {
+  Widget _buildVendorShippingRow(double? shippingPrice, bool noneSelected,
+      CurrencyProvider currency) {
     if (noneSelected) return const SizedBox.shrink();
-
     final zone = _effectiveZone;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
@@ -864,8 +774,7 @@ class CartPageState extends State<CartPage>
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       child: Row(children: [
-        Icon(Icons.local_shipping_rounded,
-            size: 16,
+        Icon(Icons.local_shipping_rounded, size: 16,
             color: shippingPrice != null
                 ? const Color(0xFF3B82F6) : const Color(0xFFF97316)),
         const SizedBox(width: 8),
@@ -873,19 +782,17 @@ class CartPageState extends State<CartPage>
           shippingPrice != null
               ? '${_t('cart_shipping')} · ${zone.emoji} ${zone.label(AppLocalizations.getLanguage())}'
               : _t('cart_shipping_unavailable'),
-          style: TextStyle(
-              fontSize: 12,
+          style: TextStyle(fontSize: 12,
               color: shippingPrice != null
                   ? const Color(0xFF475569) : const Color(0xFFF97316),
               fontWeight: FontWeight.w500),
         )),
+        // ✅ frais livraison par vendeur dans la devise choisie
         Text(
           shippingPrice != null
-              ? '+ ${shippingPrice.toStringAsFixed(2)} \$'
+              ? '+ ${currency.formatPrice(shippingPrice)}'
               : '—',
-          style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
               color: shippingPrice != null
                   ? const Color(0xFF3B82F6) : const Color(0xFFF97316)),
         ),
@@ -897,15 +804,15 @@ class CartPageState extends State<CartPage>
   //  CARD PRODUIT
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildItemCard(CartItemModel item, int index, bool isTablet) {
+  Widget _buildItemCard(CartItemModel item, int index, bool isTablet,
+      CurrencyProvider currency) {
     final imageBytes = item.images.isNotEmpty
         ? () { try { return base64Decode(item.images.first); } catch (_) { return null; } }()
         : null;
 
     final zone       = _effectiveZone;
     final canDeliver = _loadingAddress || _buyerAddress == null
-        ? null
-        : item.canDeliverTo(zone);
+        ? null : item.canDeliverTo(zone);
     final shipPrice  = item.shippingPrice(zone);
 
     return Column(children: [
@@ -914,18 +821,15 @@ class CartPageState extends State<CartPage>
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           GestureDetector(
             onTap: () => _toggleItem(index),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: _CheckCircle(checked: item.isSelected),
-            ),
+            child: Padding(padding: const EdgeInsets.only(top: 4),
+                child: _CheckCircle(checked: item.isSelected)),
           ),
           const SizedBox(width: 12),
           Stack(children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                width: isTablet ? 100 : 82,
-                height: isTablet ? 100 : 82,
+                width: isTablet ? 100 : 82, height: isTablet ? 100 : 82,
                 color: Colors.grey.shade100,
                 child: imageBytes != null
                     ? Image.memory(imageBytes, fit: BoxFit.cover)
@@ -934,28 +838,23 @@ class CartPageState extends State<CartPage>
               ),
             ),
             if (canDeliver == false)
-              Positioned(
-                top: 0, left: 0, right: 0, bottom: 0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.45),
-                    child: const Center(child: Icon(
-                        Icons.block_rounded, color: Colors.white, size: 28)),
-                  ),
-                ),
-              ),
+              Positioned(top: 0, left: 0, right: 0, bottom: 0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(color: Colors.black.withOpacity(0.45),
+                        child: const Center(child: Icon(Icons.block_rounded,
+                            color: Colors.white, size: 28))),
+                  )),
           ]),
           const SizedBox(width: 12),
-          Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(item.name,
                 style: TextStyle(fontWeight: FontWeight.w700,
-                    fontSize: isTablet ? 16 : 14,
-                    color: const Color(0xFF1E293B)),
+                    fontSize: isTablet ? 16 : 14, color: const Color(0xFF1E293B)),
                 maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            Text('\$${item.price.toStringAsFixed(2)}',
+            // ✅ prix article dans la devise choisie
+            Text(currency.formatPrice(item.price),
                 style: const TextStyle(color: Colors.deepPurple,
                     fontWeight: FontWeight.w800, fontSize: 15)),
             const SizedBox(height: 6),
@@ -964,37 +863,28 @@ class CartPageState extends State<CartPage>
             else if (_buyerAddress == null)
               _ShippingBadge.unknown(_t('cart_shipping_no_address'))
             else if (canDeliver == true && shipPrice != null)
-                _ShippingBadge.available(
-                    '${shipPrice.toStringAsFixed(2)} \$',
-                    zone.emoji)
+              // ✅ frais livraison dans la devise choisie
+                _ShippingBadge.available(currency.formatPrice(shipPrice), zone.emoji)
               else
                 _ShippingBadge.unavailable(_t('cart_not_deliverable')),
             const SizedBox(height: 10),
             Row(children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  _QtyBtn(
-                    icon: Icons.remove_rounded,
-                    onTap: item.quantity > 1
-                        ? () => _updateQuantity(index, item.quantity - 1) : null,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Text('${item.quantity}',
-                        style: const TextStyle(fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E293B))),
-                  ),
-                  _QtyBtn(
-                    icon: Icons.add_rounded,
-                    onTap: item.quantity < item.stock
-                        ? () => _updateQuantity(index, item.quantity + 1) : null,
-                  ),
+                  _QtyBtn(icon: Icons.remove_rounded,
+                      onTap: item.quantity > 1
+                          ? () => _updateQuantity(index, item.quantity - 1) : null),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Text('${item.quantity}',
+                          style: const TextStyle(fontSize: 15,
+                              fontWeight: FontWeight.w700, color: Color(0xFF1E293B)))),
+                  _QtyBtn(icon: Icons.add_rounded,
+                      onTap: item.quantity < item.stock
+                          ? () => _updateQuantity(index, item.quantity + 1) : null),
                 ]),
               ),
               const Spacer(),
@@ -1002,14 +892,11 @@ class CartPageState extends State<CartPage>
                 onTap: () => _removeItem(index),
                 child: Container(
                   padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade100),
-                  ),
+                  decoration: BoxDecoration(color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade100)),
                   child: Icon(Icons.delete_outline_rounded,
-                      color: Colors.red.shade400,
-                      size: isTablet ? 22 : 18),
+                      color: Colors.red.shade400, size: isTablet ? 22 : 18),
                 ),
               ),
             ]),
@@ -1017,8 +904,7 @@ class CartPageState extends State<CartPage>
         ]),
       ),
       if (index >= 0 && index < _cartItems.length - 1)
-        const Divider(height: 1, indent: 12, endIndent: 12,
-            color: Color(0xFFF0F0F0)),
+        const Divider(height: 1, indent: 12, endIndent: 12, color: Color(0xFFF0F0F0)),
     ]);
   }
 
@@ -1026,10 +912,9 @@ class CartPageState extends State<CartPage>
   //  BOTTOM BAR
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(bool isTablet) {
-    final allSelected = _cartItems.isNotEmpty &&
-        _cartItems.every((i) => i.isSelected);
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+  Widget _buildBottomBar(bool isTablet, CurrencyProvider currency) {
+    final allSelected = _cartItems.isNotEmpty && _cartItems.every((i) => i.isSelected);
+    final bottomPad   = MediaQuery.of(context).padding.bottom;
     final hasUndeliverable = _hasUndeliverableSelected &&
         !_loadingAddress && _buyerAddress != null;
 
@@ -1048,7 +933,8 @@ class CartPageState extends State<CartPage>
             Text(_t('cart_products_subtotal'),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
             const Spacer(),
-            Text('\$${_selectedProductsTotal.toStringAsFixed(2)}',
+            // ✅ sous-total produits
+            Text(currency.formatPrice(_selectedProductsTotal),
                 style: const TextStyle(fontSize: 13,
                     fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
           ]),
@@ -1059,28 +945,23 @@ class CartPageState extends State<CartPage>
             const Spacer(),
             _loadingAddress
                 ? const SizedBox(width: 60, height: 14,
-                child: LinearProgressIndicator(
-                    backgroundColor: Color(0xFFF1F5F9),
+                child: LinearProgressIndicator(backgroundColor: Color(0xFFF1F5F9),
                     color: Colors.deepPurple))
                 : _buyerAddress == null
                 ? Text(_t('cart_shipping_to_calculate'),
-                style: const TextStyle(fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                     color: Color(0xFF94A3B8)))
+            // ✅ frais livraison
                 : Text(
                 _selectedShippingTotal > 0
-                    ? '+ \$${_selectedShippingTotal.toStringAsFixed(2)}'
+                    ? '+ ${currency.formatPrice(_selectedShippingTotal)}'
                     : _t('cart_shipping_free'),
-                style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                     color: _selectedShippingTotal > 0
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF10B981))),
+                        ? const Color(0xFF3B82F6) : const Color(0xFF10B981))),
           ]),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-          ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, color: Color(0xFFF1F5F9))),
         ],
 
         Row(children: [
@@ -1090,68 +971,44 @@ class CartPageState extends State<CartPage>
               _CheckCircle(checked: allSelected),
               const SizedBox(width: 6),
               Text(_t('cart_select_all'),
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
                       color: Color(0xFF475569))),
             ]),
           ),
-
           const Spacer(),
-
           if (_selectedCount > 0) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '\$${_grandTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.deepPurple),
-                ),
-                Text(
-                  '$_selectedCount '
-                      '${_selectedCount > 1 ? _t('cart_articles') : _t('cart_article')}',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                ),
-              ],
-            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min, children: [
+                  // ✅ grand total
+                  Text(currency.formatPrice(_grandTotal),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900,
+                          color: Colors.deepPurple)),
+                  Text('$_selectedCount ${_selectedCount > 1 ? _t('cart_articles') : _t('cart_article')}',
+                      style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                ]),
             const SizedBox(width: 10),
-
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 140),
               child: GestureDetector(
                 onTap: hasUndeliverable ? null : _openSummary,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: hasUndeliverable
-                        ? null
-                        : const LinearGradient(
-                        colors: [Colors.deepPurple, Color(0xFF7C3AED)]),
+                    gradient: hasUndeliverable ? null
+                        : const LinearGradient(colors: [Colors.deepPurple, Color(0xFF7C3AED)]),
                     color: hasUndeliverable ? Colors.grey.shade300 : null,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: hasUndeliverable
-                        ? []
-                        : [BoxShadow(
+                    boxShadow: hasUndeliverable ? [] : [BoxShadow(
                         color: Colors.deepPurple.withOpacity(0.35),
                         blurRadius: 10, offset: const Offset(0, 4))],
                   ),
                   child: Text(
-                    hasUndeliverable
-                        ? _t('cart_fix_selection')
-                        : _t('cart_order'),
+                    hasUndeliverable ? _t('cart_fix_selection') : _t('cart_order'),
                     style: TextStyle(
-                        color: hasUndeliverable
-                            ? Colors.grey.shade500 : Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                        color: hasUndeliverable ? Colors.grey.shade500 : Colors.white,
+                        fontWeight: FontWeight.w700, fontSize: 13),
+                    overflow: TextOverflow.ellipsis, maxLines: 1,
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -1167,7 +1024,7 @@ class CartPageState extends State<CartPage>
   //  OVERLAY RÉSUMÉ
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildSummaryOverlay() {
+  Widget _buildSummaryOverlay(CurrencyProvider currency) {
     final selectedItems = _selectedItems;
     final bottomPad     = MediaQuery.of(context).padding.bottom;
     final zone          = _effectiveZone;
@@ -1203,34 +1060,25 @@ class CartPageState extends State<CartPage>
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [BoxShadow(
-                    color: Colors.black26, blurRadius: 20,
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20,
                     offset: Offset(0, -5))],
               ),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2)),
-                ),
+                Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4,
+                    decoration: BoxDecoration(color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2))),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Row(children: [
                     Text(_t('cart_summary_title'),
-                        style: const TextStyle(fontSize: 20,
-                            fontWeight: FontWeight.w800)),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                     const Spacer(),
                     GestureDetector(
                       onTap: _closeSummary,
-                      child: Container(
-                        width: 32, height: 32,
-                        decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.close_rounded, size: 18),
-                      ),
+                      child: Container(width: 32, height: 32,
+                          decoration: BoxDecoration(color: Colors.grey.shade100,
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.close_rounded, size: 18)),
                     ),
                   ]),
                 ),
@@ -1250,25 +1098,23 @@ class CartPageState extends State<CartPage>
                           final item = selectedItems[i];
                           final bytes = item.images.isNotEmpty
                               ? () { try { return base64Decode(item.images.first); }
-                          catch (_) { return null; } }()
-                              : null;
+                          catch (_) { return null; } }() : null;
                           return Container(
                             width: 70, margin: const EdgeInsets.only(right: 10),
                             child: Column(children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: SizedBox(width: 70, height: 54,
-                                  child: Container(
-                                    color: Colors.grey.shade100,
-                                    child: bytes != null
-                                        ? Image.memory(bytes, fit: BoxFit.cover)
-                                        : Icon(Icons.image_outlined,
-                                        color: Colors.grey.shade400, size: 28),
-                                  ),
+                                  child: Container(color: Colors.grey.shade100,
+                                      child: bytes != null
+                                          ? Image.memory(bytes, fit: BoxFit.cover)
+                                          : Icon(Icons.image_outlined,
+                                          color: Colors.grey.shade400, size: 28)),
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text('\$${item.price.toStringAsFixed(0)} ×${item.quantity}',
+                              // ✅ prix mini dans la devise choisie
+                              Text('${currency.formatPrice(item.price)} ×${item.quantity}',
                                   style: const TextStyle(fontSize: 10,
                                       fontWeight: FontWeight.w600),
                                   textAlign: TextAlign.center),
@@ -1281,26 +1127,21 @@ class CartPageState extends State<CartPage>
 
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      decoration: BoxDecoration(color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(14)),
                       child: Column(children: [
-                        _summaryRow(
-                          _t('cart_products_subtotal'),
-                          '\$${_selectedProductsTotal.toStringAsFixed(2)}',
-                        ),
+                        // ✅ sous-total produits
+                        _summaryRow(_t('cart_products_subtotal'),
+                            currency.formatPrice(_selectedProductsTotal)),
                         const SizedBox(height: 4),
 
                         if (vendorShipping.isNotEmpty) ...[
                           const Divider(height: 14),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(_t('cart_shipping_detail'),
-                                style: const TextStyle(fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF94A3B8))),
-                          ),
+                          Align(alignment: Alignment.centerLeft,
+                              child: Text(_t('cart_shipping_detail'),
+                                  style: const TextStyle(fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF94A3B8)))),
                           const SizedBox(height: 6),
                           ...vendorShipping.entries.map((e) => Padding(
                             padding: const EdgeInsets.only(bottom: 4),
@@ -1309,43 +1150,39 @@ class CartPageState extends State<CartPage>
                                   size: 13, color: Colors.deepPurple.shade300),
                               const SizedBox(width: 6),
                               Expanded(child: Text(e.key,
-                                  style: TextStyle(fontSize: 12,
-                                      color: Colors.grey.shade600),
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                   maxLines: 1, overflow: TextOverflow.ellipsis)),
-                              Text('+ \$${e.value.toStringAsFixed(2)}',
+                              // ✅ livraison par vendeur
+                              Text('+ ${currency.formatPrice(e.value)}',
                                   style: const TextStyle(fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF3B82F6))),
                             ]),
                           )),
                           const Divider(height: 14),
+                          // ✅ sous-total livraison
                           _summaryRow(
                             '${_t('cart_shipping_subtotal')} '
                                 '(${zone.emoji} ${zone.label(AppLocalizations.getLanguage())})',
-                            '\$${_selectedShippingTotal.toStringAsFixed(2)}',
+                            currency.formatPrice(_selectedShippingTotal),
                             valueColor: const Color(0xFF3B82F6),
                           ),
                         ] else if (_buyerAddress == null) ...[
-                          _summaryRow(
-                            _t('cart_shipping_subtotal'),
-                            _t('cart_shipping_to_calculate'),
-                            valueColor: const Color(0xFF94A3B8),
-                          ),
+                          _summaryRow(_t('cart_shipping_subtotal'),
+                              _t('cart_shipping_to_calculate'),
+                              valueColor: const Color(0xFF94A3B8)),
                         ] else ...[
-                          _summaryRow(
-                            _t('cart_shipping_subtotal'),
-                            _t('cart_shipping_free'),
-                            valueColor: const Color(0xFF10B981),
-                          ),
+                          _summaryRow(_t('cart_shipping_subtotal'),
+                              _t('cart_shipping_free'),
+                              valueColor: const Color(0xFF10B981)),
                         ],
 
                         const Divider(height: 16),
-                        _summaryRow(
-                          _t('cart_total'),
-                          '\$${_grandTotal.toStringAsFixed(2)}',
-                          isBold: true, isLarge: true,
-                          valueColor: Colors.deepPurple,
-                        ),
+                        // ✅ grand total
+                        _summaryRow(_t('cart_total'),
+                            currency.formatPrice(_grandTotal),
+                            isBold: true, isLarge: true,
+                            valueColor: Colors.deepPurple),
                       ]),
                     ),
                   ]),
@@ -1364,17 +1201,13 @@ class CartPageState extends State<CartPage>
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 4,
-                        shadowColor: Colors.deepPurple.withOpacity(0.4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 4, shadowColor: Colors.deepPurple.withOpacity(0.4),
                       ),
                       child: Text(_t('cart_go_to_payment'),
-                          style: const TextStyle(fontSize: 16,
-                              fontWeight: FontWeight.w700)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ),
@@ -1390,19 +1223,16 @@ class CartPageState extends State<CartPage>
       {bool isBold = false, bool isLarge = false, Color? valueColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(label,
-              style: TextStyle(fontSize: isLarge ? 16 : 14,
-                  fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-                  color: const Color(0xFF475569)))),
-          Text(value, style: TextStyle(
-              fontSize: isLarge ? 16 : 14,
-              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-              color: valueColor ?? const Color(0xFF1E293B))),
-        ],
-      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Expanded(child: Text(label, style: TextStyle(
+            fontSize: isLarge ? 16 : 14,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+            color: const Color(0xFF475569)))),
+        Text(value, style: TextStyle(
+            fontSize: isLarge ? 16 : 14,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            color: valueColor ?? const Color(0xFF1E293B))),
+      ]),
     );
   }
 }
@@ -1446,8 +1276,7 @@ class _QtyBtn extends StatelessWidget {
       child: Container(
         width: 32, height: 32,
         decoration: BoxDecoration(
-          color: enabled
-              ? Colors.deepPurple.withOpacity(0.08) : Colors.transparent,
+          color: enabled ? Colors.deepPurple.withOpacity(0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, size: 16,
@@ -1472,9 +1301,9 @@ class _ShippingBadge extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(emoji, style: const TextStyle(fontSize: 11)),
         const SizedBox(width: 4),
-        const Icon(Icons.local_shipping_rounded,
-            size: 12, color: Color(0xFF3B82F6)),
+        const Icon(Icons.local_shipping_rounded, size: 12, color: Color(0xFF3B82F6)),
         const SizedBox(width: 4),
+        // ✅ price est déjà formaté par currency.formatPrice()
         Text(price, style: const TextStyle(fontSize: 11,
             fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
       ]),
@@ -1507,11 +1336,9 @@ class _ShippingBadge extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.help_outline_rounded,
-            size: 12, color: Color(0xFF94A3B8)),
+        const Icon(Icons.help_outline_rounded, size: 12, color: Color(0xFF94A3B8)),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11,
-            color: Color(0xFF94A3B8))),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
       ]),
     ));
   }
@@ -1519,13 +1346,10 @@ class _ShippingBadge extends StatelessWidget {
   factory _ShippingBadge.loading() {
     return _ShippingBadge(child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8)),
       child: const SizedBox(width: 50, height: 12,
-          child: LinearProgressIndicator(
-              backgroundColor: Color(0xFFF1F5F9),
+          child: LinearProgressIndicator(backgroundColor: Color(0xFFF1F5F9),
               color: Colors.deepPurple)),
     ));
   }

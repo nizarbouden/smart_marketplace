@@ -14,7 +14,6 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Getters
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -33,12 +32,6 @@ class AuthProvider with ChangeNotifier {
     _initAsync();
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  INIT
-  //  ✅ FIX : Ne plus faire de signOut ici.
-  //  Le SplashScreen gère la logique "rememberMe" AVANT de naviguer.
-  //  L'AuthProvider écoute simplement l'état Firebase.
-  // ─────────────────────────────────────────────────────────────
   Future<void> _initAsync() async {
     _authService.authStateChanges.listen((User? firebaseUser) {
       if (firebaseUser != null) {
@@ -50,9 +43,6 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  Charger les données utilisateur depuis Firestore
-  // ─────────────────────────────────────────────────────────────
   Future<void> _loadUserData() async {
     try {
       _setLoading(true);
@@ -76,7 +66,9 @@ class AuthProvider with ChangeNotifier {
   Future<void> refreshUserData() async => _loadUserData();
 
   // ─────────────────────────────────────────────────────────────
-  //  Inscription
+  //  INSCRIPTION
+  //  ✅ FIX : SignUpSuccessException → return true sans polluer errorMessage
+  //           Toute autre exception → return false + errorMessage
   // ─────────────────────────────────────────────────────────────
   Future<bool> signUp({
     required String email,
@@ -91,7 +83,7 @@ class AuthProvider with ChangeNotifier {
       _setLoading(true);
       _clearError();
 
-      _user = await _authService.signUpWithEmailAndPassword(
+      await _authService.signUpWithEmailAndPassword(
         email, password, nom,
         prenom: prenom,
         genre: genre,
@@ -99,19 +91,35 @@ class AuthProvider with ChangeNotifier {
         phoneNumber: phoneNumber,
       );
 
+      // Si on arrive ici sans exception → succès (normalement jamais atteint
+      // car le service lève toujours SignUpSuccessException ou une vraie erreur)
       notifyListeners();
       return true;
+
+    } on SignUpSuccessException {
+      // ✅ Inscription réussie : email envoyé, compte créé
+      // On ne met PAS d'erreur, on retourne true directement
+      _clearError();
+      notifyListeners();
+      return true;
+
+    } on FirebaseAuthException catch (e) {
+      _setError(e.message ?? 'Erreur lors de l\'inscription');
+      notifyListeners();
+      return false;
+
     } catch (e) {
       _setError(e.toString());
       notifyListeners();
       return false;
+
     } finally {
       _setLoading(false);
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Connexion email / mot de passe
+  //  CONNEXION EMAIL / MOT DE PASSE
   // ─────────────────────────────────────────────────────────────
   Future<bool> signIn({
     required String email,
@@ -123,7 +131,6 @@ class AuthProvider with ChangeNotifier {
       _setLoading(true);
       _clearError();
 
-      // Vérifier statut avant connexion
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
         final userDoc = await FirebaseFirestore.instance
@@ -143,7 +150,6 @@ class AuthProvider with ChangeNotifier {
 
       _user = await _authService.signInWithEmailAndPassword(email, password);
 
-      // ✅ Sauvegarder rememberMe avec la clé 'rememberMe'
       final prefs = await SharedPreferences.getInstance();
       if (rememberMe) {
         await prefs.setBool('rememberMe', true);
@@ -152,28 +158,32 @@ class AuthProvider with ChangeNotifier {
       } else {
         await prefs.remove('rememberMe');
         await prefs.remove('lastEmail');
-        print('✅ AuthProvider: rememberMe=false (clé supprimée)');
+        print('✅ AuthProvider: rememberMe=false');
       }
 
       notifyListeners();
       print('✅ AuthProvider: Connexion réussie');
       return true;
+
     } on EmailNotVerifiedException catch (e) {
+      // ✅ Email non vérifié → erreur dédiée, pas de message générique
       _setError(e.toString());
       notifyListeners();
       return false;
+
     } catch (e) {
       print('❌ AuthProvider: Erreur connexion: $e');
       _setError(e.toString());
       notifyListeners();
       return false;
+
     } finally {
       _setLoading(false);
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Connexion Google
+  //  CONNEXION GOOGLE
   // ─────────────────────────────────────────────────────────────
   Future<bool> signInWithGoogle({bool rememberMe = false}) async {
     try {
@@ -190,7 +200,6 @@ class AuthProvider with ChangeNotifier {
         if (userDoc.exists) {
           final status = userDoc.data()?['status'] as String? ?? 'active';
           if (status == 'deactivated') {
-            print('❌ Compte Google désactivé pour ${_user!.email}');
             await _auth.signOut();
             _user = null;
             _setError(AppLocalizations.get('account_deactivated_error'));
@@ -198,32 +207,32 @@ class AuthProvider with ChangeNotifier {
             return false;
           }
         }
-        // ✅ FIX : sauvegarder rememberMe pour Google comme pour email/password
+
         final prefs = await SharedPreferences.getInstance();
         if (rememberMe) {
           await prefs.setBool('rememberMe', true);
           await prefs.setString('lastEmail', _user!.email ?? '');
-          print('✅ AuthProvider: Google rememberMe=true sauvegardé');
         } else {
           await prefs.remove('rememberMe');
           await prefs.remove('lastEmail');
-          print('✅ AuthProvider: Google rememberMe=false (clé supprimée)');
         }
       }
 
       notifyListeners();
       return _user != null;
+
     } catch (e) {
       _setError(e.toString());
       notifyListeners();
       return false;
+
     } finally {
       _setLoading(false);
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Mot de passe oublié
+  //  MOT DE PASSE OUBLIÉ
   // ─────────────────────────────────────────────────────────────
   Future<bool> resetPassword(String email) async {
     try {
@@ -242,7 +251,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Déconnexion
+  //  DÉCONNEXION
   // ─────────────────────────────────────────────────────────────
   Future<void> signOut({bool forceSignOut = false}) async {
     try {
@@ -273,7 +282,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Mise à jour profil
+  //  MISE À JOUR PROFIL
   // ─────────────────────────────────────────────────────────────
   Future<bool> updateProfile({
     String? nom,
@@ -286,13 +295,11 @@ class AuthProvider with ChangeNotifier {
     try {
       _setLoading(true);
       _clearError();
-
       await _authService.updateProfile(
         nom: nom, prenom: prenom, genre: genre,
         phoneNumber: phoneNumber, countryCode: countryCode,
         photoUrl: photoUrl,
       );
-
       await _loadUserData();
       return true;
     } catch (e) {
@@ -305,16 +312,14 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Suppression compte
+  //  SUPPRESSION COMPTE
   // ─────────────────────────────────────────────────────────────
   Future<bool> deleteAccount() async {
     try {
       _setLoading(true);
       _clearError();
-
       await _authService.deleteAccount();
       _user = null;
-
       notifyListeners();
       return true;
     } catch (e) {
@@ -327,7 +332,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  Helpers privés
+  //  HELPERS PRIVÉS
   // ─────────────────────────────────────────────────────────────
   void _setLoading(bool loading) {
     _isLoading = loading;
@@ -337,7 +342,11 @@ class AuthProvider with ChangeNotifier {
   void _setError(String error) {
     _errorMessage = error;
     notifyListeners();
-    final isEmailVerificationError = error.contains('vérifier votre email');
+    // Auto-clear après 5s sauf pour les erreurs de vérification email
+    final isEmailVerificationError =
+        error.toLowerCase().contains('vérifier') ||
+            error.toLowerCase().contains('verify') ||
+            error.toLowerCase().contains('verified');
     if (!isEmailVerificationError) {
       Future.delayed(const Duration(seconds: 5), _clearError);
     }
@@ -351,7 +360,7 @@ class AuthProvider with ChangeNotifier {
   void clearError() => _clearError();
 
   // ─────────────────────────────────────────────────────────────
-  //  Validation
+  //  VALIDATION
   // ─────────────────────────────────────────────────────────────
   bool isValidEmail(String email) =>
       RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);

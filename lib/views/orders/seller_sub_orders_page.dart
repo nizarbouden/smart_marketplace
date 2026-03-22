@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/currency_provider.dart'; // ✅
 import 'package:smart_marketplace/providers/language_provider.dart';
 import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 import '../../models/shipping_company_model.dart';
@@ -558,7 +559,7 @@ class _SubOrderCardState extends State<_SubOrderCard> {
                         color: Color(0xFF1E293B)),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text('${s.price.toStringAsFixed(2)} TND × ${s.quantity}',
+                Text('${context.watch<CurrencyProvider>().formatPrice(s.price)} × ${s.quantity}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 const SizedBox(height: 4),
                 Builder(builder: (context) {
@@ -637,14 +638,14 @@ class _SubOrderCardState extends State<_SubOrderCard> {
             const SizedBox(height: 14),
 
             _PriceRow(label: t('seller_products_subtotal'),
-                value: '${s.subtotal.toStringAsFixed(2)} TND'),
+                value: context.watch<CurrencyProvider>().formatPrice(s.subtotal)),
             const SizedBox(height: 6),
             _PriceRow(label: t('seller_shipping_cost'),
-                value: '${s.shippingCost.toStringAsFixed(2)} TND',
+                value: context.watch<CurrencyProvider>().formatPrice(s.shippingCost),
                 valueColor: const Color(0xFF3B82F6)),
             const SizedBox(height: 6),
             _PriceRow(label: t('seller_total'),
-                value: '${s.total.toStringAsFixed(2)} TND',
+                value: context.watch<CurrencyProvider>().formatPrice(s.total),
                 bold: true, valueColor: const Color(0xFF16A34A)),
 
             // ── Boutons d'action ──────────────────────────────────

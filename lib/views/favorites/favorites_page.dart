@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
@@ -14,12 +15,16 @@ class FavoritesPage extends StatefulWidget {
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> {
+class _FavoritesPageState extends State<FavoritesPage>
+    with SingleTickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth      _auth      = FirebaseAuth.instance;
 
   List<Map<String, dynamic>> _favorites = [];
-  bool _isLoading = true;
+  bool   _isLoading = true;
+
+  // Pour l'animation d'entrée des cartes
+  late AnimationController _animController;
 
   String _t(String key) => AppLocalizations.get(key);
   User? get _currentUser => _auth.currentUser;
@@ -27,49 +32,54 @@ class _FavoritesPageState extends State<FavoritesPage> {
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     _loadFavorites();
   }
 
-  // ── Calcul du prix effectif depuis la Map brute ───────────────
-  // Reproduit la logique de Product.isDiscountActive / Product.discountedPrice
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  REMISE
+  // ─────────────────────────────────────────────────────────────
+
   static _DiscountInfo _computeDiscount(Map<String, dynamic> product) {
     final originalPrice   = (product['price'] as num? ?? 0).toDouble();
     final discountPercent = (product['discountPercent'] as num?)?.toDouble();
     final discountEndsAt  = (product['discountEndsAt'] as Timestamp?)?.toDate();
-
-    // Remise active si le pourcentage existe ET (pas de date limite OU date dans le futur)
-    final bool isActive = discountPercent != null &&
+    final bool isActive   = discountPercent != null &&
         discountPercent > 0 &&
         (discountEndsAt == null || discountEndsAt.isAfter(DateTime.now()));
-
-    final effectivePrice = isActive
+    final effectivePrice  = isActive
         ? originalPrice * (1 - discountPercent! / 100)
         : originalPrice;
-
     return _DiscountInfo(
       originalPrice:   originalPrice,
       effectivePrice:  effectivePrice,
       isActive:        isActive,
-      discountPercent: isActive ? discountPercent! : null,
+      discountPercent: isActive ? discountPercent : null,
     );
   }
 
-  // ── Charger les favoris depuis Firestore ──────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  CHARGEMENT
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _loadFavorites() async {
     setState(() => _isLoading = true);
     try {
       final uid = _currentUser?.uid;
-      if (uid == null) {
-        setState(() => _isLoading = false);
-        return;
-      }
+      if (uid == null) { setState(() => _isLoading = false); return; }
 
       final favSnap = await _firestore
-          .collection('users')
-          .doc(uid)
-          .collection('favorites')
-          .orderBy('addedAt', descending: true)
-          .get();
+          .collection('users').doc(uid).collection('favorites')
+          .orderBy('addedAt', descending: true).get();
 
       if (favSnap.docs.isEmpty) {
         setState(() { _favorites = []; _isLoading = false; });
@@ -90,14 +100,19 @@ class _FavoritesPageState extends State<FavoritesPage> {
           }
         } catch (_) {}
       }
-
-      if (mounted) setState(() { _favorites = products; _isLoading = false; });
+      if (mounted) {
+        setState(() { _favorites = products; _isLoading = false; });
+        _animController.forward(from: 0);
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ── Supprimer un favori ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  SUPPRESSION
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _removeFavorite(String favoriteDocId, int index) async {
     try {
       final uid = _currentUser?.uid;
@@ -108,10 +123,17 @@ class _FavoritesPageState extends State<FavoritesPage> {
       setState(() => _favorites.removeAt(index));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(_t('favorites_removed')),
-          backgroundColor: Colors.red,
+          content: Row(children: [
+            const Icon(Icons.favorite_border_rounded,
+                color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Text(_t('favorites_removed'),
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+          ]),
+          backgroundColor: const Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.all(16),
           duration: const Duration(seconds: 2),
         ));
       }
@@ -127,15 +149,170 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  DIALOG CONFIRMATION SUPPRESSION — appelé au swipe ET au cœur
+  // ─────────────────────────────────────────────────────────────
+
+  Future<bool> _showRemoveDialog(
+      String favoriteDocId, int index, String productName) async {
+    HapticFeedback.mediumImpact();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.18),
+                  blurRadius: 40, offset: const Offset(0, 16)),
+            ],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+            // ── Top coloré ────────────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF6B6B), Color(0xFFEF4444)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(children: [
+                // Icône animée
+                Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.22),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.heart_broken_rounded,
+                      color: Colors.white, size: 36),
+                ),
+                const SizedBox(height: 16),
+                Text(_t('favorites_remove_title'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2)),
+              ]),
+            ),
+
+            // ── Corps ─────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(children: [
+                Text(_t('favorites_remove_desc'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14,
+                        color: Colors.grey.shade500, height: 1.6)),
+                const SizedBox(height: 12),
+                // Nom produit
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: const Color(0xFFEF4444).withOpacity(0.2)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.shopping_bag_rounded,
+                        size: 15, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(productName,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B)))),
+                  ]),
+                ),
+                const SizedBox(height: 24),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey.shade600,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(_t('cancel'),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF6B6B), Color(0xFFEF4444)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [BoxShadow(
+                            color: const Color(0xFFEF4444).withOpacity(0.4),
+                            blurRadius: 12, offset: const Offset(0, 4))],
+                      ),
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        icon: const Icon(Icons.delete_rounded,
+                            size: 16, color: Colors.white),
+                        label: Text(_t('delete'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _removeFavorite(favoriteDocId, index);
+      return true;
+    }
+    return false;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isMobile    = screenWidth < 600;
+    final isTablet    = screenWidth >= 600 && screenWidth < 1200;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF8F7FF),
       body: SafeArea(
         child: Column(children: [
           _buildHeader(isMobile, isTablet),
@@ -151,162 +328,319 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  HEADER — premium avec gradient
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildHeader(bool isMobile, bool isTablet) {
     return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1),
-            blurRadius: 4, offset: const Offset(0, 2))],
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft:  Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-              child: Icon(
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Row(children: [
+            // Bouton retour
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
                   AppLocalizations.isRtl
                       ? Icons.arrow_forward_ios_rounded
-                      : Icons.arrow_back_ios_rounded,
-                  size: 18, color: Colors.black87),
+                      : Icons.arrow_back_ios_new_rounded,
+                  size: 18, color: Colors.white,
+                ),
+              ),
             ),
-          ),
-          Text(_t('favorites_title'),
-              style: TextStyle(fontSize: isMobile ? 20 : (isTablet ? 22 : 24),
-                  fontWeight: FontWeight.bold, color: Colors.black87)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.favorite_rounded, color: Colors.red, size: 14),
-              const SizedBox(width: 4),
-              Text('${_favorites.length}',
-                  style: const TextStyle(color: Colors.red, fontSize: 13,
-                      fontWeight: FontWeight.bold)),
-            ]),
-          ),
-        ]),
+
+            const SizedBox(width: 14),
+
+            // Titre + sous-titre
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_t('favorites_title'),
+                    style: TextStyle(
+                        fontSize: isMobile ? 20 : 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 0.3)),
+                const SizedBox(height: 2),
+                Text(
+                  _favorites.isEmpty
+                      ? _t('favorites_empty_sub')
+                      : '${_favorites.length} ${_t('favorites_items_count')}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            )),
+
+            // Badge compteur
+            if (_favorites.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.22),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.3), width: 1),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.favorite_rounded,
+                      color: Colors.white, size: 14),
+                  const SizedBox(width: 5),
+                  Text('${_favorites.length}',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 13,
+                          fontWeight: FontWeight.w800)),
+                ]),
+              ),
+          ]),
+        ),
       ),
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  LOADING
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildLoadingState() {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      const CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple), strokeWidth: 3),
-      const SizedBox(height: 16),
-      Text(_t('loading'), style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-    ]));
+    return Center(child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 64, height: 64,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(
+                color: const Color(0xFF7C3AED).withOpacity(0.3),
+                blurRadius: 20, offset: const Offset(0, 8))],
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(18),
+            child: CircularProgressIndicator(
+                strokeWidth: 2.5, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(_t('loading'), style: TextStyle(
+            color: Colors.grey.shade500, fontSize: 14,
+            fontWeight: FontWeight.w500)),
+      ],
+    ));
   }
 
-  // ── Empty state ───────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  EMPTY STATE
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildEmptyState(bool isMobile, bool isTablet) {
     return Center(child: Padding(
       padding: const EdgeInsets.all(32),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(
-          width: isMobile ? 100 : (isTablet ? 120 : 140),
-          height: isMobile ? 100 : (isTablet ? 120 : 140),
-          decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), shape: BoxShape.circle),
+          width: isMobile ? 110 : 130,
+          height: isMobile ? 110 : 130,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFEE2E2), Color(0xFFFECDD3)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(
+                color: Colors.red.withOpacity(0.12),
+                blurRadius: 24, offset: const Offset(0, 8))],
+          ),
           child: Icon(Icons.favorite_border_rounded,
-              size: isMobile ? 50 : (isTablet ? 60 : 70),
-              color: Colors.red.withOpacity(0.5)),
+              size: isMobile ? 52 : 62,
+              color: const Color(0xFFEF4444).withOpacity(0.7)),
         ),
         const SizedBox(height: 28),
         Text(_t('favorites_empty_title'),
-            style: TextStyle(fontSize: isMobile ? 18 : (isTablet ? 20 : 22),
-                fontWeight: FontWeight.bold, color: Colors.black87),
+            style: TextStyle(
+                fontSize: isMobile ? 20 : 22,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1E293B)),
             textAlign: TextAlign.center),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Text(_t('favorites_empty_desc'),
             style: TextStyle(fontSize: isMobile ? 14 : 15,
-                color: Colors.grey[500], height: 1.5),
+                color: Colors.grey.shade500, height: 1.6),
             textAlign: TextAlign.center),
         const SizedBox(height: 32),
-        ElevatedButton.icon(
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
-          icon: const Icon(Icons.shopping_bag_outlined),
-          label: Text(_t('favorites_browse_btn')),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(
+                color: const Color(0xFF7C3AED).withOpacity(0.4),
+                blurRadius: 16, offset: const Offset(0, 6))],
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () =>
+                Navigator.of(context).pushReplacementNamed('/home'),
+            icon: const Icon(Icons.shopping_bag_outlined,
+                color: Colors.white, size: 18),
+            label: Text(_t('favorites_browse_btn'),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w700,
+                    fontSize: 15)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 28, vertical: 15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
           ),
         ),
       ]),
     ));
   }
 
-  // ── Liste des favoris ─────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  GRILLE FAVORIS
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildFavoritesList(bool isMobile, bool isTablet) {
     return RefreshIndicator(
-      color: Colors.deepPurple,
+      color: const Color(0xFF7C3AED),
       onRefresh: _loadFavorites,
       child: GridView.builder(
-        padding: EdgeInsets.all(isMobile ? 12 : (isTablet ? 16 : 20)),
+        padding: EdgeInsets.fromLTRB(
+            isMobile ? 14 : 18,
+            20,
+            isMobile ? 14 : 18,
+            24),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: isMobile ? 2 : (isTablet ? 3 : 4),
-          crossAxisSpacing: isMobile ? 10 : 14,
-          mainAxisSpacing: isMobile ? 10 : 14,
-          childAspectRatio: 0.72,
+          crossAxisCount:  isMobile ? 2 : (isTablet ? 3 : 4),
+          crossAxisSpacing: isMobile ? 12 : 16,
+          mainAxisSpacing:  isMobile ? 12 : 16,
+          childAspectRatio: 0.68,
         ),
         itemCount: _favorites.length,
-        itemBuilder: (context, index) =>
-            _buildProductCard(_favorites[index], index, isMobile, isTablet),
+        itemBuilder: (context, index) {
+          // Animation d'entrée en cascade
+          final anim = Tween<double>(begin: 0, end: 1).animate(
+            CurvedAnimation(
+              parent: _animController,
+              curve: Interval(
+                (index / _favorites.length) * 0.5,
+                ((index + 1) / _favorites.length) * 0.5 + 0.5,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+          );
+          return AnimatedBuilder(
+            animation: anim,
+            builder: (_, child) => Transform.translate(
+              offset: Offset(0, 30 * (1 - anim.value)),
+              child: Opacity(
+                  opacity: anim.value.clamp(0.0, 1.0), child: child),
+            ),
+            child: _buildProductCard(
+                _favorites[index], index, isMobile, isTablet),
+          );
+        },
       ),
     );
   }
 
-  // ── Carte produit ✅ AVEC REMISE ─────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  CARTE PRODUIT — redesign premium
+  // ─────────────────────────────────────────────────────────────
+
   Widget _buildProductCard(Map<String, dynamic> product, int index,
       bool isMobile, bool isTablet) {
     final name          = product['name']          as String? ?? '';
-    final description   = product['description']   as String? ?? '';
     final images        = product['images']        as List<dynamic>?;
     final favoriteDocId = product['favoriteDocId'] as String? ?? '';
     final productId     = product['productId']     as String? ?? '';
-
-    // ✅ Calcul remise depuis la Map brute
-    final di = _computeDiscount(product);
+    final category      = product['category']      as String? ?? '';
+    final di            = _computeDiscount(product);
 
     return Dismissible(
-      key: Key(productId.isNotEmpty ? productId : index.toString()),
+      key: Key('fav_${productId}_$index'),
       direction: DismissDirection.endToStart,
+
+      // ── Background swipe — révèle une zone rouge
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(left: 40),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFDC2626)]),
-          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF6B6B), Color(0xFFDC2626)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
         ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.delete_rounded, color: Colors.white, size: 26),
-          const SizedBox(height: 4),
-          Text(_t('delete'), style: const TextStyle(color: Colors.white,
-              fontSize: 11, fontWeight: FontWeight.w600)),
-        ]),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 22),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.25),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.heart_broken_rounded,
+                    color: Colors.white, size: 24),
+              ),
+              const SizedBox(height: 6),
+              const Text('Retirer',
+                  style: TextStyle(color: Colors.white,
+                      fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
       ),
-      onDismissed: (_) => _removeFavorite(favoriteDocId, index),
+
+      // ── Swipe déclenche le dialog (pas suppression directe)
+      confirmDismiss: (direction) async {
+        return await _showRemoveDialog(favoriteDocId, index, name);
+      },
+      onDismissed: (_) {
+        // La suppression est déjà faite dans _showRemoveDialog
+      },
+
       child: GestureDetector(
         onTap: () {
           final p = Product(
             id:              productId,
-            name:            product['name']            as String? ?? '',
-            price:           (product['price']          as num? ?? 0).toDouble(),
-            category:        product['category']        as String? ?? '',
-            description:     product['description']     as String? ?? '',
+            name:            product['name']        as String? ?? '',
+            price:           (product['price']      as num? ?? 0).toDouble(),
+            category:        product['category']    as String? ?? '',
+            description:     product['description'] as String? ?? '',
             images:          List<String>.from(product['images'] ?? []),
-            isActive:        product['isActive']        as bool? ?? false,
-            status:          product['status']          as String? ?? '',
-            stock:           (product['stock']          as num? ?? 0).toInt(),
-            sellerId:        product['sellerId']        as String? ?? '',
-            // ✅ champs remise — manquaient, causaient prix sans remise dans ProductDetailPage
+            isActive:        product['isActive']    as bool?   ?? false,
+            status:          product['status']      as String? ?? '',
+            stock:           (product['stock']      as num?    ?? 0).toInt(),
+            sellerId:        product['sellerId']    as String? ?? '',
             discountPercent: (product['discountPercent'] as num?)?.toDouble(),
             discountEndsAt:  (product['discountEndsAt']  as Timestamp?)?.toDate(),
             initialStock:    (product['initialStock']    as num?)?.toInt(),
@@ -323,275 +657,261 @@ class _FavoritesPageState extends State<FavoritesPage> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07),
-                blurRadius: 16, offset: const Offset(0, 4))],
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.06),
+                  blurRadius: 18, offset: const Offset(0, 6)),
+              BoxShadow(color: const Color(0xFF7C3AED).withOpacity(0.04),
+                  blurRadius: 6, offset: const Offset(0, 2)),
+            ],
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            // ── Image ──────────────────────────────────────────
-            Expanded(
-              flex: 6,
-              child: Stack(children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: SizedBox(width: double.infinity, height: double.infinity,
+              // ── Image ────────────────────────────────────────
+              Expanded(
+                flex: 62,
+                child: Stack(children: [
+                  // Photo
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(22)),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: double.infinity,
                       child: images != null && images.isNotEmpty
-                          ? Image.memory(base64Decode(images.first.toString()),
+                          ? Image.memory(
+                          base64Decode(images.first.toString()),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imagePlaceholder())
-                          : _imagePlaceholder()),
-                ),
-
-                // Gradient bas image
-                Positioned(bottom: 0, left: 0, right: 0, height: 50,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      gradient: LinearGradient(
-                          begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                          colors: [Colors.black.withOpacity(0.28), Colors.transparent]),
+                          errorBuilder: (_, __, ___) =>
+                              _imagePlaceholder())
+                          : _imagePlaceholder(),
                     ),
                   ),
-                ),
 
-                // ✅ Badge remise en haut à gauche (si remise active)
-                if (di.isActive && di.discountPercent != null)
-                  Positioned(
-                    top: 10, left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                  // Gradient bas pour lisibilité prix
+                  Positioned.fill(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2),
-                            blurRadius: 6, offset: const Offset(0, 2))],
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(22)),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          stops: const [0.0, 0.55, 1.0],
+                          colors: [
+                            Colors.black.withOpacity(0.55),
+                            Colors.black.withOpacity(0.08),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
-                      child: Text('-${di.discountPercent!.toStringAsFixed(0)}%',
+                    ),
+                  ),
+
+                  // ── Badge remise
+                  if (di.isActive && di.discountPercent != null)
+                    Positioned(
+                      top: 10, left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6B6B), Color(0xFFEF4444)],
+                          ),
+                          borderRadius: BorderRadius.circular(9),
+                          boxShadow: [BoxShadow(
+                              color: const Color(0xFFEF4444).withOpacity(0.4),
+                              blurRadius: 8, offset: const Offset(0, 2))],
+                        ),
+                        child: Text(
+                          '-${di.discountPercent!.toStringAsFixed(0)}%',
                           style: const TextStyle(color: Colors.white,
-                              fontSize: 11, fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-
-                // Bouton favori (cœur) en haut à droite
-                Positioned(
-                  top: 10, right: 10,
-                  child: GestureDetector(
-                    onTap: () => _showRemoveConfirmDialog(favoriteDocId, index),
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: Colors.white, shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12),
-                            blurRadius: 8, offset: const Offset(0, 2))],
+                              fontSize: 11, fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3),
+                        ),
                       ),
-                      child: const Icon(Icons.favorite_rounded, color: Colors.red, size: 15),
+                    ),
+
+                  // ── Bouton cœur (suppression)
+                  Positioned(
+                    top: 10, right: 10,
+                    child: GestureDetector(
+                      onTap: () => _showRemoveDialog(
+                          favoriteDocId, index, name),
+                      child: Container(
+                        width: 34, height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(
+                              color: Colors.black.withOpacity(0.14),
+                              blurRadius: 10, offset: const Offset(0, 3))],
+                        ),
+                        child: const Icon(Icons.favorite_rounded,
+                            color: Color(0xFFEF4444), size: 16),
+                      ),
                     ),
                   ),
-                ),
 
-                // ✅ Prix en badge bas gauche — prix effectif + barré si remise
-                Positioned(
-                  bottom: 8, left: 10,
-                  child: di.isActive
-                  // Remise active : prix barré + nouveau prix
-                      ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Prix original barré
+                  // ── Badge catégorie en haut gauche (si pas remise)
+                  if (!di.isActive && category.isNotEmpty)
+                    Positioned(
+                      top: 10, left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.45),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Text(category,
+                            style: const TextStyle(color: Colors.white,
+                                fontSize: 10, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+
+                  // ── Prix en bas de l'image
+                  Positioned(
+                    bottom: 10, left: 10, right: 10,
+                    child: di.isActive
+                        ? Row(children: [
+                      // Prix barré
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(7),
                         ),
                         child: Text(
                           '${di.originalPrice.toStringAsFixed(2)} TND',
                           style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.lineThrough,
-                            decorationColor: Colors.white70,
-                          ),
+                              color: Colors.white70, fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.lineThrough,
+                              decorationColor: Colors.white70),
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(width: 6),
                       // Prix remisé
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF16A34A),
+                          gradient: const LinearGradient(
+                              colors: [Color(0xFF059669), Color(0xFF10B981)]),
                           borderRadius: BorderRadius.circular(10),
-                          boxShadow: [BoxShadow(color: const Color(0xFF16A34A).withOpacity(0.4),
+                          boxShadow: [BoxShadow(
+                              color: const Color(0xFF059669).withOpacity(0.45),
                               blurRadius: 8, offset: const Offset(0, 2))],
                         ),
                         child: Text(
                           '${di.effectivePrice.toStringAsFixed(2)} TND',
-                          style: TextStyle(color: Colors.white,
-                              fontSize: isMobile ? 13 : 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.2),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 12 : 13,
+                              fontWeight: FontWeight.w800),
                         ),
                       ),
-                    ],
-                  )
-                  // Pas de remise : badge violet classique
-                      : Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [BoxShadow(color: Colors.deepPurple.withOpacity(0.35),
-                          blurRadius: 8, offset: const Offset(0, 2))],
-                    ),
-                    child: Text(
-                      '${di.effectivePrice.toStringAsFixed(2)} TND',
-                      style: TextStyle(color: Colors.white,
-                          fontSize: isMobile ? 13 : 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.2),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-
-            // ── Infos texte ────────────────────────────────────
-            Expanded(
-              flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(name,
-                        style: TextStyle(fontSize: isMobile ? 14 : 15,
-                            fontWeight: FontWeight.w700, color: const Color(0xFF1E293B),
-                            height: 1.3),
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
-                    if (description.isNotEmpty)
-                      Text(description,
-                          style: TextStyle(fontSize: isMobile ? 11 : 12,
-                              color: Colors.grey[500], height: 1.4),
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
-                    Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.arrow_forward_ios_rounded,
-                            size: 11, color: Colors.deepPurple),
+                    ])
+                        : Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [BoxShadow(
+                            color: const Color(0xFF7C3AED).withOpacity(0.45),
+                            blurRadius: 8, offset: const Offset(0, 2))],
                       ),
-                    ]),
-                  ],
-                ),
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _imagePlaceholder() {
-    return Container(color: Colors.grey[100],
-        child: Center(child: Icon(Icons.image_outlined,
-            color: Colors.grey[400], size: 40)));
-  }
-
-  // ── Dialog confirmation suppression ──────────────────────────
-  void _showRemoveConfirmDialog(String favoriteDocId, int index) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-              colors: [Color(0xFFEF4444), Color(0xFFF87171)],
-            ),
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              child: Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                child: const Icon(Icons.favorite_border_rounded,
-                    color: Colors.white, size: 30),
-              ),
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24)),
-              ),
-              child: Column(children: [
-                Text(_t('favorites_remove_title'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                        color: Color(0xFFEF4444))),
-                const SizedBox(height: 10),
-                Text(_t('favorites_remove_desc'),
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 24),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        '${di.effectivePrice.toStringAsFixed(2)} TND',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isMobile ? 12 : 13,
+                            fontWeight: FontWeight.w800),
                       ),
-                      child: Text(_t('cancel'), style: const TextStyle(
-                          color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _removeFavorite(favoriteDocId, index);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text(_t('delete'),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ]),
-              ]),
-            ),
-          ]),
+              ),
+
+              // ── Infos texte ───────────────────────────────────
+              Expanded(
+                flex: 38,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+
+                      // Nom
+                      Text(name,
+                          style: TextStyle(
+                              fontSize: isMobile ? 13 : 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1E293B),
+                              height: 1.3),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+
+                      // Bas : swipe hint + flèche
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Hint swipe discret
+                          Row(children: [
+                            Icon(Icons.swipe_left_rounded,
+                                size: 12, color: Colors.grey.shade400),
+                            const SizedBox(width: 3),
+                            Text(_t('swipe_to_remove'),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade400,
+                                    fontWeight: FontWeight.w500)),
+                          ]),
+                          // Bouton voir
+                          Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                  colors: [Color(0xFF6D28D9), Color(0xFF8B5CF6)]),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.arrow_back_ios_rounded,
+                                size: 10, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _imagePlaceholder() => Container(
+    color: const Color(0xFFF1F5F9),
+    child: Center(
+      child: Icon(Icons.image_outlined,
+          color: Colors.grey.shade300, size: 42),
+    ),
+  );
 }
 
-// ── Helper classe remise ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+//  _DiscountInfo
+// ─────────────────────────────────────────────────────────────────
+
 class _DiscountInfo {
   final double  originalPrice;
   final double  effectivePrice;

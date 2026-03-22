@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/shipping_zone_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/currency_provider.dart';              // ✅
 import '../../localization/app_localizations.dart';
 import '../../services/create_order_service.dart';
 import '../../services/payment_service.dart';
@@ -32,7 +33,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _loadingPayment = true;
   bool _isProcessing   = false;
 
-  // ✅ CLEF DU FIX : adresse boutique vendeur, même logique que CartPage
   Map<String, dynamic>? _sellerStoreAddress;
   bool _loadingSellerAddress = true;
 
@@ -51,12 +51,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  ZONE — copie exacte de CartPage._effectiveZone
-  //
-  //  CartPage compare _buyerAddress vs _sellerStoreAddress
-  //  pour détecter local / national avant de tomber sur zoneForCountry.
-  //  Sans _sellerStoreAddress, même adresse acheteur => "world"
-  //  => tous les produits semblent non livrables.
+  //  ZONE
   // ─────────────────────────────────────────────────────────────
 
   ShippingZone get _effectiveZone {
@@ -67,7 +62,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (iso == null) return ShippingZone.world;
 
     if (_sellerStoreAddress != null) {
-      // isSameCity ?
       final bCity = (addr.city ?? '').toLowerCase().trim();
       final sCity = (_sellerStoreAddress!['city'] as String? ?? '').toLowerCase().trim();
       final bProv = (addr.province ?? '').toLowerCase().trim();
@@ -76,7 +70,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           bProv.isNotEmpty && bProv == sProv) {
         return ShippingZone.local;
       }
-      // isSameCountry ?
       final bFlag = addr.countryFlag;
       final sFlag = _sellerStoreAddress!['countryFlag'] as String? ?? '';
       if (bFlag.isNotEmpty && bFlag == sFlag) return ShippingZone.national;
@@ -85,15 +78,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return ShippingZoneExt.zoneForCountry(iso);
   }
 
-  ShippingZone get _zone       => _effectiveZone;
-  bool         get _zoneReady  => !_loadingAddress && !_loadingSellerAddress;
+  ShippingZone get _zone      => _effectiveZone;
+  bool         get _zoneReady => !_loadingAddress && !_loadingSellerAddress;
 
   // ─────────────────────────────────────────────────────────────
   //  CHARGEMENTS
   // ─────────────────────────────────────────────────────────────
 
-  /// Charge l'adresse boutique (isStoreAddress=true) du 1er vendeur
-  /// des articles sélectionnés — identique à CartPage.loadCart()
   Future<void> _loadSellerStoreAddress() async {
     final items    = context.read<CartProvider>().selectedItems;
     final sellerId = items.isNotEmpty ? items.first.sellerId : '';
@@ -160,10 +151,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  CALCUL LIVRAISON
+  //  CALCUL LIVRAISON (toujours en USD — base de stockage)
   // ─────────────────────────────────────────────────────────────
 
-  double _totalShipping(List<CartItemModel> items) {
+  double _totalShippingUSD(List<CartItemModel> items) {
     if (!_zoneReady || _selectedAddress == null) return 0.0;
     return items.fold(0.0, (sum, item) => sum + (item.shippingPrice(_zone) ?? 0.0));
   }
@@ -183,7 +174,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         MaterialPageRoute(builder: (_) => AddressPickerPage(
             currentAddressId: _selectedAddress?.id)));
     if (result != null && mounted) {
-      // Recharger l'adresse vendeur aussi (la zone peut changer)
       setState(() {
         _selectedAddress      = result;
         _loadingSellerAddress = true;
@@ -213,47 +203,54 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  PAIEMENT
+  //  PAIEMENT — toujours en USD (prix stockés en USD)
+  //  L'affichage est converti dans la devise choisie
+  //  mais Stripe reçoit toujours le montant en USD
   // ─────────────────────────────────────────────────────────────
 
   Future<void> _processPayment(List<CartItemModel> items) async {
     if (_selectedAddress == null || _selectedPayment == null) return;
     setState(() => _isProcessing = true);
     try {
-      final cart         = context.read<CartProvider>();
-      final shippingCost = _totalShipping(items);
-      final total        = cart.selectedProductsTotal + shippingCost;
-      bool  success      = false;
+      final cart        = context.read<CartProvider>();
+      final shippingUSD = _totalShippingUSD(items);
+      // ✅ totalUSD = montant réel envoyé au serveur de paiement
+      final totalUSD    = cart.selectedProductsTotal + shippingUSD;
+      bool  success     = false;
 
       switch (_selectedPayment!.type) {
         case 'card':
           final pmId = _selectedPayment!.stripePaymentMethodId;
           final cId  = _selectedPayment!.stripeCustomerId;
+          // ✅ Stripe reçoit toujours USD
           success = (pmId != null && cId != null)
               ? await PaymentService.processPaymentWithSavedCard(
-              amount: total, currency: 'usd',
+              amount: totalUSD, currency: 'usd',
               stripeCustomerId: cId, stripePaymentMethodId: pmId)
-              : await PaymentService.processPayment(amount: total, currency: 'usd');
+              : await PaymentService.processPayment(amount: totalUSD, currency: 'usd');
           break;
         case 'paypal':
           final r = await PaymentService.processPayPalPayment(
-              amount: total, description: 'Winzy Order');
+              amount: totalUSD, description: 'Winzy Order');
           if (r.cancelled) { if (mounted) setState(() => _isProcessing = false); return; }
-          if (!r.success)  { _showSnack(r.errorMessage ?? _t('checkout_paypal_error'));
-          if (mounted) setState(() => _isProcessing = false); return; }
+          if (!r.success)  {
+            _showSnack(r.errorMessage ?? _t('checkout_paypal_error'));
+            if (mounted) setState(() => _isProcessing = false);
+            return;
+          }
           success = true;
           break;
         case 'cash': success = true; break;
         default:
-          success = await PaymentService.processPayment(amount: total, currency: 'usd');
+          success = await PaymentService.processPayment(amount: totalUSD, currency: 'usd');
       }
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
       if (!success) return;
-      await _createOrder(cart, items, total, shippingCost);
+      await _createOrder(cart, items, totalUSD, shippingUSD);
       if (!mounted) return;
-      _showSuccessDialog(total);
+      _showSuccessDialog(totalUSD);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -270,6 +267,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       zone:          _zone,
     );
   }
+
   // ─────────────────────────────────────────────────────────────
   //  BUILD
   // ─────────────────────────────────────────────────────────────
@@ -277,18 +275,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final cart          = context.watch<CartProvider>();
+    // ✅ currency → rebuild auto quand devise change
+    final currency      = context.watch<CurrencyProvider>();
     final selectedItems = cart.selectedItems;
     final isTablet      = MediaQuery.of(context).size.width > 600;
     final bottomPad     = MediaQuery.of(context).padding.bottom;
     final isRtl         = AppLocalizations.isRtl;
 
-    // ✅ Ne calculer zone / livraison / non-livrable QUE quand les 2 adresses
-    //    sont chargées — évite le faux positif "non livrable"
-    final zoneReady     = _zoneReady;
-    final zone          = zoneReady ? _zone : ShippingZone.world;
-    final shipping      = zoneReady ? _totalShipping(selectedItems) : 0.0;
-    final total         = cart.selectedProductsTotal + shipping;
-    final undeliverable = zoneReady && _selectedAddress != null
+    final zoneReady      = _zoneReady;
+    final zone           = zoneReady ? _zone : ShippingZone.world;
+    final shippingUSD    = zoneReady ? _totalShippingUSD(selectedItems) : 0.0;
+    final totalUSD       = cart.selectedProductsTotal + shippingUSD;
+    final undeliverable  = zoneReady && _selectedAddress != null
         && _hasUndeliverable(selectedItems);
 
     return Directionality(
@@ -313,13 +311,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
               isTablet ? 24 : 16, 100 + bottomPad),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            // Bannière non livrable — seulement quand zone connue
             if (zoneReady && _selectedAddress != null && undeliverable)
               _buildUndeliverableBanner(selectedItems),
 
             _buildSectionTitle('${_t('my_articles')} (${selectedItems.length})'),
             const SizedBox(height: 12),
-            _buildProductsList(selectedItems, zone, zoneReady),
+            _buildProductsList(selectedItems, zone, zoneReady, currency),
             const SizedBox(height: 24),
             _buildSectionTitle(_t('delivery_address')),
             const SizedBox(height: 12),
@@ -331,11 +328,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
             const SizedBox(height: 24),
             _buildSectionTitle(_t('summary')),
             const SizedBox(height: 12),
-            _buildPriceSummary(cart, selectedItems, zone, zoneReady, shipping, total),
+            _buildPriceSummary(cart, selectedItems, zone, zoneReady,
+                shippingUSD, totalUSD, currency),
           ]),
         ),
         bottomNavigationBar: _buildBottomBar(
-            selectedItems, total, undeliverable, zoneReady, bottomPad),
+            selectedItems, totalUSD, undeliverable, zoneReady, bottomPad, currency),
       ),
     );
   }
@@ -417,11 +415,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  LISTE PRODUITS
+  //  LISTE PRODUITS ✅ devise choisie
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildProductsList(List<CartItemModel> items,
-      ShippingZone zone, bool zoneReady) {
+      ShippingZone zone, bool zoneReady, CurrencyProvider currency) {
     return Container(
       decoration: BoxDecoration(
           color: Colors.white,
@@ -436,7 +434,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         catch (_) { return null; } })()
             : null;
 
-        // ✅ canDeliver / shipPrice seulement quand zone connue
         final canDeliver = zoneReady ? item.canDeliverTo(zone) : true;
         final shipPrice  = zoneReady ? item.shippingPrice(zone) : null;
 
@@ -476,7 +473,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ])),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('\$${item.price.toStringAsFixed(2)}',
+                  // ✅ prix article dans la devise choisie
+                  Text(currency.formatPrice(item.price),
                       style: const TextStyle(fontWeight: FontWeight.w800,
                           fontSize: 14, color: Colors.deepPurple)),
                   const SizedBox(height: 4),
@@ -491,13 +489,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ]),
               ]),
               const SizedBox(height: 8),
-              // ✅ Badge livraison — loading pendant résolution zone
               if (!zoneReady)
                 _badgeLoading()
               else if (!canDeliver)
                 _badgeUnavailable()
               else if (shipPrice != null)
-                  _badgeAvailable(shipPrice, zone)
+                // ✅ frais livraison dans la devise choisie
+                  _badgeAvailable(shipPrice, zone, currency)
                 else
                   _badgeFree(),
             ]),
@@ -510,24 +508,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _badgeAvailable(double price, ShippingZone zone) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF93C5FD))),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(zone.emoji, style: const TextStyle(fontSize: 11)),
-      const SizedBox(width: 5),
-      const Icon(Icons.local_shipping_rounded, size: 12, color: Color(0xFF3B82F6)),
-      const SizedBox(width: 5),
-      Flexible(child: Text(zone.label(AppLocalizations.getLanguage()),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF3B82F6)))),
-      const SizedBox(width: 5),
-      Text('+ ${price.toStringAsFixed(2)} \$',
-          style: const TextStyle(fontSize: 12,
-              fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
-    ]),
-  );
+  // ✅ Frais livraison formatés dans la devise choisie
+  Widget _badgeAvailable(double price, ShippingZone zone, CurrencyProvider currency) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF93C5FD))),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(zone.emoji, style: const TextStyle(fontSize: 11)),
+          const SizedBox(width: 5),
+          const Icon(Icons.local_shipping_rounded, size: 12, color: Color(0xFF3B82F6)),
+          const SizedBox(width: 5),
+          Flexible(child: Text(zone.label(AppLocalizations.getLanguage()),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF3B82F6)))),
+          const SizedBox(width: 5),
+          Text('+ ${currency.formatPrice(price)}',
+              style: const TextStyle(fontSize: 12,
+                  fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
+        ]),
+      );
 
   Widget _badgeUnavailable() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -603,7 +603,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               style: TextStyle(fontSize: 13,
                   color: Colors.grey.shade700, height: 1.4)),
           const SizedBox(height: 6),
-          // Badge zone — visible seulement quand zone connue
           if (zoneReady)
             Row(mainAxisSize: MainAxisSize.min, children: [
               Text(zone.emoji, style: const TextStyle(fontSize: 11)),
@@ -616,12 +615,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ])
           else
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              const SizedBox(width: 60, height: 10,
-                  child: LinearProgressIndicator(
-                      backgroundColor: Color(0xFFF1F5F9),
-                      color: Colors.deepPurple)),
-            ]),
+            const SizedBox(width: 60, height: 10,
+                child: LinearProgressIndicator(
+                    backgroundColor: Color(0xFFF1F5F9),
+                    color: Colors.deepPurple)),
         ])),
         _selectedAddress == null
             ? _actionBtn(_t('add'), _addAddress, isAdd: true)
@@ -695,13 +692,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  RÉCAP PRIX
+  //  RÉCAP PRIX ✅ devise choisie
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildPriceSummary(CartProvider cart, List<CartItemModel> items,
-      ShippingZone zone, bool zoneReady, double shipping, double total) {
+      ShippingZone zone, bool zoneReady, double shippingUSD,
+      double totalUSD, CurrencyProvider currency) {
 
-    // Détail livraison par boutique
     final Map<String, double> byVendor = {};
     if (zoneReady) {
       for (final item in items) {
@@ -719,11 +716,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
               blurRadius: 10, offset: const Offset(0, 3))]),
       child: Column(children: [
+        // ✅ sous-total produits dans la devise choisie
         _priceRow(_t('cart_products_subtotal'),
-            '\$${cart.selectedProductsTotal.toStringAsFixed(2)}'),
+            currency.formatPrice(cart.selectedProductsTotal)),
         const SizedBox(height: 10),
 
-        // Livraison
         if (!zoneReady)
           _priceRowLoading(_t('cart_shipping_subtotal'))
         else if (byVendor.isNotEmpty) ...[
@@ -736,22 +733,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ...byVendor.entries.map((e) => Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(children: [
-              Icon(Icons.storefront_rounded,
-                  size: 13, color: Colors.deepPurple.shade300),
+              Icon(Icons.storefront_rounded, size: 13, color: Colors.deepPurple.shade300),
               const SizedBox(width: 6),
               Expanded(child: Text(e.key,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
-              Text('+ \$${e.value.toStringAsFixed(2)}',
+              // ✅ livraison par vendeur dans la devise choisie
+              Text('+ ${currency.formatPrice(e.value)}',
                   style: const TextStyle(fontSize: 12,
                       fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
             ]),
           )),
           const Divider(height: 14),
+          // ✅ sous-total livraison dans la devise choisie
           _priceRow(
             '${_t('cart_shipping_subtotal')} '
                 '(${zone.emoji} ${zone.label(AppLocalizations.getLanguage())})',
-            '\$${shipping.toStringAsFixed(2)}',
+            currency.formatPrice(shippingUSD),
             valueColor: const Color(0xFF3B82F6),
           ),
         ] else
@@ -760,8 +758,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
         const Padding(padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1)),
-        _priceRow(_t('cart_total'), '\$${total.toStringAsFixed(2)}',
+        // ✅ total dans la devise choisie
+        _priceRow(_t('cart_total'), currency.formatPrice(totalUSD),
             isBold: true, isLarge: true, valueColor: Colors.deepPurple),
+
+        // ✅ Note informative si devise ≠ USD
+        if (context.read<CurrencyProvider>().selectedCode != 'USD') ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBAE6FD))),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF0284C7)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(
+                // ✅ indique le montant USD réel débité
+                '${_t('checkout_payment_usd_note')} \$${totalUSD.toStringAsFixed(2)} USD',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF0369A1)),
+              )),
+            ]),
+          ),
+        ],
       ]),
     );
   }
@@ -791,14 +811,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  BOTTOM BAR
+  //  BOTTOM BAR ✅ devise choisie
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(List<CartItemModel> items, double total,
-      bool undeliverable, bool zoneReady, double bottomPad) {
+  Widget _buildBottomBar(List<CartItemModel> items, double totalUSD,
+      bool undeliverable, bool zoneReady, double bottomPad,
+      CurrencyProvider currency) {
 
-    // Bloqué si : en traitement, pas d'adresse, pas de paiement,
-    // zone pas encore connue, ou articles non livrables
     final isBlocked = _isProcessing
         || _selectedAddress == null
         || _selectedPayment == null
@@ -814,7 +833,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               blurRadius: 16, offset: const Offset(0, -4))]),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-        // Message d'erreur non livrable
         if (undeliverable && zoneReady && _selectedAddress != null)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -856,18 +874,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       valueColor: AlwaysStoppedAnimation(Colors.white))),
               const SizedBox(width: 10),
               Text(_t('checkout_calculating'),
-                  style: const TextStyle(fontSize: 15,
-                      fontWeight: FontWeight.w700)),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ])
                 : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.lock_rounded, size: 18),
               const SizedBox(width: 8),
+              // ✅ bouton paiement dans la devise choisie
               Text(
                 undeliverable
                     ? _t('checkout_fix_selection')
-                    : '${_t('pay_button')} \$${total.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 16,
-                    fontWeight: FontWeight.w700),
+                    : '${_t('pay_button')} ${currency.formatPrice(totalUSD)}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ]),
           ),
@@ -877,10 +894,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  DIALOGS / HELPERS
+  //  DIALOG SUCCÈS ✅ devise choisie
   // ─────────────────────────────────────────────────────────────
 
-  void _showSuccessDialog(double totalPaid) {
+  void _showSuccessDialog(double totalUSD) {
+    // Lire currency une fois hors du build
+    final currency = context.read<CurrencyProvider>();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -912,12 +932,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   color: Colors.green.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.green.withOpacity(0.2))),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.payments_rounded, color: Colors.green.shade600, size: 20),
-                const SizedBox(width: 8),
-                Text('\$${totalPaid.toStringAsFixed(2)}',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
-                        color: Colors.green.shade600)),
+              child: Column(children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.payments_rounded, color: Colors.green.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  // ✅ montant payé dans la devise choisie
+                  Text(currency.formatPrice(totalUSD),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                          color: Colors.green.shade600)),
+                ]),
+                // ✅ note USD si devise ≠ USD
+                if (currency.selectedCode != 'USD') ...[
+                  const SizedBox(height: 4),
+                  Text('\$${totalUSD.toStringAsFixed(2)} USD',
+                      style: TextStyle(fontSize: 11, color: Colors.green.shade400)),
+                ],
               ]),
             ),
             const SizedBox(height: 28),

@@ -4,11 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 import '../../../models/product_categories.dart';
 import '../../../models/product_model.dart';
 import '../../../models/shipping_zone_model.dart' hide ShippingCompanies;
 import '../../../models/shipping_company_model.dart';
+import '../../../providers/currency_provider.dart';
 import '../../../widgets/shipping_price_display_widget.dart';
 import '../../compte/adress/address_page.dart';
 
@@ -562,66 +564,105 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     final originalPrice  = product.price;
     final pct            = product.discountPercent;
 
-    if (!discountActive) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))]),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_t('detail_price_label'), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
-          const SizedBox(height: 4),
-          Text('${effectivePrice.toStringAsFixed(2)} TND',
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.5)),
-        ]),
-      );
-    }
+    // ✅ Consumer pour réagir au changement de devise en temps réel
+    return Consumer<CurrencyProvider>(
+      builder: (context, currency, _) {
+        if (!discountActive) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
+                    blurRadius: 12, offset: const Offset(0, 4))]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_t('detail_price_label'),
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              // ✅ Prix dans la devise choisie
+              Text(currency.formatPrice(effectivePrice),
+                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A), letterSpacing: -0.5)),
+              // ✅ Note USD si devise différente
+              if (currency.selectedCode != 'USD') ...[
+                const SizedBox(height: 2),
+                Text('\$${effectivePrice.toStringAsFixed(2)} USD',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+              ],
+            ]),
+          );
+        }
 
-    final savings = originalPrice - effectivePrice;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.2)),
-          boxShadow: [BoxShadow(color: const Color(0xFF16A34A).withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4))]),
-      child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text('${originalPrice.toStringAsFixed(2)} TND',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8),
-                    decoration: TextDecoration.lineThrough, decorationColor: Color(0xFF94A3B8), decorationThickness: 2)),
-            const SizedBox(width: 8),
-            if (pct != null)
-              Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(7)),
-                  child: Text('-${pct.toStringAsFixed(0)}%',
-                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w900))),
+        final savings = originalPrice - effectivePrice;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFFF0FDF4), Color(0xFFDCFCE7)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.2)),
+              boxShadow: [BoxShadow(
+                  color: const Color(0xFF16A34A).withOpacity(0.08),
+                  blurRadius: 16, offset: const Offset(0, 4))]),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                // ✅ Prix barré dans la devise choisie
+                Text(currency.formatPrice(originalPrice),
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8),
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: Color(0xFF94A3B8), decorationThickness: 2)),
+                const SizedBox(width: 8),
+                if (pct != null)
+                  Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(7)),
+                      child: Text('-${pct.toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 12, color: Colors.white,
+                              fontWeight: FontWeight.w900))),
+              ]),
+              const SizedBox(height: 6),
+              // ✅ Prix réduit dans la devise choisie
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(currency.formatPrice(effectivePrice),
+                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900,
+                        color: Color(0xFF16A34A), letterSpacing: -1.0)),
+              ]),
+              // ✅ Note USD si devise différente
+              if (currency.selectedCode != 'USD')
+                Text('\$${effectivePrice.toStringAsFixed(2)} USD',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF16A34A),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(
+                      color: const Color(0xFF16A34A).withOpacity(0.35),
+                      blurRadius: 12, offset: const Offset(0, 4))]),
+              child: Column(children: [
+                const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
+                const SizedBox(height: 4),
+                Text(_t('detail_you_save'),
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                // ✅ Économies dans la devise choisie
+                Text(currency.formatPrice(savings),
+                    style: const TextStyle(
+                        fontSize: 14, color: Colors.white, fontWeight: FontWeight.w900)),
+              ]),
+            ),
           ]),
-          const SizedBox(height: 6),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(effectivePrice.toStringAsFixed(2),
-                style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Color(0xFF16A34A), letterSpacing: -1.0)),
-            const SizedBox(width: 5),
-            const Padding(padding: EdgeInsets.only(bottom: 5),
-                child: Text('TND', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF16A34A)))),
-          ]),
-        ])),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: const Color(0xFF16A34A).withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4))]),
-          child: Column(children: [
-            const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
-            const SizedBox(height: 4),
-            Text(_t('detail_you_save'), style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            Text(savings.toStringAsFixed(2), style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w900)),
-            Text('TND', style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ]),
+        );
+      },
     );
   }
 
@@ -858,50 +899,58 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   Widget _buildBottomBar(bool isOutOfStock, double bottomPad) {
     final effectivePrice = widget.product.discountedPrice;
     final totalPrice     = _quantity * effectivePrice;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + bottomPad),
-      decoration: BoxDecoration(color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, -6))]),
-      child: Row(children: [
-        ScaleTransition(
-            scale: _heartScale,
-            child: GestureDetector(
-                onTap: _toggleFavorite,
-                child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 54, height: 54,
-                    decoration: BoxDecoration(
-                        color: _isFavorite ? Colors.red.shade50 : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _isFavorite ? Colors.red.shade200 : Colors.grey.shade200)),
-                    child: Icon(_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: _isFavorite ? Colors.red : Colors.grey.shade500, size: 24)))),
-        const SizedBox(width: 12),
-        Expanded(
-            child: ScaleTransition(
-                scale: _cartBounce,
-                child: ElevatedButton(
-                    onPressed: isOutOfStock || _isAddingToCart ? null : _addToCart,
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: isOutOfStock ? Colors.grey.shade300 : const Color(0xFF16A34A),
-                        foregroundColor: Colors.white,
-                        elevation: isOutOfStock ? 0 : 6,
-                        shadowColor: const Color(0xFF16A34A).withOpacity(0.4),
-                        minimumSize: const Size(double.infinity, 54),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                    child: _isAddingToCart
-                        ? const SizedBox(width: 22, height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                        : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.shopping_cart_rounded, size: 20),
-                      const SizedBox(width: 8),
-                      Flexible(child: Text(
-                          isOutOfStock ? _t('detail_out_of_stock') : '${_t('detail_add_to_cart')} · ${totalPrice.toStringAsFixed(2)} TND',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                          overflow: TextOverflow.ellipsis)),
-                    ])))),
-      ]),
+
+    return Consumer<CurrencyProvider>(
+      builder: (context, currency, _) {
+        return Container(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + bottomPad),
+          decoration: BoxDecoration(color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, -6))]),
+          child: Row(children: [
+            ScaleTransition(
+                scale: _heartScale,
+                child: GestureDetector(
+                    onTap: _toggleFavorite,
+                    child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 54, height: 54,
+                        decoration: BoxDecoration(
+                            color: _isFavorite ? Colors.red.shade50 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _isFavorite ? Colors.red.shade200 : Colors.grey.shade200)),
+                        child: Icon(_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: _isFavorite ? Colors.red : Colors.grey.shade500, size: 24)))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: ScaleTransition(
+                    scale: _cartBounce,
+                    child: ElevatedButton(
+                        onPressed: isOutOfStock || _isAddingToCart ? null : _addToCart,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: isOutOfStock ? Colors.grey.shade300 : const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            elevation: isOutOfStock ? 0 : 6,
+                            shadowColor: const Color(0xFF16A34A).withOpacity(0.4),
+                            minimumSize: const Size(double.infinity, 54),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                        child: _isAddingToCart
+                            ? const SizedBox(width: 22, height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Icon(Icons.shopping_cart_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          // ✅ Prix dans la devise choisie par l'utilisateur
+                          Flexible(child: Text(
+                              isOutOfStock
+                                  ? _t('detail_out_of_stock')
+                                  : '${_t('detail_add_to_cart')} · ${currency.formatPrice(totalPrice)}',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                              overflow: TextOverflow.ellipsis)),
+                        ])))),
+          ]),
+        );
+      },
     );
   }
 
@@ -910,13 +959,6 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           '${date.month.toString().padLeft(2, '0')}/'
           '${date.year}';
 }
-
-// ══════════════════════════════════════════════════════════════════
-// ✅ WIDGET AVIS CLIENTS APPROUVÉS
-//    Firestore: products/{productId}/reviews
-//               where status == 'approved'
-//               orderBy createdAt desc
-// ══════════════════════════════════════════════════════════════════
 
 class _ProductReviewsSection extends StatefulWidget {
   final String productId;

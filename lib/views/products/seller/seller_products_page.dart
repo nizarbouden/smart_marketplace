@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/currency_provider.dart'; // ✅
 import 'package:smart_marketplace/providers/language_provider.dart';
 import 'package:smart_marketplace/views/notifications/notifications_page.dart';
 import 'package:smart_marketplace/models/product_model.dart';
@@ -51,7 +52,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   bool _isRefreshing = false;
   int  _streamKey    = 0;
   StreamSubscription<QuerySnapshot>? _notifSub;
-  StreamSubscription<User?>?         _authSub; // ✅ écoute déconnexion
+  StreamSubscription<User?>?         _authSub;
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery  = '';
@@ -61,12 +62,10 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   void initState() {
     super.initState();
     _listenUnreadCount();
-
-    // ✅ Annuler les streams dès déconnexion
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user == null) {
         _notifSub?.cancel();
-        if (mounted) setState(() => _streamKey++); // ✅ tue le StreamBuilder
+        if (mounted) setState(() => _streamKey++);
       }
     });
   }
@@ -108,7 +107,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
           MaterialPageRoute(
               builder: (_) => AddProductPage(docId: docId, existing: existing)));
 
-  // ✅ Navigation vers ProductDetailPage depuis une Map brute
   void _goToProductDetail(String docId, Map<String, dynamic> data) {
     final product = Product(
       id:              docId,
@@ -215,8 +213,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     );
   }
 
-  // ── AppBar ───────────────────────────────────────────────────
-
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: const Color(0xFF16A34A),
@@ -273,8 +269,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       ],
     );
   }
-
-  // ── Empty / No result ─────────────────────────────────────────
 
   Widget _buildNoResultState() {
     return ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
@@ -379,7 +373,9 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
           : _translate('seller_product_inactive');
     }
 
-    // ✅ GestureDetector sur toute la card → ProductDetailPage
+    // ✅ Récupérer la devise depuis le provider
+    final currency = context.watch<CurrencyProvider>();
+
     return GestureDetector(
       onTap: () => _goToProductDetail(docId, data),
       child: Container(
@@ -404,8 +400,9 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
                         gradient: LinearGradient(
                             begin: Alignment.topCenter, end: Alignment.bottomCenter,
                             colors: [Colors.transparent, Colors.black.withOpacity(0.6)])))),
+            // ✅ Badge prix avec devise de l'utilisateur
             Positioned(bottom: 12, left: 12,
-                child: _buildPriceBadge(price, hasDiscount, discountPct)),
+                child: _buildPriceBadge(price, hasDiscount, discountPct, currency)),
             Positioned(top: 10, right: 10,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -466,7 +463,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
               const SizedBox(height: 12),
               Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
               const SizedBox(height: 12),
-              // ✅ Les boutons d'action stoppent la propagation du tap avec GestureDetector
               Row(children: [
                 Expanded(
                     child: _actionBtn(
@@ -503,27 +499,38 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     );
   }
 
-  // ── Widgets helpers ───────────────────────────────────────────
+  // ── ✅ Badge prix avec devise utilisateur ─────────────────────
 
-  Widget _buildPriceBadge(double price, bool hasDiscount, double? discountPct) {
+  Widget _buildPriceBadge(
+      double price, bool hasDiscount, double? discountPct, CurrencyProvider currency) {
     if (!hasDiscount) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(12)),
-        child: Text('${price.toStringAsFixed(2)} TND',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        decoration: BoxDecoration(
+            color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(12)),
+        child: Text(
+          currency.formatPrice(price),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+        ),
       );
     }
     final newPrice = price * (1 - discountPct! / 100);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.55), borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${price.toStringAsFixed(2)} TND',
-            style: const TextStyle(fontSize: 10, color: Colors.white60,
-                decoration: TextDecoration.lineThrough, decorationColor: Colors.white60)),
-        Text('${newPrice.toStringAsFixed(2)} TND',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          currency.formatPrice(price),
+          style: const TextStyle(fontSize: 10, color: Colors.white60,
+              decoration: TextDecoration.lineThrough, decorationColor: Colors.white60),
+        ),
+        Text(
+          currency.formatPrice(newPrice),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+        ),
       ]),
     );
   }
@@ -677,8 +684,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       color: const Color(0xFFF0FDF4),
       child: const Center(child: Icon(Icons.image_rounded, color: Color(0xFFBBF7D0), size: 52)));
 
-  // ✅ _actionBtn et _iconBtn avec GestureDetector.behavior = HitTestBehavior.opaque
-  // pour absorber le tap et NE PAS propager vers le GestureDetector parent de la card
   Widget _actionBtn({
     required String label,
     required IconData icon,
@@ -721,8 +726,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       ),
     );
   }
-
-  // ── Logic ─────────────────────────────────────────────────────
 
   void _showStatusInfo(String status) {
     final isPending = status == 'pending';

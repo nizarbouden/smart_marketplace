@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';                          // ✅
 import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'package:smart_marketplace/models/product_categories.dart';
+import 'package:smart_marketplace/providers/currency_provider.dart'; // ✅
 
 class FilterOptions {
   String? selectedCategory;
@@ -55,7 +57,7 @@ class FilterDrawer extends StatefulWidget {
 
 class _FilterDrawerState extends State<FilterDrawer> {
   late FilterOptions _filters;
-  bool _categoryExpanded = false; // ✅ état d'ouverture de la liste
+  bool _categoryExpanded = false;
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -69,7 +71,6 @@ class _FilterDrawerState extends State<FilterDrawer> {
       sortOrder: widget.currentFilters.sortOrder,
       inStockOnly: widget.currentFilters.inStockOnly,
     );
-    // ✅ Si une catégorie est déjà sélectionnée, ouvrir la liste au démarrage
     _categoryExpanded = widget.currentFilters.selectedCategory != null;
   }
 
@@ -92,7 +93,6 @@ class _FilterDrawerState extends State<FilterDrawer> {
     final theme = Theme.of(context);
     final lang = AppLocalizations.getLanguage();
 
-    // Label de la catégorie sélectionnée (pour l'afficher dans le header fermé)
     final selectedCatLabel = _filters.selectedCategory != null
         ? '${ProductCategories.iconFromId(_filters.selectedCategory!)} ${ProductCategories.labelFromId(_filters.selectedCategory!, lang)}'
         : _t('filter_category_all');
@@ -143,16 +143,14 @@ class _FilterDrawerState extends State<FilterDrawer> {
                 padding: const EdgeInsets.all(20),
                 children: [
 
-                  // ── Catégories (liste dépliable) ─────────────
+                  // ── Catégories ───────────────────────────────
                   _SectionTitle(title: _t('filter_category')),
                   const SizedBox(height: 10),
 
-                  // ✅ Container cliquable qui ouvre/ferme la liste
                   GestureDetector(
                     onTap: () => setState(() => _categoryExpanded = !_categoryExpanded),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: _filters.selectedCategory != null
                             ? theme.colorScheme.primary.withOpacity(0.08)
@@ -166,26 +164,21 @@ class _FilterDrawerState extends State<FilterDrawer> {
                       ),
                       child: Row(
                         children: [
-                          // Icône + label catégorie sélectionnée
                           Expanded(
                             child: Text(
                               selectedCatLabel,
                               style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 13, fontWeight: FontWeight.w600,
                                 color: _filters.selectedCategory != null
                                     ? theme.colorScheme.primary
                                     : Colors.grey.shade700,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          // ✅ Badge nombre de catégories dispo
                           Container(
                             margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
@@ -193,28 +186,22 @@ class _FilterDrawerState extends State<FilterDrawer> {
                             child: Text(
                               '${widget.categories.length}',
                               style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 11, fontWeight: FontWeight.w700,
                                 color: theme.colorScheme.primary,
                               ),
                             ),
                           ),
-                          // Flèche animée
                           AnimatedRotation(
                             turns: _categoryExpanded ? 0.5 : 0,
                             duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: Colors.grey.shade500,
-                              size: 20,
-                            ),
+                            child: Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Colors.grey.shade500, size: 20),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  // ✅ Liste animée qui s'ouvre/ferme
                   AnimatedCrossFade(
                     duration: const Duration(milliseconds: 220),
                     crossFadeState: _categoryExpanded
@@ -227,15 +214,10 @@ class _FilterDrawerState extends State<FilterDrawer> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey.shade200),
-                        boxShadow: [
-                          BoxShadow(
+                        boxShadow: [BoxShadow(
                             color: Colors.black.withOpacity(0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                            blurRadius: 8, offset: const Offset(0, 2))],
                       ),
-                      // ✅ Hauteur max avec scroll si beaucoup de catégories
                       constraints: const BoxConstraints(maxHeight: 280),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
@@ -243,7 +225,6 @@ class _FilterDrawerState extends State<FilterDrawer> {
                           shrinkWrap: true,
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           children: [
-                            // Option "Toutes"
                             _CategoryListTile(
                               icon: '🏷️',
                               label: _t('filter_category_all'),
@@ -254,17 +235,15 @@ class _FilterDrawerState extends State<FilterDrawer> {
                               },
                             ),
                             const Divider(height: 1, indent: 16, endIndent: 16),
-                            // Catégories disponibles
                             ...widget.categories.map((id) {
-                              final icon = ProductCategories.iconFromId(id);
+                              final icon  = ProductCategories.iconFromId(id);
                               final label = ProductCategories.labelFromId(id, lang);
                               return _CategoryListTile(
-                                icon: icon,
-                                label: label,
+                                icon: icon, label: label,
                                 selected: _filters.selectedCategory == id,
                                 onTap: () {
                                   _update(_filters.copyWith(selectedCategory: id));
-                                  setState(() => _categoryExpanded = false); // ✅ ferme après sélection
+                                  setState(() => _categoryExpanded = false);
                                 },
                               );
                             }),
@@ -276,7 +255,7 @@ class _FilterDrawerState extends State<FilterDrawer> {
 
                   const SizedBox(height: 28),
 
-                  // ── Prix ─────────────────────────────────────
+                  // ── Prix ✅ labels avec devise choisie ────────
                   _SectionTitle(title: _t('filter_price_range')),
                   const SizedBox(height: 8),
                   Row(
@@ -297,12 +276,10 @@ class _FilterDrawerState extends State<FilterDrawer> {
                     activeColor: theme.colorScheme.primary,
                     inactiveColor: theme.colorScheme.primary.withOpacity(0.15),
                     onChangeEnd: (values) => _update(_filters.copyWith(
-                      minPrice: values.start,
-                      maxPrice: values.end,
+                      minPrice: values.start, maxPrice: values.end,
                     )),
                     onChanged: (values) => setState(() => _filters = _filters.copyWith(
-                      minPrice: values.start,
-                      maxPrice: values.end,
+                      minPrice: values.start, maxPrice: values.end,
                     )),
                   ),
 
@@ -312,22 +289,19 @@ class _FilterDrawerState extends State<FilterDrawer> {
                   _SectionTitle(title: _t('filter_sort_by_price')),
                   const SizedBox(height: 10),
                   _SortTile(
-                    label: _t('filter_sort_default'),
-                    icon: Icons.sort_rounded,
+                    label: _t('filter_sort_default'), icon: Icons.sort_rounded,
                     selected: _filters.sortOrder == 'none',
                     onTap: () => _update(_filters.copyWith(sortOrder: 'none')),
                   ),
                   const SizedBox(height: 8),
                   _SortTile(
-                    label: _t('filter_sort_asc'),
-                    icon: Icons.arrow_upward_rounded,
+                    label: _t('filter_sort_asc'), icon: Icons.arrow_upward_rounded,
                     selected: _filters.sortOrder == 'asc',
                     onTap: () => _update(_filters.copyWith(sortOrder: 'asc')),
                   ),
                   const SizedBox(height: 8),
                   _SortTile(
-                    label: _t('filter_sort_desc'),
-                    icon: Icons.arrow_downward_rounded,
+                    label: _t('filter_sort_desc'), icon: Icons.arrow_downward_rounded,
                     selected: _filters.sortOrder == 'desc',
                     onTap: () => _update(_filters.copyWith(sortOrder: 'desc')),
                   ),
@@ -363,10 +337,8 @@ class _CategoryListTile extends StatelessWidget {
   final VoidCallback onTap;
 
   const _CategoryListTile({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
+    required this.icon, required this.label,
+    required this.selected, required this.onTap,
   });
 
   @override
@@ -382,18 +354,11 @@ class _CategoryListTile extends StatelessWidget {
           children: [
             Text(icon, style: const TextStyle(fontSize: 16)),
             const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                  color: selected ? primary : Colors.grey.shade800,
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check_rounded, size: 16, color: primary),
+            Expanded(child: Text(label, style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected ? primary : Colors.grey.shade800))),
+            if (selected) Icon(Icons.check_rounded, size: 16, color: primary),
           ],
         ),
       ),
@@ -409,14 +374,12 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.onSurface,
-        letterSpacing: 0.3,
-      ),
-    );
+    return Text(title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
+          letterSpacing: 0.3,
+        ));
   }
 }
 
@@ -427,10 +390,8 @@ class _SortTile extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SortTile({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
+    required this.label, required this.icon,
+    required this.selected, required this.onTap,
   });
 
   @override
@@ -444,24 +405,16 @@ class _SortTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? primary.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: selected ? primary : Colors.grey.shade200),
+          border: Border.all(color: selected ? primary : Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            Icon(icon,
-                size: 18,
-                color: selected ? primary : Colors.grey.shade500),
+            Icon(icon, size: 18, color: selected ? primary : Colors.grey.shade500),
             const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
+            Text(label, style: TextStyle(
                 color: selected ? primary : Colors.grey.shade700,
-                fontWeight:
-                selected ? FontWeight.w600 : FontWeight.w400,
-                fontSize: 14,
-              ),
-            ),
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 14)),
             if (selected) ...[
               const Spacer(),
               Icon(Icons.check_rounded, size: 16, color: primary),
@@ -479,9 +432,7 @@ class _ToggleTile extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   const _ToggleTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
+    required this.label, required this.value, required this.onChanged,
   });
 
   @override
@@ -489,14 +440,10 @@ class _ToggleTile extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Text(label,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w500)),
-        ),
+        Expanded(child: Text(label, style: const TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w500))),
         Switch.adaptive(
-          value: value,
-          onChanged: onChanged,
+          value: value, onChanged: onChanged,
           activeColor: Theme.of(context).colorScheme.primary,
         ),
       ],
@@ -504,12 +451,14 @@ class _ToggleTile extends StatelessWidget {
   }
 }
 
+// ✅ Prix affiché dans la devise choisie par l'utilisateur
 class _PriceLabel extends StatelessWidget {
   final double value;
   const _PriceLabel({required this.value});
 
   @override
   Widget build(BuildContext context) {
+    final currency = context.watch<CurrencyProvider>(); // ✅
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -517,7 +466,7 @@ class _PriceLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '${value.toStringAsFixed(0)} DT',
+        currency.formatPrice(value), // ✅ devise choisie au lieu de DT hardcodé
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
