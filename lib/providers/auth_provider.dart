@@ -8,29 +8,26 @@ import '../services/firebase_auth_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuthService _authService = FirebaseAuthService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth        _auth        = FirebaseAuth.instance;
 
   UserModel? _user;
-  bool _isLoading = false;
-  String? _errorMessage;
+  bool      _isLoading    = false;
+  String?   _errorMessage;
 
-  UserModel? get user => _user;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _user != null;
-  bool get isGuest => _user == null;
+  UserModel? get user          => _user;
+  bool       get isLoading     => _isLoading;
+  String?    get errorMessage  => _errorMessage;
+  bool       get isAuthenticated => _user != null;
+  bool       get isGuest       => _user == null;
 
-  String? get nom => _user?.nom;
-  String? get prenom => _user?.prenom;
-  String? get genre => _user?.genre;
+  String? get nom        => _user?.nom;
+  String? get prenom     => _user?.prenom;
+  String? get genre      => _user?.genre;
   String? get countryCode => _user?.countryCode;
-  String? get fullName =>
-      _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
-  int get points => _user?.points ?? 0;
+  String? get fullName   => _user != null ? '${_user!.prenom} ${_user!.nom}' : null;
+  int     get points     => _user?.points ?? 0;
 
-  AuthProvider() {
-    _initAsync();
-  }
+  AuthProvider() { _initAsync(); }
 
   Future<void> _initAsync() async {
     _authService.authStateChanges.listen((User? firebaseUser) {
@@ -67,8 +64,6 @@ class AuthProvider with ChangeNotifier {
 
   // ─────────────────────────────────────────────────────────────
   //  INSCRIPTION
-  //  ✅ FIX : SignUpSuccessException → return true sans polluer errorMessage
-  //           Toute autre exception → return false + errorMessage
   // ─────────────────────────────────────────────────────────────
   Future<bool> signUp({
     required String email,
@@ -85,20 +80,16 @@ class AuthProvider with ChangeNotifier {
 
       await _authService.signUpWithEmailAndPassword(
         email, password, nom,
-        prenom: prenom,
-        genre: genre,
+        prenom:      prenom,
+        genre:       genre,
         countryCode: countryCode,
         phoneNumber: phoneNumber,
       );
 
-      // Si on arrive ici sans exception → succès (normalement jamais atteint
-      // car le service lève toujours SignUpSuccessException ou une vraie erreur)
       notifyListeners();
       return true;
 
     } on SignUpSuccessException {
-      // ✅ Inscription réussie : email envoyé, compte créé
-      // On ne met PAS d'erreur, on retourne true directement
       _clearError();
       notifyListeners();
       return true;
@@ -120,6 +111,10 @@ class AuthProvider with ChangeNotifier {
 
   // ─────────────────────────────────────────────────────────────
   //  CONNEXION EMAIL / MOT DE PASSE
+  //
+  //  ✅ FIX : vérification du statut APRÈS signIn (pas avant)
+  //           Si compte désactivé → réactiver automatiquement
+  //           (ne plus bloquer la connexion)
   // ─────────────────────────────────────────────────────────────
   Future<bool> signIn({
     required String email,
@@ -127,29 +122,43 @@ class AuthProvider with ChangeNotifier {
     bool rememberMe = false,
   }) async {
     try {
-      print('🔄 AuthProvider: Connexion pour $email (rememberMe: $rememberMe)');
+      print('🔄 AuthProvider: Connexion pour $email');
       _setLoading(true);
       _clearError();
 
-      final firebaseUser = FirebaseAuth.instance.currentUser;
+      // 1. Connexion Firebase
+      _user = await _authService.signInWithEmailAndPassword(email, password);
+
+      // 2. ✅ Vérifier le statut APRÈS connexion (pas avant)
+      final firebaseUser = _auth.currentUser;
       if (firebaseUser != null) {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(firebaseUser.uid)
             .get();
+
         if (userDoc.exists) {
           final status = userDoc.data()?['status'] as String? ?? 'active';
+
           if (status == 'deactivated') {
-            await _auth.signOut();
-            _setError('Ce compte a été désactivé et sera supprimé dans 30 jours.');
-            notifyListeners();
-            return false;
+            // ✅ Réactiver automatiquement au lieu de bloquer
+            print('🔄 Compte désactivé détecté — réactivation automatique...');
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(firebaseUser.uid)
+                .update({
+              'status':              'active',
+              'reactivatedAt':       Timestamp.now(),
+              'deletionRequestedAt': FieldValue.delete(),
+              'scheduledDeletionAt': FieldValue.delete(),
+            });
+            print('✅ Compte réactivé pour ${firebaseUser.email}');
+            // Continuer normalement — ne pas bloquer
           }
         }
       }
 
-      _user = await _authService.signInWithEmailAndPassword(email, password);
-
+      // 3. Sauvegarder rememberMe
       final prefs = await SharedPreferences.getInstance();
       if (rememberMe) {
         await prefs.setBool('rememberMe', true);
@@ -166,7 +175,6 @@ class AuthProvider with ChangeNotifier {
       return true;
 
     } on EmailNotVerifiedException catch (e) {
-      // ✅ Email non vérifié → erreur dédiée, pas de message générique
       _setError(e.toString());
       notifyListeners();
       return false;
@@ -184,6 +192,7 @@ class AuthProvider with ChangeNotifier {
 
   // ─────────────────────────────────────────────────────────────
   //  CONNEXION GOOGLE
+  //  ✅ FIX : réactiver au lieu de bloquer si compte désactivé
   // ─────────────────────────────────────────────────────────────
   Future<bool> signInWithGoogle({bool rememberMe = false}) async {
     try {
@@ -197,14 +206,23 @@ class AuthProvider with ChangeNotifier {
             .collection('users')
             .doc(_user!.uid)
             .get();
+
         if (userDoc.exists) {
           final status = userDoc.data()?['status'] as String? ?? 'active';
+
           if (status == 'deactivated') {
-            await _auth.signOut();
-            _user = null;
-            _setError(AppLocalizations.get('account_deactivated_error'));
-            notifyListeners();
-            return false;
+            // ✅ Réactiver automatiquement
+            print('🔄 Compte Google désactivé — réactivation automatique...');
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(_user!.uid)
+                .update({
+              'status':              'active',
+              'reactivatedAt':       Timestamp.now(),
+              'deletionRequestedAt': FieldValue.delete(),
+              'scheduledDeletionAt': FieldValue.delete(),
+            });
+            print('✅ Compte Google réactivé pour ${_user!.email}');
           }
         }
 
@@ -342,10 +360,9 @@ class AuthProvider with ChangeNotifier {
   void _setError(String error) {
     _errorMessage = error;
     notifyListeners();
-    // Auto-clear après 5s sauf pour les erreurs de vérification email
     final isEmailVerificationError =
         error.toLowerCase().contains('vérifier') ||
-            error.toLowerCase().contains('verify') ||
+            error.toLowerCase().contains('verify')   ||
             error.toLowerCase().contains('verified');
     if (!isEmailVerificationError) {
       Future.delayed(const Duration(seconds: 5), _clearError);

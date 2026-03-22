@@ -50,7 +50,7 @@ dependencies:
   
   # URL launcher
   url_launcher: ^6.3.2
-  
+
   # File handling
   universal_io: ^2.2.2
   path_provider: ^2.1.1

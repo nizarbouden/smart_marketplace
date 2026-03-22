@@ -77,9 +77,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => LanguageProvider()),
         ChangeNotifierProvider(create: (context) => CartProvider()),
-        // ✅ CurrencyProvider initialisé SANS uid ici —
-        //    l'uid sera injecté dans _AppRoot dès que Firebase
-        //    confirme quel utilisateur est connecté.
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
       ],
       child: Consumer<LanguageProvider>(
@@ -102,8 +99,6 @@ class MyApp extends StatelessWidget {
               ),
             ),
             initialRoute: '/',
-            // ✅ Toutes les routes sont wrappées dans _AppRoot
-            //    qui gère l'écoute authStateChanges une seule fois.
             builder: (context, child) => _AppRoot(child: child!),
             routes: {
               '/': (context) => const SplashScreen(),
@@ -164,9 +159,7 @@ class MyApp extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  _AppRoot — écoute authStateChanges UNE SEULE FOIS pour toute
-//  l'app et met à jour le CurrencyProvider avec l'UID du compte
-//  connecté. Chaque compte a sa propre devise sauvegardée.
+//  _AppRoot — authStateChanges + deep links réactivation
 // ─────────────────────────────────────────────────────────────────
 
 class _AppRoot extends StatefulWidget {
@@ -178,22 +171,19 @@ class _AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<_AppRoot> {
-  // ✅ uid actuellement chargé dans le provider
-  String _loadedUid  = '';
-  bool   _initDone   = false;
+  String _loadedUid = '';
+  bool   _initDone  = false;
 
   StreamSubscription<User?>? _authSub;
+  StreamSubscription<Uri>?   _linkSub; // ✅
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Initialisation au démarrage avec l'utilisateur déjà connecté
       final currentUser = FirebaseAuth.instance.currentUser;
       await _initCurrency(currentUser?.uid ?? '');
 
-      // ✅ On démarre l'écoute APRÈS le premier init pour éviter
-      // la double exécution (initState + authStateChanges)
       _authSub = FirebaseAuth.instance
           .authStateChanges()
           .listen(_onAuthChanged);
@@ -203,40 +193,28 @@ class _AppRootState extends State<_AppRoot> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _linkSub?.cancel(); // ✅
     super.dispose();
   }
 
-  // ── Appelé à chaque changement de compte ─────────────────────
+
+  // ── Auth ──────────────────────────────────────────────────────
 
   void _onAuthChanged(User? user) {
     if (!mounted) return;
     final newUid = user?.uid ?? '';
-    // ✅ Ne rien faire si c'est le même utilisateur
-    // (évite de reset la devise quand l'app rebuild)
     if (newUid == _loadedUid) return;
     _initCurrency(newUid);
   }
 
-  // ── Initialise / change la devise selon l'UID ────────────────
-  //
-  //  • Premier appel → init() : charge taux API + devise de cet UID
-  //  • Changement de compte → switchUser() : charge devise du nouvel UID
-  //    sans re-fetcher les taux (cache commun)
-  //
-  //  La clé : chaque UID a sa propre clé SharedPreferences
-  //  → "selected_currency_<uid>"
-
   Future<void> _initCurrency(String uid) async {
     if (!mounted) return;
     final cp = Provider.of<CurrencyProvider>(context, listen: false);
-
     if (!_initDone) {
-      // Premier lancement : init complet (taux + devise)
       _initDone  = true;
       _loadedUid = uid;
       await cp.init(uid: uid);
     } else if (uid != _loadedUid) {
-      // Changement de compte : charger juste la devise du nouvel UID
       _loadedUid = uid;
       await cp.switchUser(uid);
     }
