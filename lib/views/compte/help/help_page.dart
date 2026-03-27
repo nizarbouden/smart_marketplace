@@ -29,10 +29,11 @@ class _HelpPageState extends State<HelpPage> {
   bool   _isLoading        = true;
   bool   _isSendingEmail   = false;
 
-  // ── Rôle & couleur principale ────────────────────────────────
-  String _userRole = 'buyer'; // 'buyer' | 'seller'
+  // ✅ Langue courante — détecte les changements dans didChangeDependencies
+  String _currentLang = '';
 
-  /// Couleur primaire selon le rôle
+  String _userRole = 'buyer';
+
   Color get _primary =>
       _userRole == 'seller' ? const Color(0xFF16A34A) : const Color(0xFF8700FF);
 
@@ -41,8 +42,6 @@ class _HelpPageState extends State<HelpPage> {
   @override
   void initState() {
     super.initState();
-    _selectedCategory = _t('help_category_all');
-    _loadRoleAndFAQs();
     _searchController.addListener(_filterArticles);
   }
 
@@ -53,15 +52,33 @@ class _HelpPageState extends State<HelpPage> {
     super.dispose();
   }
 
-  // ── Charger rôle puis FAQs ───────────────────────────────────
-  Future<void> _loadRoleAndFAQs() async {
+  // ✅ Rechargement automatique quand la langue change
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = AppLocalizations.getLanguage();
+    if (lang != _currentLang) {
+      _currentLang      = lang;
+      _selectedCategory = _t('help_category_all');
+      _loadRoleAndFAQs(lang: lang);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  Chargement FAQs
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _loadRoleAndFAQs({String? lang}) async {
     setState(() => _isLoading = true);
     try {
-      final role = await _faqService.getUserRole();
+      final role       = await _faqService.getUserRole();
+      final targetLang = lang ?? AppLocalizations.getLanguage();
+
       if (mounted) setState(() => _userRole = role);
 
-      final faqs       = await _faqService.getAllFAQs();
-      final categories = await _faqService.getCategories();
+      // ✅ Passer la langue explicitement pour forcer le rechargement
+      final faqs       = await _faqService.getAllFAQs(lang: targetLang);
+      final categories = await _faqService.getCategories(lang: targetLang);
 
       if (mounted) {
         setState(() {
@@ -83,7 +100,9 @@ class _HelpPageState extends State<HelpPage> {
     }
   }
 
-  // ── Helpers couleur / icône ──────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Helpers couleur / icône
+  // ─────────────────────────────────────────────────────────────
 
   Color _getColorFromString(String s) {
     if (s.startsWith('#')) {
@@ -122,18 +141,20 @@ class _HelpPageState extends State<HelpPage> {
 
   Color _getCategoryColor(String category) {
     final c = category.toLowerCase();
-    if (c.contains('command') || c.contains('order'))   return Colors.blue;
-    if (c.contains('paiem')   || c.contains('payment')) return Colors.green;
-    if (c.contains('compte')  || c.contains('account')) return Colors.purple;
-    if (c.contains('livr')    || c.contains('deliv'))   return Colors.red;
-    if (c.contains('retour')  || c.contains('return'))  return Colors.teal;
-    if (c.contains('sécu')    || c.contains('secur'))   return Colors.indigo;
-    if (c.contains('applic')  || c.contains('app'))     return Colors.cyan;
-    if (c.contains('produit') || c.contains('product')) return Colors.orange;
+    if (c.contains('command') || c.contains('order')   || c.contains('طلب'))   return Colors.blue;
+    if (c.contains('paiem')   || c.contains('payment') || c.contains('دفع'))    return Colors.green;
+    if (c.contains('compte')  || c.contains('account') || c.contains('حساب'))   return Colors.purple;
+    if (c.contains('livr')    || c.contains('deliv')   || c.contains('توصيل'))  return Colors.red;
+    if (c.contains('retour')  || c.contains('return')  || c.contains('إرجاع'))  return Colors.teal;
+    if (c.contains('sécu')    || c.contains('secur')   || c.contains('أمان'))   return Colors.indigo;
+    if (c.contains('applic')  || c.contains('app')     || c.contains('تطبيق'))  return Colors.cyan;
+    if (c.contains('produit') || c.contains('product') || c.contains('منتج'))   return Colors.orange;
     return _primary;
   }
 
-  // ── Build ────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Build
+  // ─────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -147,15 +168,18 @@ class _HelpPageState extends State<HelpPage> {
       AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar:  _buildAppBar(isDesktop, isTablet),
-        body:    _isLoading ? _buildLoading() : _buildBody(isDesktop, isTablet, isMobile),
-        floatingActionButton:
-        _buildFAB(isDesktop, isTablet, isMobile),
+        appBar: _buildAppBar(isDesktop, isTablet),
+        body:   _isLoading
+            ? _buildLoading()
+            : _buildBody(isDesktop, isTablet, isMobile),
+        floatingActionButton: _buildFAB(isDesktop, isTablet, isMobile),
       ),
     );
   }
 
-  // ── AppBar avec badge rôle ───────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  AppBar
+  // ─────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar(bool isDesktop, bool isTablet) {
     return AppBar(
@@ -182,7 +206,6 @@ class _HelpPageState extends State<HelpPage> {
           ),
           if (!_isLoading) ...[
             const SizedBox(width: 10),
-            // Badge rôle coloré
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -197,8 +220,7 @@ class _HelpPageState extends State<HelpPage> {
                     _userRole == 'seller'
                         ? Icons.store_rounded
                         : Icons.person_rounded,
-                    color: _primary,
-                    size: 11,
+                    color: _primary, size: 11,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -206,10 +228,7 @@ class _HelpPageState extends State<HelpPage> {
                         ? _t('seller_role_label')
                         : _t('buyer_role_label'),
                     style: TextStyle(
-                      color: _primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
+                        color: _primary, fontSize: 10, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -221,7 +240,9 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  // ── Loading ──────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Loading
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildLoading() {
     return Center(
@@ -231,7 +252,9 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  // ── Body ─────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Body
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildBody(bool isDesktop, bool isTablet, bool isMobile) {
     final pad = isMobile ? 16.0 : isTablet ? 20.0 : 24.0;
@@ -243,34 +266,28 @@ class _HelpPageState extends State<HelpPage> {
           margin: EdgeInsets.all(pad),
           child: TextField(
             controller: _searchController,
-            textDirection: AppLocalizations.isRtl
-                ? TextDirection.rtl
-                : TextDirection.ltr,
+            textDirection:
+            AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
             decoration: InputDecoration(
               hintText: _t('help_search_hint'),
               hintStyle: TextStyle(
-                color: Colors.grey[400],
-                fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-              ),
+                  color: Colors.grey[400],
+                  fontSize: isDesktop ? 16 : isTablet ? 15 : 14),
               prefixIcon: Icon(Icons.search,
                   color: Colors.grey[600],
                   size: isDesktop ? 24 : isTablet ? 22 : 20),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!)),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!)),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primary, width: 2),
-              ),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: _primary, width: 2)),
               contentPadding: EdgeInsets.symmetric(
-                horizontal: pad,
-                vertical: isMobile ? 14 : isTablet ? 16 : 18,
-              ),
+                  horizontal: pad,
+                  vertical: isMobile ? 14 : isTablet ? 16 : 18),
               filled: true,
               fillColor: Colors.white,
             ),
@@ -301,12 +318,11 @@ class _HelpPageState extends State<HelpPage> {
               ? _buildEmptyState(isDesktop, isTablet, isMobile)
               : ListView.builder(
             padding: EdgeInsets.only(
-              left:   pad,
-              right:  pad,
-              bottom: isMobile ? 80 : isTablet ? 90 : 100,
-            ),
-            itemCount: _filteredArticles.length,
-            itemBuilder: (_, i) => _buildArticleCard(
+                left:   pad,
+                right:  pad,
+                bottom: isMobile ? 80 : isTablet ? 90 : 100),
+            itemCount:    _filteredArticles.length,
+            itemBuilder:  (_, i) => _buildArticleCard(
                 _filteredArticles[i], isDesktop, isTablet, isMobile),
           ),
         ),
@@ -314,20 +330,19 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  // ── Category chip ────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Category chip
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildCategoryChip(String label, Color color, bool isSelected) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        label: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : color,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        label: Text(label,
+            style: TextStyle(
+                color: isSelected ? Colors.white : color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500)),
         selected:        isSelected,
         selectedColor:   color,
         backgroundColor: color.withOpacity(0.1),
@@ -341,7 +356,9 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  // ── Article card ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Article card
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildArticleCard(Map<String, dynamic> article,
       bool isDesktop, bool isTablet, bool isMobile) {
@@ -354,37 +371,30 @@ class _HelpPageState extends State<HelpPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _primary.withOpacity(0.07)),
-        boxShadow: [
-          BoxShadow(
-              color:   Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset:  const Offset(0, 2)),
-        ],
+        boxShadow: [BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: ExpansionTile(
         leading: Container(
           padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, color: color,
               size: isDesktop ? 24 : isTablet ? 22 : 20),
         ),
         title: Text(
           article['title'] ?? _t('help_faq_content_unavailable'),
           style: TextStyle(
-            fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
+              fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+              fontWeight: FontWeight.w600, color: Colors.black87),
         ),
         subtitle: Text(
           article['category'] ?? '',
           style: TextStyle(
               fontSize: isDesktop ? 13 : 12,
-              color: color,
-              fontWeight: FontWeight.w500),
+              color: color, fontWeight: FontWeight.w500),
         ),
         trailing: Icon(Icons.expand_more, color: Colors.grey[400]),
         children: [
@@ -393,10 +403,8 @@ class _HelpPageState extends State<HelpPage> {
             child: Text(
               article['content'] ?? _t('help_faq_content_unavailable'),
               style: TextStyle(
-                fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
-                color: Colors.grey[700],
-                height: 1.6,
-              ),
+                  fontSize: isDesktop ? 15 : isTablet ? 14 : 13,
+                  color: Colors.grey[700], height: 1.6),
             ),
           ),
         ],
@@ -404,7 +412,9 @@ class _HelpPageState extends State<HelpPage> {
     );
   }
 
-  // ── Empty state ──────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Empty state
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState(bool isDesktop, bool isTablet, bool isMobile) {
     return Center(
@@ -412,30 +422,26 @@ class _HelpPageState extends State<HelpPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.search_off,
-              size:  isDesktop ? 80 : isTablet ? 64 : 48,
+              size: isDesktop ? 80 : isTablet ? 64 : 48,
               color: Colors.grey[300]),
           SizedBox(height: isMobile ? 16 : 24),
-          Text(
-            _t('help_empty_title'),
-            style: TextStyle(
-              fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text(_t('help_empty_title'),
+              style: TextStyle(
+                  fontSize: isDesktop ? 20 : isTablet ? 18 : 16,
+                  fontWeight: FontWeight.w600, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text(
-            _t('help_empty_subtitle'),
-            style: TextStyle(
-                fontSize: isDesktop ? 14 : 12, color: Colors.grey[500]),
-            textAlign: TextAlign.center,
-          ),
+          Text(_t('help_empty_subtitle'),
+              style: TextStyle(
+                  fontSize: isDesktop ? 14 : 12, color: Colors.grey[500]),
+              textAlign: TextAlign.center),
         ],
       ),
     );
   }
 
-  // ── FAB — couleur rôle ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  FAB
+  // ─────────────────────────────────────────────────────────────
 
   Widget _buildFAB(bool isDesktop, bool isTablet, bool isMobile) {
     return FloatingActionButton.extended(
@@ -445,16 +451,16 @@ class _HelpPageState extends State<HelpPage> {
       elevation: 4,
       icon: Icon(Icons.support_agent,
           size: isDesktop ? 24 : isTablet ? 22 : 20),
-      label: Text(
-        _t('help_support_fab'),
-        style: TextStyle(
-            fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-            fontWeight: FontWeight.w600),
-      ),
+      label: Text(_t('help_support_fab'),
+          style: TextStyle(
+              fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
+              fontWeight: FontWeight.w600)),
     );
   }
 
-  // ── Filter ───────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Filtre
+  // ─────────────────────────────────────────────────────────────
 
   void _filterArticles() {
     final query       = _searchController.text.toLowerCase();
@@ -477,7 +483,9 @@ class _HelpPageState extends State<HelpPage> {
     });
   }
 
-  // ── Bottom sheet contact ─────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  //  Contact support
+  // ─────────────────────────────────────────────────────────────
 
   void _showContactSupport() {
     showModalBottomSheet(
@@ -485,9 +493,8 @@ class _HelpPageState extends State<HelpPage> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Directionality(
-        textDirection: AppLocalizations.isRtl
-            ? TextDirection.rtl
-            : TextDirection.ltr,
+        textDirection:
+        AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: Container(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -502,16 +509,15 @@ class _HelpPageState extends State<HelpPage> {
               const SizedBox(height: 20),
               Text(_t('help_contact_title'),
                   style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 20, fontWeight: FontWeight.bold,
                       color: Colors.black87)),
               const SizedBox(height: 20),
               _buildContactOption(
                 _t('help_chat_title'), _t('help_chat_subtitle'),
                 Icons.chat, Colors.green, () {
                 Navigator.pop(context);
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const LiveChatPage()));
+                Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const LiveChatPage()));
               },
               ),
               _buildContactOption(
@@ -567,8 +573,7 @@ class _HelpPageState extends State<HelpPage> {
       ),
       title: Text(title,
           style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 16, fontWeight: FontWeight.w600,
               color: Colors.black87)),
       subtitle: Text(subtitle,
           style: TextStyle(fontSize: 14, color: Colors.grey[600])),
@@ -588,9 +593,8 @@ class _HelpPageState extends State<HelpPage> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Directionality(
-        textDirection: AppLocalizations.isRtl
-            ? TextDirection.rtl
-            : TextDirection.ltr,
+        textDirection:
+        AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: AlertDialog(
           title: Row(children: [
             const Icon(Icons.email, color: Colors.orange, size: 24),
@@ -607,17 +611,15 @@ class _HelpPageState extends State<HelpPage> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _issueController,
-                  maxLines: 5,
-                  maxLength: 500,
+                  maxLines: 5, maxLength: 500,
                   decoration: InputDecoration(
                     hintText: _t('help_email_issue_hint'),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12)),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                      const BorderSide(color: Colors.orange, width: 2),
-                    ),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: Colors.orange, width: 2)),
                     counterText: '',
                   ),
                 ),
@@ -635,17 +637,12 @@ class _HelpPageState extends State<HelpPage> {
             ElevatedButton(
               onPressed: _isSendingEmail ? null : _sendSupportEmail,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white),
               child: _isSendingEmail
-                  ? const SizedBox(
-                width: 16, height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.white)),
-              )
+                  ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
                   : Text(_t('help_send_email')),
             ),
           ],

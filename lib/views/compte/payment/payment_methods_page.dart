@@ -2,8 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
-import 'add_card_page.dart';
-import 'add_digital_wallet_page.dart';
+import '../../../services/payment_service.dart';
 import 'add_paypal_account_page.dart';
 
 
@@ -16,11 +15,8 @@ class PaymentMethodsPage extends StatefulWidget {
 
 class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   List<Map<String, dynamic>> _methods = [];
-  bool _isLoading         = true;
-  bool _hasCashOnDelivery = false;
-  bool _hasPaypal         = false;
-  bool _hasApplePay  = false;
-  bool _hasGooglePay = false;
+  bool _isLoading  = true;
+  bool _hasPaypal  = false;
 
   String _t(String key) => AppLocalizations.get(key);
 
@@ -30,7 +26,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     _loadMethods();
   }
 
-  // ── Charger tous les moyens de paiement ───────────────────────
   Future<void> _loadMethods() async {
     setState(() => _isLoading = true);
     try {
@@ -48,11 +43,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           .toList();
 
       setState(() {
-        _methods           = methods;
-        _hasCashOnDelivery = methods.any((m) => m['type'] == 'cash');
-        _hasPaypal         = methods.any((m) => m['type'] == 'paypal');
-        _hasApplePay  = methods.any((m) => m['type'] == 'apple_pay');
-        _hasGooglePay = methods.any((m) => m['type'] == 'google_pay');
+        _methods    = methods;
+        _hasPaypal  = methods.any((m) => m['type'] == 'paypal');
       });
     } catch (e) {
       print('❌ Erreur chargement: $e');
@@ -61,33 +53,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     }
   }
 
-  // ── Ajouter paiement à la livraison ──────────────────────────
-  Future<void> _addCashOnDelivery() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final col    = FirebaseFirestore.instance
-        .collection('users').doc(uid).collection('payment_methods');
-    final docRef = col.doc();
-
-    await docRef.set({
-      'id':        docRef.id,
-      'type':      'cash',
-      'isDefault': false,
-      'createdAt': Timestamp.now(),
-    });
-
-    await _loadMethods();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_t('payment_cash_delivery_added')),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
-
-  // ── Mettre par défaut ─────────────────────────────────────────
   Future<void> _setDefault(String docId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -112,7 +77,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     }
   }
 
-  // ── Supprimer ─────────────────────────────────────────────────
   Future<void> _delete(String docId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -122,9 +86,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
       builder: (BuildContext context) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isMobile = screenWidth < 600;
-
         return Dialog(
           insetPadding: const EdgeInsets.all(20),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -266,12 +227,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         backgroundColor: Colors.grey[50],
         appBar: _buildAppBar(context, isDesktop, isTablet),
         body: _buildBody(isMobile),
-        floatingActionButton: _buildFAB(isDesktop, isMobile),
+        floatingActionButton: _buildFAB(isDesktop),
       ),
     );
   }
 
-  // ── AppBar ────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(
       BuildContext context, bool isDesktop, bool isTablet) {
     return AppBar(
@@ -295,7 +255,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Body ──────────────────────────────────────────────────────
   Widget _buildBody(bool isMobile) {
     return Column(
       children: [
@@ -332,7 +291,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               ? const Center(
               child: CircularProgressIndicator(color: Colors.deepPurple))
               : _methods.isEmpty
-          // ✅ Aucune méthode de paiement
               ? _buildEmptyState(isMobile)
               : RefreshIndicator(
             onRefresh: _loadMethods,
@@ -342,10 +300,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   horizontal: isMobile ? 16 : 20),
               children: [
                 ..._methods.map((m) {
-                  if (m['type'] == 'cash')       return _buildCashItem(m, isMobile);
-                  if (m['type'] == 'paypal')     return _buildPaypalItem(m, isMobile);
-                  if (m['type'] == 'apple_pay')  return _buildWalletItem(m, isMobile, isApple: true);
-                  if (m['type'] == 'google_pay') return _buildWalletItem(m, isMobile, isApple: false);
+                  if (m['type'] == 'paypal') return _buildPaypalItem(m, isMobile);
                   return _buildCardItem(m, isMobile);
                 }),
                 SizedBox(height: isMobile ? 100 : 120),
@@ -359,7 +314,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-// ✅ Widget état vide
   Widget _buildEmptyState(bool isMobile) {
     return Center(
       child: Padding(
@@ -367,7 +321,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icône
             Container(
               width: isMobile ? 90 : 110,
               height: isMobile ? 90 : 110,
@@ -382,8 +335,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Titre
             Text(
               _t('payment_no_methods_title'),
               textAlign: TextAlign.center,
@@ -394,8 +345,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               ),
             ),
             const SizedBox(height: 10),
-
-            // Sous-titre
             Text(
               _t('payment_no_methods_desc'),
               textAlign: TextAlign.center,
@@ -405,14 +354,12 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 height: 1.5,
               ),
             ),
-
           ],
         ),
       ),
     );
   }
 
-  // ── Carte bancaire ────────────────────────────────────────────
   Widget _buildCardItem(Map<String, dynamic> card, bool isMobile) {
     final isDefault   = card['isDefault'] == true;
     final cardType    = card['cardType'] ?? 'unknown';
@@ -454,15 +401,12 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     borderRadius: BorderRadius.circular(12)),
                 onSelected: (value) async {
                   if (value == 'setDefault') await _setDefault(docId);
-                  if (value == 'edit')       _editCard(card);
                   if (value == 'delete')     await _delete(docId);
                 },
                 itemBuilder: (_) => [
                   if (!isDefault)
                     _menuItem('setDefault', Icons.star_outline,
                         Colors.amber, _t('payment_set_default')),
-                  _menuItem('edit', Icons.edit_outlined,
-                      Colors.blue, _t('edit')),
                   _menuItem('delete', Icons.delete_outline,
                       Colors.red, _t('delete'), isRed: true),
                 ],
@@ -490,7 +434,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── PayPal ────────────────────────────────────────────────────
   Widget _buildPaypalItem(Map<String, dynamic> paypal, bool isMobile) {
     final isDefault = paypal['isDefault'] == true;
     final email     = paypal['email'] ?? '';
@@ -563,138 +506,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Cash on delivery ──────────────────────────────────────────
-  Widget _buildCashItem(Map<String, dynamic> cash, bool isMobile) {
-    final isDefault = cash['isDefault'] == true;
-    final docId     = cash['docId'] as String;
-
-    return _buildMethodContainer(
-      isDefault: isDefault,
-      isMobile: isMobile,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.local_shipping_outlined,
-                color: Colors.green, size: isMobile ? 22 : 24),
-          ),
-          SizedBox(width: isMobile ? 12 : 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_t('payment_cash_delivery_title'),
-                    style: TextStyle(
-                        fontSize: isMobile ? 14 : 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-                const SizedBox(height: 2),
-                Text(_t('payment_cash_delivery_desc'),
-                    style: TextStyle(
-                        fontSize: isMobile ? 12 : 13,
-                        color: Colors.grey[500])),
-                if (isDefault) ...[
-                  const SizedBox(height: 4),
-                  _buildDefaultBadge(),
-                ],
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: Colors.grey[500]),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            onSelected: (value) async {
-              if (value == 'setDefault') await _setDefault(docId);
-              if (value == 'delete')     await _delete(docId);
-            },
-            itemBuilder: (_) => [
-              if (!isDefault)
-                _menuItem('setDefault', Icons.star_outline,
-                    Colors.amber, _t('payment_set_default')),
-              _menuItem('delete', Icons.delete_outline,
-                  Colors.red, _t('delete'), isRed: true),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-// ── Apple Pay / Google Pay ────────────────────────────────────
-  Widget _buildWalletItem(Map<String, dynamic> wallet, bool isMobile,
-      {required bool isApple}) {
-    final isDefault = wallet['isDefault'] == true;
-    final docId     = wallet['docId'] as String;
-    final color     = isApple ? Colors.black : const Color(0xFF4285F4);
-    final label     = isApple ? 'Apple Pay' : 'Google Pay';
-
-    return _buildMethodContainer(
-      isDefault: isDefault,
-      isMobile: isMobile,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isApple ? Icons.apple : Icons.android,
-              color: color,
-              size: isMobile ? 22 : 24,
-            ),
-          ),
-          SizedBox(width: isMobile ? 12 : 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: isMobile ? 14 : 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-                const SizedBox(height: 2),
-                Text(
-                  _t('wallet_security_title'),
-                  style: TextStyle(
-                      fontSize: isMobile ? 12 : 13,
-                      color: Colors.grey[500]),
-                ),
-                if (isDefault) ...[
-                  const SizedBox(height: 4),
-                  _buildDefaultBadge(),
-                ],
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: Colors.grey[500]),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            onSelected: (value) async {
-              if (value == 'setDefault') await _setDefault(docId);
-              if (value == 'delete')     await _delete(docId);
-            },
-            itemBuilder: (_) => [
-              if (!isDefault)
-                _menuItem('setDefault', Icons.star_outline,
-                    Colors.amber, _t('payment_set_default')),
-              _menuItem('delete', Icons.delete_outline,
-                  Colors.red, _t('delete'), isRed: true),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  // ── Container commun ──────────────────────────────────────────
   Widget _buildMethodContainer({
     required bool isDefault,
     required bool isMobile,
@@ -722,7 +533,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Badge "Par défaut" ────────────────────────────────────────
   Widget _buildDefaultBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -738,7 +548,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── MenuItem popup ────────────────────────────────────────────
   PopupMenuItem<String> _menuItem(
       String value, IconData icon, Color color, String label,
       {bool isRed = false}) {
@@ -753,7 +562,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Icône type carte ──────────────────────────────────────────
   Widget _buildCardTypeIcon(String cardType, bool isMobile) {
     final Map<String, Color> colors = {
       'visa': Colors.blue,
@@ -772,7 +580,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Section sécurité ─────────────────────────────────────────
   Widget _buildSecuritySection(bool isMobile) {
     return Container(
       margin: EdgeInsets.fromLTRB(
@@ -815,8 +622,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── FAB ──────────────────────────────────────────────────────
-  Widget _buildFAB(bool isDesktop, bool isMobile) {
+  Widget _buildFAB(bool isDesktop) {
     return FloatingActionButton.extended(
       onPressed: _showAddPaymentMethod,
       backgroundColor: Colors.deepPurple,
@@ -829,25 +635,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Bottom sheet ajout ────────────────────────────────────────
   void _showAddPaymentMethod() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Permet au bottom sheet de s'adapter au contenu
+      isScrollControlled: true,
       builder: (ctx) => Directionality(
         textDirection:
         AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85, // Limite à 85% de l'écran
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 32),
-          child: SingleChildScrollView( // Ajout du scroll pour éviter l'overflow
+          padding: EdgeInsets.fromLTRB(
+              24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -866,27 +672,26 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                         color: Colors.black87)),
                 const SizedBox(height: 20),
 
-                // Carte bancaire — toujours visible
+                // ✅ Carte bancaire → Stripe directement
                 _buildAddOption(
                   _t('payment_card_option_title'),
                   _t('payment_card_option_subtitle'),
-                  Icons.credit_card, Colors.blue,
-                    () {
-                  Navigator.pop(ctx);
-                  Navigator.of(context)
-                      .push(MaterialPageRoute(
-                      builder: (_) => const AddCardPage()))
-                      .then((_) => _loadMethods());
-                },
+                  Icons.credit_card,
+                  Colors.blue,
+                      () async {
+                    Navigator.pop(ctx);
+                    await _addCardWithStripe();
+                  },
                 ),
                 const SizedBox(height: 10),
 
-                // PayPal — caché si déjà ajouté
+                // ✅ PayPal — masqué si déjà ajouté
                 if (!_hasPaypal) ...[
                   _buildAddOption(
                     _t('payment_paypal_option_title'),
                     _t('payment_paypal_option_subtitle'),
-                    Icons.account_balance_wallet, Colors.indigo,
+                    Icons.account_balance_wallet,
+                    Colors.indigo,
                         () {
                       Navigator.pop(ctx);
                       Navigator.of(context)
@@ -898,43 +703,15 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   const SizedBox(height: 10),
                 ],
 
-                // Cash on delivery — caché si déjà ajouté
-                if (!_hasCashOnDelivery) ...[
-                  _buildAddOption(
-                    _t('payment_cash_delivery_title'),
-                    _t('payment_cash_delivery_desc'),
-                    Icons.local_shipping_outlined, Colors.green,
-                        () {
-                      Navigator.pop(ctx);
-                      _addCashOnDelivery();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                ],
-
-                // Apple Pay / Google Pay
-                _buildAddOption(
-                  _t('wallet_page_title'),
-                  _t('apple_pay_subtitle'),
-                  Icons.phone_iphone, Colors.black87,
-                    () {
-                  Navigator.pop(ctx);
-                  Navigator.of(context)
-                      .push(MaterialPageRoute(
-                      builder: (_) => const AddDigitalWalletPage()))
-                      .then((_) => _loadMethods());
-                },
-              ),
-              const SizedBox(height: 20), // Espace supplémentaire en bas
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
-  // ── Option du bottom sheet ────────────────────────────────────
   Widget _buildAddOption(String title, String subtitle, IconData icon,
       Color color, VoidCallback onTap) {
     return InkWell(
@@ -966,8 +743,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                           fontWeight: FontWeight.w600,
                           color: Colors.black87)),
                   Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[500])),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                 ],
               ),
             ),
@@ -984,16 +760,74 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  // ── Modifier carte ────────────────────────────────────────────
-  void _editCard(Map<String, dynamic> card) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddCardPage(cardData: card),
-      ),
-    ).then((result) {
-      if (result == true) {
-        _loadMethods(); // Rafraîchir la liste après modification
+  Future<void> _addCardWithStripe() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users').doc(uid).get();
+      final userData = userDoc.data();
+      String customerId = userData?['stripeCustomerId']?.toString() ?? '';
+
+      if (customerId.isEmpty) {
+        final user = FirebaseAuth.instance.currentUser!;
+        customerId = await PaymentService.createStripeCustomer(
+          email: user.email ?? '',
+          name: user.displayName ?? '',
+          firebaseUid: uid,
+        );
+        await FirebaseFirestore.instance
+            .collection('users').doc(uid)
+            .update({'stripeCustomerId': customerId});
       }
-    });
+
+      final stripeData = await PaymentService.saveCard(customerId: customerId);
+      if (stripeData == null) return; // annulé par l'utilisateur
+
+      final existingCards = await FirebaseFirestore.instance
+          .collection('users').doc(uid)
+          .collection('payment_methods').get();
+      final isFirst = existingCards.docs.isEmpty;
+
+      final docRef = FirebaseFirestore.instance
+          .collection('users').doc(uid)
+          .collection('payment_methods').doc();
+
+      await docRef.set({
+        'id':                    docRef.id,
+        'type':                  'card',
+        'cardType':              stripeData['cardType'] ?? 'unknown',
+        'lastFourDigits':        stripeData['lastFourDigits'] ?? '',
+        'cardholderName':        '',
+        'expiryMonth':           stripeData['expiryMonth'] ?? '',
+        'expiryYear':            stripeData['expiryYear'] ?? '',
+        'stripePaymentMethodId': stripeData['stripePaymentMethodId'] ?? '',
+        'stripeCustomerId':      customerId,
+        'isDefault':             isFirst,
+        'createdAt':             Timestamp.now(),
+        'updatedAt':             null,
+      });
+
+      await _loadMethods();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_t('payment_card_added_success')),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

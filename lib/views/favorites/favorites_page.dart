@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 
 import '../../models/product_model.dart';
+import '../../providers/currency_provider.dart';
 import '../products/buyer/Product_detail_page.dart';
 
 class FavoritesPage extends StatefulWidget {
@@ -574,6 +576,7 @@ class _FavoritesPageState extends State<FavoritesPage>
 
   Widget _buildProductCard(Map<String, dynamic> product, int index,
       bool isMobile, bool isTablet) {
+    final currency = context.watch<CurrencyProvider>();
     final name          = product['name']          as String? ?? '';
     final images        = product['images']        as List<dynamic>?;
     final favoriteDocId = product['favoriteDocId'] as String? ?? '';
@@ -787,7 +790,7 @@ class _FavoritesPageState extends State<FavoritesPage>
                           borderRadius: BorderRadius.circular(7),
                         ),
                         child: Text(
-                          '${di.originalPrice.toStringAsFixed(2)} TND',
+                          currency.formatPrice(di.originalPrice),
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 9,
                               fontWeight: FontWeight.w600,
@@ -809,7 +812,7 @@ class _FavoritesPageState extends State<FavoritesPage>
                               blurRadius: 8, offset: const Offset(0, 2))],
                         ),
                         child: Text(
-                          '${di.effectivePrice.toStringAsFixed(2)} TND',
+                          currency.formatPrice(di.effectivePrice),
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: isMobile ? 12 : 13,
@@ -829,7 +832,7 @@ class _FavoritesPageState extends State<FavoritesPage>
                             blurRadius: 8, offset: const Offset(0, 2))],
                       ),
                       child: Text(
-                        '${di.effectivePrice.toStringAsFixed(2)} TND',
+                        currency.formatPrice(di.effectivePrice),
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: isMobile ? 12 : 13,

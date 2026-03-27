@@ -52,7 +52,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(AppLocalizations.get('change_password_google_desc'),
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               Text(AppLocalizations.get('change_password_google_step1')),
               Text(AppLocalizations.get('change_password_google_step2')),
@@ -74,7 +74,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     IconButton(
                       icon: const Icon(Icons.copy),
                       onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: link));
+                        await Clipboard.setData(const ClipboardData(text: link));
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Text(AppLocalizations.get('change_password_link_copied')),
@@ -199,79 +199,85 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     final isGoogleUser = user?.providerData.any((p) => p.providerId == 'google.com') ?? false;
     final isEmailUser = user?.providerData.any((p) => p.providerId == 'password') ?? false;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: Icon(Icons.arrow_back, color: Colors.black87,
-              size: isDesktop ? 28 : isTablet ? 24 : 20),
-        ),
-        title: Text(
-          AppLocalizations.get('change_password'),
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
-            fontWeight: FontWeight.bold,
+    return Directionality(
+      textDirection: AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(
+              AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
+              color: Colors.black87,
+              size: isDesktop ? 28 : isTablet ? 24 : 20,
+            ),
           ),
+          title: Text(
+            AppLocalizations.get('change_password'),
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: false,
         ),
-        centerTitle: false,
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(isMobile ? 24 : 32),
-              decoration: BoxDecoration(
-                color: isGoogleUser
-                    ? Colors.blue.withOpacity(0.1)
-                    : Colors.deepPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    isGoogleUser ? Icons.security : Icons.lock_reset,
-                    size: isMobile ? 60 : 80,
-                    color: isGoogleUser ? Colors.blue : Colors.deepPurple,
-                  ),
-                  SizedBox(height: isMobile ? 16 : 20),
-                  Text(
-                    AppLocalizations.get('security'),
-                    style: TextStyle(
-                      fontSize: isMobile ? 24 : 28,
-                      fontWeight: FontWeight.bold,
+        body: SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isMobile ? 24 : 32),
+                decoration: BoxDecoration(
+                  color: isGoogleUser
+                      ? Colors.blue.withOpacity(0.1)
+                      : Colors.deepPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      isGoogleUser ? Icons.security : Icons.lock_reset,
+                      size: isMobile ? 60 : 80,
                       color: isGoogleUser ? Colors.blue : Colors.deepPurple,
                     ),
-                  ),
-                  SizedBox(height: isMobile ? 8 : 12),
-                  Text(
-                    isGoogleUser
-                        ? AppLocalizations.get('two_factor_auth')
-                        : AppLocalizations.get('change_password'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: isMobile ? 14 : 16, color: Colors.grey[600]),
-                  ),
-                ],
+                    SizedBox(height: isMobile ? 16 : 20),
+                    Text(
+                      AppLocalizations.get('security'),
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: isGoogleUser ? Colors.blue : Colors.deepPurple,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 8 : 12),
+                    Text(
+                      isGoogleUser
+                          ? AppLocalizations.get('two_factor_auth')
+                          : AppLocalizations.get('change_password'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: isMobile ? 14 : 16, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            SizedBox(height: isMobile ? 32 : 40),
+              SizedBox(height: isMobile ? 32 : 40),
 
-            if (isGoogleUser) ...[
-              _buildGoogleSection(isMobile, isTablet, isDesktop),
-            ] else if (isEmailUser) ...[
-              _buildEmailSection(isMobile, isTablet, isDesktop),
-            ] else ...[
-              _buildUnsupportedSection(isMobile, isTablet),
+              if (isGoogleUser) ...[
+                _buildGoogleSection(isMobile, isTablet, isDesktop),
+              ] else if (isEmailUser) ...[
+                _buildEmailSection(isMobile, isTablet, isDesktop),
+              ] else ...[
+                _buildUnsupportedSection(isMobile, isTablet),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -333,10 +339,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         fontWeight: FontWeight.w600,
                         color: Colors.blue)),
                 SizedBox(height: isMobile ? 12 : 16),
-                ...[AppLocalizations.get('change_password_google_step1_1'),
+                ...[
+                  AppLocalizations.get('change_password_google_step1_1'),
                   AppLocalizations.get('change_password_google_step2_1'),
                   AppLocalizations.get('change_password_google_step3_1'),
-                  AppLocalizations.get('change_password_google_step4_1')
+                  AppLocalizations.get('change_password_google_step4_1'),
                 ].map((instruction) => Padding(
                   padding: EdgeInsets.only(bottom: isMobile ? 8 : 12),
                   child: Row(
@@ -438,6 +445,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           TextField(
             controller: _currentPasswordController,
             obscureText: !_showCurrentPassword,
+            textDirection: TextDirection.ltr,
             decoration: InputDecoration(
               hintText: AppLocalizations.get('current_password'),
               prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
@@ -465,6 +473,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           TextField(
             controller: _newPasswordController,
             obscureText: !_showNewPassword,
+            textDirection: TextDirection.ltr,
             decoration: InputDecoration(
               hintText: AppLocalizations.get('new_password'),
               prefixIcon: const Icon(Icons.lock_outline, color: Colors.deepPurple),
@@ -531,6 +540,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           TextField(
             controller: _confirmPasswordController,
             obscureText: !_showConfirmPassword,
+            textDirection: TextDirection.ltr,
             decoration: InputDecoration(
               hintText: AppLocalizations.get('confirm_password_field'),
               prefixIcon: const Icon(Icons.lock_outline, color: Colors.deepPurple),

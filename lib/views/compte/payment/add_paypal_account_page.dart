@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
 import 'package:smart_marketplace/services/paypal_oauth_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AddPayPalAccountPage extends StatefulWidget {
   const AddPayPalAccountPage({super.key});
@@ -329,7 +330,17 @@ class _AddPayPalAccountPageState extends State<AddPayPalAccountPage> {
     return TextButton.icon(
       onPressed: () async {
         final url = Uri.parse('https://www.paypal.com/signin/create-account');
-        // launchUrl(url, mode: LaunchMode.externalApplication);
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(_t('error')),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
+        }
       },
       icon: const Icon(Icons.open_in_new, size: 16, color: Color(0xFF003087)),
       label: Text(

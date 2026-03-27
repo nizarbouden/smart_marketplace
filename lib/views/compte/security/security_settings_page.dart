@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:local_auth/local_auth.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../localization/app_localizations.dart';
+import '../../../services/biometric_auth_service.dart';
 import '../../../services/firebase_auth_service.dart';
 import '../../../services/auto_logout_service.dart';
 import '../../../services/session_management_service.dart';
@@ -12,7 +14,6 @@ import '../../../widgets/auto_logout_warning_dialog.dart';
 import '../../../widgets/active_sessions_dialog.dart';
 import '../../../widgets/delete_account_dialog.dart';
 import 'change_password/change_password_page.dart';
-
 
 class SecuritySettingsPage extends StatefulWidget {
   const SecuritySettingsPage({super.key});
@@ -22,21 +23,34 @@ class SecuritySettingsPage extends StatefulWidget {
 }
 
 class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
-  bool _twoFactorAuth = false;
-  bool _biometricAuth = true;
-  bool _loginNotifications = true;
-  bool _sessionTimeout = true;
-  String _sessionTimeoutValue = '30 minutes'; // Valeur par défaut temporaire
 
-  bool _isServiceReady = false;
-  bool _dialogShown = false;
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  STATE
+  // ─────────────────────────────────────────────────────────────────────────────
+  bool   _twoFactorAuth        = false;
+  bool   _biometricAuth        = false;
+  bool   _loginNotifications   = true;
+  bool   _sessionTimeout       = true;
+  String _sessionTimeoutValue  = '30 minutes';
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseAuthService _authService = FirebaseAuthService();
-  final AutoLogoutService _autoLogoutService = AutoLogoutService();
-  final SessionManagementService _sessionService = SessionManagementService();
+  bool   _isServiceReady       = false;
+  bool   _dialogShown          = false;
+  bool   _biometricAvailable   = false;
+  bool   _biometricLoading     = false;
+  String _biometricType        = '';
 
-  // Fonction pour mapper les valeurs stockées vers les valeurs traduites
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  SERVICES
+  // ─────────────────────────────────────────────────────────────────────────────
+  final FirebaseAuth             _auth             = FirebaseAuth.instance;
+  final FirebaseAuthService      _authService      = FirebaseAuthService();
+  final AutoLogoutService        _autoLogoutService = AutoLogoutService();
+  final SessionManagementService _sessionService   = SessionManagementService();
+  final BiometricAuthService     _biometricService = BiometricAuthService();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  MAPPING DURÉE SESSION
+  // ─────────────────────────────────────────────────────────────────────────────
   String _mapStoredValueToLocalized(String storedValue) {
     switch (storedValue) {
       case '5 seconds':
@@ -62,26 +76,36 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     }
   }
 
-  // Fonction pour mapper les valeurs traduites vers les valeurs stockées (en anglais pour la cohérence)
   String _mapLocalizedToStoredValue(String localizedValue) {
-    final frenchToEnglish = {
-      AppLocalizations.get('session_timeout_5_seconds'): '5 seconds',
+    final map = {
+      AppLocalizations.get('session_timeout_5_seconds'):  '5 seconds',
       AppLocalizations.get('session_timeout_15_minutes'): '15 minutes',
       AppLocalizations.get('session_timeout_30_minutes'): '30 minutes',
-      AppLocalizations.get('session_timeout_1_hour'): '1 hour',
-      AppLocalizations.get('session_timeout_2_hours'): '2 hours',
+      AppLocalizations.get('session_timeout_1_hour'):     '1 hour',
+      AppLocalizations.get('session_timeout_2_hours'):    '2 hours',
     };
-    
-    return frenchToEnglish[localizedValue] ?? '30 minutes';
+    return map[localizedValue] ?? '30 minutes';
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  LIFECYCLE
+  // ─────────────────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _initializeService();
     _setupAutoLogout();
+    _checkBiometric();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  INITIALISATION
+  // ─────────────────────────────────────────────────────────────────────────────
   Future<void> _initializeService() async {
     try {
       await _autoLogoutService.init();
@@ -89,24 +113,37 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       await _sessionService.createSession();
 
       final settings = await _autoLogoutService.loadAutoLogoutSettings();
-
       if (mounted) {
         setState(() {
-          _sessionTimeout = settings['enabled'] ?? false;
-          // Mapper la valeur stockée vers la valeur localisée
+          _sessionTimeout      = settings['enabled'] ?? false;
           final storedDuration = settings['duration'] ?? '30 minutes';
           _sessionTimeoutValue = _mapStoredValueToLocalized(storedDuration);
-          _isServiceReady = true;
+          _isServiceReady      = true;
         });
       }
-
       if (_sessionTimeout) {
-        // Utiliser la valeur stockée (en anglais) pour le service
-        final storedDuration = _mapLocalizedToStoredValue(_sessionTimeoutValue);
-        _autoLogoutService.startAutoLogout(storedDuration);
+        _autoLogoutService.startAutoLogout(
+            _mapLocalizedToStoredValue(_sessionTimeoutValue));
       }
     } catch (e) {
-      print('❌ Erreur lors de l\'initialisation du service: $e');
+      debugPrint('❌ Erreur initialisation service: $e');
+    }
+  }
+
+  Future<void> _checkBiometric() async {
+    try {
+      final available = await _biometricService.isAvailable();
+      final enabled   = await _biometricService.isBiometricEnabled();
+      final label     = await _biometricService.getBiometricLabel();
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = available;
+          _biometricAuth      = enabled;
+          _biometricType      = label;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ Biométrie non disponible: $e');
     }
   }
 
@@ -119,57 +156,381 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           duration: const Duration(seconds: 5),
         ));
         _autoLogoutService.stopAutoLogout();
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
       }
     });
-
-    _autoLogoutService.setOnWarningCallback((remainingSeconds) {
-      if (mounted) _showAutoLogoutWarning(remainingSeconds);
+    _autoLogoutService.setOnWarningCallback((s) {
+      if (mounted) _showAutoLogoutWarning(s);
     });
   }
 
   void _showAutoLogoutWarning(int remainingSeconds) {
     if (_dialogShown) return;
     _dialogShown = true;
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) => AutoLogoutWarningDialog(
+      builder: (dialogContext) => AutoLogoutWarningDialog(
         remainingSeconds: remainingSeconds,
         onStayLoggedIn: () {
           _dialogShown = false;
-          if (mounted && Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
+          if (mounted && Navigator.of(dialogContext).canPop())
+            Navigator.of(dialogContext).pop();
           _autoLogoutService.recordActivity();
         },
         onLogout: () {
           _dialogShown = false;
-          if (mounted && Navigator.of(dialogContext).canPop()) Navigator.of(dialogContext).pop();
+          if (mounted && Navigator.of(dialogContext).canPop())
+            Navigator.of(dialogContext).pop();
           _autoLogoutService.stopAutoLogout();
           _auth.signOut();
-          if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-          }
+          if (mounted)
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
         },
       ),
     ).then((_) => _dialogShown = false);
   }
 
-  @override
-  void dispose() {
-    print('🔌 SecuritySettingsPage: dispose()');
-    super.dispose();
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  BIOMÉTRIE — TOGGLE PRINCIPAL
+  // ─────────────────────────────────────────────────────────────────────────────
+  Future<void> _handleBiometricToggle(bool value) async {
+
+    // ── DÉSACTIVER ────────────────────────────────────────────────
+    if (!value) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            const Icon(Icons.fingerprint, color: Colors.deepPurple, size: 28),
+            const SizedBox(width: 10),
+            Expanded(child: Text(
+              AppLocalizations.get('biometric_disable_title'),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            )),
+          ]),
+          content: Text(
+            '${AppLocalizations.get('biometric_disable_confirm')} $_biometricType ?',
+            style: TextStyle(color: Colors.grey[700], fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(AppLocalizations.get('cancel'),
+                  style: const TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(AppLocalizations.get('biometric_disable_btn'),
+                  style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        await _biometricService.disableBiometric();
+        setState(() => _biometricAuth = false);
+        _showSnack(AppLocalizations.get('biometric_disabled_success'), Colors.orange);
+      }
+      return;
+    }
+
+    // ── ACTIVER ───────────────────────────────────────────────────
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showSnack(AppLocalizations.get('biometric_no_user'), Colors.red);
+      return;
+    }
+
+    // 1. Détecter si les deux méthodes sont disponibles
+    final supportsBoth = await _biometricService.supportsBothMethods();
+
+    // 2. Choisir la méthode préférée
+    String? preferredMethod;
+    if (supportsBoth) {
+      // L'appareil supporte Face ID ET empreinte → on demande à l'utilisateur
+      preferredMethod = await _showBiometricMethodDialog();
+      if (preferredMethod == null) return; // annulé
+    } else {
+      // Un seul type disponible → on le détecte automatiquement
+      final types = await _biometricService.getAvailableBiometrics();
+      preferredMethod = types.contains(BiometricType.face) ? 'face' : 'fingerprint';
+    }
+
+    // 3. Si email/password → demander le mot de passe
+    final provider = user.providerData.isNotEmpty
+        ? user.providerData.first.providerId
+        : 'password';
+
+    String? password;
+    if (provider == 'password') {
+      password = await _showPasswordDialog();
+      if (password == null) return; // annulé
+    }
+
+    // 4. Activer avec la méthode choisie
+    setState(() => _biometricLoading = true);
+    final result = await _biometricService.enableBiometric(
+      password:        password,
+      preferredMethod: preferredMethod,
+    );
+    setState(() {
+      _biometricLoading = false;
+      if (result == BiometricSetupResult.success) {
+        _biometricType = preferredMethod == 'face'
+            ? AppLocalizations.get('biometric_face_id')
+            : AppLocalizations.get('biometric_fingerprint');
+      }
+    });
+
+    switch (result) {
+      case BiometricSetupResult.success:
+        setState(() => _biometricAuth = true);
+        _showSnack(
+          '$_biometricType ${AppLocalizations.get('biometric_activated_success')}',
+          Colors.green,
+        );
+        break;
+      case BiometricSetupResult.cancelled:
+        _showSnack(AppLocalizations.get('biometric_activation_cancelled'), Colors.orange);
+        break;
+      case BiometricSetupResult.passwordRequired:
+        _showSnack(AppLocalizations.get('password_required'), Colors.red);
+        break;
+      case BiometricSetupResult.notAvailable:
+        _showSnack(AppLocalizations.get('biometric_not_available'), Colors.red);
+        break;
+      case BiometricSetupResult.noUser:
+        _showSnack(AppLocalizations.get('biometric_no_user'), Colors.red);
+        break;
+      case BiometricSetupResult.error:
+        _showSnack(AppLocalizations.get('error'), Colors.red);
+        break;
+    }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  DIALOG — CHOIX DE LA MÉTHODE BIOMÉTRIQUE
+  // ─────────────────────────────────────────────────────────────────────────────
+  Future<String?> _showBiometricMethodDialog() async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding:   const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+        title: Column(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.security, color: Colors.deepPurple, size: 32),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            AppLocalizations.get('biometric_choose_method_title'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppLocalizations.get('biometric_choose_method_subtitle'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Option Face ID ────────────────────────────────────
+            _buildMethodOption(
+              ctx:         ctx,
+              value:       'face',
+              icon:        Icons.face_retouching_natural,
+              label:       AppLocalizations.get('biometric_face_id'),
+              description: AppLocalizations.get('biometric_face_id_desc'),
+              color:       Colors.indigo,
+            ),
+            const SizedBox(height: 12),
+
+            // ── Option Empreinte digitale ─────────────────────────
+            _buildMethodOption(
+              ctx:         ctx,
+              value:       'fingerprint',
+              icon:        Icons.fingerprint,
+              label:       AppLocalizations.get('biometric_fingerprint'),
+              description: AppLocalizations.get('biometric_fingerprint_desc'),
+              color:       Colors.deepPurple,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: Text(AppLocalizations.get('cancel'),
+                style: const TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Carte cliquable pour chaque option biométrique dans le dialog
+  Widget _buildMethodOption({
+    required BuildContext ctx,
+    required String       value,
+    required IconData     icon,
+    required String       label,
+    required String       description,
+    required Color        color,
+  }) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(ctx, value),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color:        color.withOpacity(0.06),
+          border:       Border.all(color: color.withOpacity(0.3), width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color:        color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize:   15,
+                        fontWeight: FontWeight.w700,
+                        color:      color)),
+                const SizedBox(height: 2),
+                Text(description,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, size: 14, color: color.withOpacity(0.5)),
+        ]),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  DIALOG — MOT DE PASSE
+  // ─────────────────────────────────────────────────────────────────────────────
+  Future<String?> _showPasswordDialog() async {
+    final controller = TextEditingController();
+    bool isVisible   = false;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            const Icon(Icons.lock, color: Colors.deepPurple),
+            const SizedBox(width: 8),
+            Text(AppLocalizations.get('biometric_auth'),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(AppLocalizations.get('biometric_password_needed'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              const SizedBox(height: 16),
+              TextField(
+                controller:  controller,
+                obscureText: !isVisible,
+                decoration: InputDecoration(
+                  hintText:   AppLocalizations.get('password'),
+                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.deepPurple),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      isVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.deepPurple,
+                    ),
+                    onPressed: () => setDialogState(() => isVisible = !isVisible),
+                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: Text(AppLocalizations.get('cancel'),
+                  style: const TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) Navigator.pop(ctx, controller.text);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(AppLocalizations.get('confirm'),
+                  style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  SNACKBAR HELPER
+  // ─────────────────────────────────────────────────────────────────────────────
+  void _showSnack(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content:         Text(message, style: const TextStyle(color: Colors.white)),
+      backgroundColor: color,
+      behavior:        SnackBarBehavior.floating,
+      shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration:        const Duration(seconds: 3),
+    ));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile  = screenWidth < 600;
-    final isTablet  = screenWidth >= 600 && screenWidth < 1200;
-    final isDesktop = screenWidth >= 1200;
-
-    // ✅ Détecter la langue
-    final isArabic = AppLocalizations.getLanguage() == 'ar';
+    final isMobile    = screenWidth < 600;
+    final isTablet    = screenWidth >= 600 && screenWidth < 1200;
+    final isDesktop   = screenWidth >= 1200;
+    final isArabic    = AppLocalizations.getLanguage() == 'ar';
 
     if (!_isServiceReady) {
       return Directionality(
@@ -187,30 +548,28 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     }
 
     return Directionality(
-      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr, // ✅
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
-        body: _buildBody(context, isDesktop, isTablet, isMobile),
+        body:   _buildBody(context, isDesktop, isTablet, isMobile),
       ),
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  APP BAR
+  // ─────────────────────────────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(
-      BuildContext context,
-      bool isDesktop,
-      bool isTablet,
-      bool isMobile,
-      ) {
-    final isRtl = AppLocalizations.isRtl; // ✅ même logique
-
+      BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+    final isRtl = AppLocalizations.isRtl;
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.of(context).pop(),
         icon: Icon(
-          isRtl ? Icons.arrow_forward : Icons.arrow_back, // ✅ logique RTL
+          isRtl ? Icons.arrow_forward : Icons.arrow_back,
           color: Colors.black87,
           size: isDesktop ? 28 : isTablet ? 24 : 20,
         ),
@@ -218,8 +577,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       title: Text(
         AppLocalizations.get('security'),
         style: TextStyle(
-          color: Colors.black87,
-          fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
+          color:      Colors.black87,
+          fontSize:   isDesktop ? 24 : isTablet ? 22 : 20,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -229,48 +588,46 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           padding: const EdgeInsets.only(right: 16),
           child: IconButton(
             onPressed: _saveSettings,
-            icon: Icon(
-              Icons.save,
-              color: Colors.deepPurple,
-              size: isDesktop ? 24 : isTablet ? 22 : 20,
-            ),
+            icon: Icon(Icons.save,
+                color: Colors.deepPurple,
+                size: isDesktop ? 24 : isTablet ? 22 : 20),
             tooltip: AppLocalizations.get('save'),
           ),
         ),
       ],
     );
   }
-  Widget _buildBody(BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  BODY
+  // ─────────────────────────────────────────────────────────────────────────────
+  Widget _buildBody(
+      BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Authentification
+
+          // ── Section Authentification ──────────────────────────
           _buildSectionCard(
             title: AppLocalizations.get('security'),
-            icon: Icons.lock,
+            icon:  Icons.lock,
             children: [
               _buildSwitchTile(
-                title: AppLocalizations.get('two_factor_auth'),
+                title:    AppLocalizations.get('two_factor_auth'),
                 subtitle: 'Ajoute une couche de sécurité supplémentaire',
-                value: _twoFactorAuth,
-                onChanged: (value) => setState(() => _twoFactorAuth = value),
+                value:    _twoFactorAuth,
+                onChanged: (v) => setState(() => _twoFactorAuth = v),
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
-              _buildSwitchTile(
-                title: AppLocalizations.get('biometric_auth'),
-                subtitle: 'Utilisez votre empreinte ou visage',
-                value: _biometricAuth,
-                onChanged: (value) => setState(() => _biometricAuth = value),
-                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
-              ),
+              _buildBiometricSwitchTile(isDesktop, isTablet, isMobile),
               _buildActionTile(
-                title: AppLocalizations.get('change_password'),
+                title:    AppLocalizations.get('change_password'),
                 subtitle: AppLocalizations.get('new_password'),
-                icon: Icons.password,
-                onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ChangePasswordPage())),
+                icon:     Icons.password,
+                onTap:    () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const ChangePasswordPage())),
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
@@ -279,54 +636,39 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
           SizedBox(height: isMobile ? 20 : isTablet ? 24 : 28),
 
-          // Session
+          // ── Section Session ───────────────────────────────────
           _buildSectionCard(
             title: AppLocalizations.get('section_session'),
-            icon: Icons.timer,
+            icon:  Icons.timer,
             children: [
               _buildSwitchTile(
-                title: AppLocalizations.get('session_expired'),
+                title:    AppLocalizations.get('session_expired'),
                 subtitle: AppLocalizations.get('inactivity_detected'),
-                value: _sessionTimeout,
+                value:    _sessionTimeout,
                 onChanged: (value) async {
                   setState(() => _sessionTimeout = value);
+                  final stored = _mapLocalizedToStoredValue(_sessionTimeoutValue);
                   if (value) {
-                    // Utiliser la valeur stockée (en anglais) pour le service
-                    final storedDuration = _mapLocalizedToStoredValue(_sessionTimeoutValue);
-                    _autoLogoutService.startAutoLogout(storedDuration);
+                    _autoLogoutService.startAutoLogout(stored);
                     await _autoLogoutService.saveAutoLogoutSettings(
-                        enabled: true, duration: storedDuration);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('${AppLocalizations.get('success')} $_sessionTimeoutValue'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 3),
-                      ));
-                    }
+                        enabled: true, duration: stored);
+                    _showSnack(
+                        '${AppLocalizations.get('success')} $_sessionTimeoutValue',
+                        Colors.green);
                   } else {
                     _autoLogoutService.stopAutoLogout();
-                    // Utiliser la valeur stockée (en anglais) pour la sauvegarde
-                    final storedDuration = _mapLocalizedToStoredValue(_sessionTimeoutValue);
                     await _autoLogoutService.saveAutoLogoutSettings(
-                        enabled: false, duration: storedDuration);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(AppLocalizations.get('session_expired')),
-                        backgroundColor: Colors.orange,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 3),
-                      ));
-                    }
+                        enabled: false, duration: stored);
+                    _showSnack(AppLocalizations.get('session_expired'), Colors.orange);
                   }
                 },
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               if (_sessionTimeout)
                 _buildDropdownTile(
-                  title: AppLocalizations.get('remaining_time'),
+                  title:    AppLocalizations.get('remaining_time'),
                   subtitle: AppLocalizations.get('inactivity_warning'),
-                  value: _sessionTimeoutValue,
+                  value:    _sessionTimeoutValue,
                   items: [
                     AppLocalizations.get('session_timeout_5_seconds'),
                     AppLocalizations.get('session_timeout_15_minutes'),
@@ -336,27 +678,20 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                   ],
                   onChanged: (value) async {
                     setState(() => _sessionTimeoutValue = value);
-                    // Utiliser la valeur stockée (en anglais) pour le service
-                    final storedDuration = _mapLocalizedToStoredValue(value);
-                    _autoLogoutService.startAutoLogout(storedDuration);
+                    final stored = _mapLocalizedToStoredValue(value);
+                    _autoLogoutService.startAutoLogout(stored);
                     await _autoLogoutService.saveAutoLogoutSettings(
-                        enabled: true, duration: storedDuration);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('${AppLocalizations.get('success')} $value'),
-                        backgroundColor: Colors.green,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                      ));
-                    }
+                        enabled: true, duration: stored);
+                    _showSnack(
+                        '${AppLocalizations.get('success')} $value', Colors.green);
                   },
                   isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
                 ),
               _buildActionTile(
-                title: AppLocalizations.get('active_sessions'),
+                title:    AppLocalizations.get('active_sessions'),
                 subtitle: AppLocalizations.get('active_sessions'),
-                icon: Icons.devices,
-                onTap: _showActiveSessions,
+                icon:     Icons.devices,
+                onTap:    _showActiveSessions,
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
@@ -365,31 +700,31 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
 
           SizedBox(height: isMobile ? 20 : isTablet ? 24 : 28),
 
-          // Confidentialité
+          // ── Section Confidentialité ───────────────────────────
           _buildSectionCard(
             title: AppLocalizations.get('section_confidentiality'),
-            icon: Icons.privacy_tip,
+            icon:  Icons.privacy_tip,
             children: [
               _buildSwitchTile(
-                title: AppLocalizations.get('notif_security_title'),
+                title:    AppLocalizations.get('notif_security_title'),
                 subtitle: AppLocalizations.get('notif_security_subtitle'),
-                value: _loginNotifications,
-                onChanged: (value) => setState(() => _loginNotifications = value),
+                value:    _loginNotifications,
+                onChanged: (v) => setState(() => _loginNotifications = v),
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildActionTile(
-                title: AppLocalizations.get('save'),
+                title:    AppLocalizations.get('save'),
                 subtitle: AppLocalizations.get('personal_info'),
-                icon: Icons.download,
-                onTap: _downloadData,
+                icon:     Icons.download,
+                onTap:    _downloadData,
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
               _buildActionTile(
-                title: AppLocalizations.get('security_delete_account'),
+                title:    AppLocalizations.get('security_delete_account'),
                 subtitle: AppLocalizations.get('confirm'),
-                icon: Icons.delete_forever,
+                icon:     Icons.delete_forever,
                 isDanger: true,
-                onTap: _showDeleteAccountDialog,
+                onTap:    _showDeleteAccountDialog,
                 isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
               ),
             ],
@@ -402,44 +737,136 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  WIDGET — SWITCH BIOMÉTRIQUE ENRICHI
+  // ─────────────────────────────────────────────────────────────────────────────
+  Widget _buildBiometricSwitchTile(bool isDesktop, bool isTablet, bool isMobile) {
+    final Color    statusColor = !_biometricAvailable
+        ? Colors.grey
+        : _biometricAuth ? Colors.green : Colors.orange;
+
+    final IconData statusIcon = !_biometricAvailable
+        ? Icons.block
+        : _biometricAuth ? Icons.check_circle : Icons.fingerprint;
+
+    final String subtitle = !_biometricAvailable
+        ? AppLocalizations.get('biometric_not_available')
+        : _biometricAuth
+        ? '$_biometricType — ${AppLocalizations.get('biometric_enabled_suffix')}'
+        : '${AppLocalizations.get('biometric_activate_desc')} $_biometricType';
+
+    return Column(children: [
+      Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+          vertical:   isMobile ? 12 : isTablet ? 14 : 16,
+        ),
+        child: Row(children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 8 : 10),
+            decoration: BoxDecoration(
+              color:        statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(statusIcon,
+                color: statusColor,
+                size: isDesktop ? 22 : isTablet ? 20 : 18),
+          ),
+          SizedBox(width: isMobile ? 12 : 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppLocalizations.get('biometric_auth'),
+                  style: TextStyle(
+                    fontSize:   isDesktop ? 16 : isTablet ? 15 : 14,
+                    fontWeight: FontWeight.w600,
+                    color:      _biometricAvailable ? Colors.black87 : Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize:   isDesktop ? 13 : isTablet ? 12 : 11,
+                    color:      statusColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Loader pendant l'activation ou Switch
+          if (_biometricLoading)
+            const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor:  AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+              ),
+            )
+          else
+            Switch(
+              value:              _biometricAuth,
+              onChanged:          _biometricAvailable ? _handleBiometricToggle : null,
+              activeColor:        Colors.deepPurple,
+              inactiveThumbColor: Colors.grey[400],
+              inactiveTrackColor: Colors.grey[300],
+            ),
+        ]),
+      ),
+      Divider(
+        height: 1, thickness: 0.5, color: Colors.grey[200],
+        indent:    isMobile ? 16 : isTablet ? 20 : 24,
+        endIndent: isMobile ? 16 : isTablet ? 20 : 24,
+      ),
+    ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  WIDGETS GÉNÉRIQUES
+  // ─────────────────────────────────────────────────────────────────────────────
   Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
+    required String       title,
+    required IconData     icon,
     required List<Widget> children,
-    required bool isDesktop,
-    required bool isTablet,
-    required bool isMobile,
+    required bool isDesktop, required bool isTablet, required bool isMobile,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color:        Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color:      Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset:     const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 20 : 24),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.deepPurple,
-                      size: isDesktop ? 24 : isTablet ? 22 : 20),
+            child: Row(children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+                decoration: BoxDecoration(
+                  color:        Colors.deepPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                SizedBox(width: isMobile ? 12 : 16),
-                Text(title,
-                    style: TextStyle(
-                        fontSize: isDesktop ? 18 : isTablet ? 17 : 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
-              ],
-            ),
+                child: Icon(icon,
+                    color: Colors.deepPurple,
+                    size: isDesktop ? 24 : isTablet ? 22 : 20),
+              ),
+              SizedBox(width: isMobile ? 12 : 16),
+              Text(title,
+                  style: TextStyle(
+                      fontSize:   isDesktop ? 18 : isTablet ? 17 : 16,
+                      fontWeight: FontWeight.bold,
+                      color:      Colors.black87)),
+            ]),
           ),
           ...children,
         ],
@@ -448,217 +875,195 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   }
 
   Widget _buildSwitchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
+    required String       title,
+    required String       subtitle,
+    required bool         value,
     required Function(bool) onChanged,
-    required bool isDesktop,
-    required bool isTablet,
-    required bool isMobile,
+    required bool isDesktop, required bool isTablet, required bool isMobile,
   }) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : isTablet ? 20 : 24,
-            vertical: isMobile ? 12 : isTablet ? 14 : 16,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87)),
-                    SizedBox(height: isMobile ? 2 : 4),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-                            color: Colors.grey[600])),
-                  ],
-                ),
-              ),
-              Switch(
-                value: value,
-                onChanged: onChanged,
-                activeColor: Colors.deepPurple,
-                inactiveThumbColor: Colors.grey[400],
-                inactiveTrackColor: Colors.grey[300],
-              ),
-            ],
-          ),
+    return Column(children: [
+      Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+          vertical:   isMobile ? 12 : isTablet ? 14 : 16,
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey[200],
-            indent: isMobile ? 16 : isTablet ? 20 : 24,
-            endIndent: isMobile ? 16 : isTablet ? 20 : 24),
-      ],
-    );
-  }
-
-  Widget _buildActionTile({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    bool isDanger = false,
-    required bool isDesktop,
-    required bool isTablet,
-    required bool isMobile,
-  }) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 16 : isTablet ? 20 : 24,
-              vertical: isMobile ? 12 : isTablet ? 14 : 16,
-            ),
-            child: Row(
+        child: Row(children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
-                  decoration: BoxDecoration(
-                    color: isDanger
-                        ? Colors.red.withOpacity(0.1)
-                        : Colors.deepPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon,
-                      color: isDanger ? Colors.red : Colors.deepPurple,
-                      size: isDesktop ? 20 : isTablet ? 18 : 16),
-                ),
-                SizedBox(width: isMobile ? 12 : 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: TextStyle(
-                              fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-                              fontWeight: FontWeight.w600,
-                              color: isDanger ? Colors.red : Colors.black87)),
-                      SizedBox(height: isMobile ? 2 : 4),
-                      Text(subtitle,
-                          style: TextStyle(
-                              fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-                              color: Colors.grey[600])),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios, // ✅ toujours la même, Directionality s'occupe du reste
-                  color: Colors.grey[400],
-                  size: isDesktop ? 20 : isTablet ? 18 : 16,
-                ),
+                Text(title,
+                    style: TextStyle(
+                        fontSize:   isDesktop ? 16 : isTablet ? 15 : 14,
+                        fontWeight: FontWeight.w600,
+                        color:      Colors.black87)),
+                SizedBox(height: isMobile ? 2 : 4),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                        color:    Colors.grey[600])),
               ],
             ),
           ),
+          Switch(
+            value:              value,
+            onChanged:          onChanged,
+            activeColor:        Colors.deepPurple,
+            inactiveThumbColor: Colors.grey[400],
+            inactiveTrackColor: Colors.grey[300],
+          ),
+        ]),
+      ),
+      Divider(
+        height: 1, thickness: 0.5, color: Colors.grey[200],
+        indent:    isMobile ? 16 : isTablet ? 20 : 24,
+        endIndent: isMobile ? 16 : isTablet ? 20 : 24,
+      ),
+    ]);
+  }
+
+  Widget _buildActionTile({
+    required String    title,
+    required String    subtitle,
+    required IconData  icon,
+    required VoidCallback onTap,
+    bool isDanger = false,
+    required bool isDesktop, required bool isTablet, required bool isMobile,
+  }) {
+    return Column(children: [
+      GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+            vertical:   isMobile ? 12 : isTablet ? 14 : 16,
+          ),
+          child: Row(children: [
+            Container(
+              padding: EdgeInsets.all(isMobile ? 8 : isTablet ? 10 : 12),
+              decoration: BoxDecoration(
+                color: isDanger
+                    ? Colors.red.withOpacity(0.1)
+                    : Colors.deepPurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon,
+                  color: isDanger ? Colors.red : Colors.deepPurple,
+                  size: isDesktop ? 20 : isTablet ? 18 : 16),
+            ),
+            SizedBox(width: isMobile ? 12 : 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize:   isDesktop ? 16 : isTablet ? 15 : 14,
+                          fontWeight: FontWeight.w600,
+                          color:      isDanger ? Colors.red : Colors.black87)),
+                  SizedBox(height: isMobile ? 2 : 4),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                          color:    Colors.grey[600])),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios,
+                color: Colors.grey[400],
+                size: isDesktop ? 20 : isTablet ? 18 : 16),
+          ]),
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey[200],
-            indent: isMobile ? 16 : isTablet ? 20 : 24,
-            endIndent: isMobile ? 16 : isTablet ? 20 : 24),
-      ],
-    );
+      ),
+      Divider(
+        height: 1, thickness: 0.5, color: Colors.grey[200],
+        indent:    isMobile ? 16 : isTablet ? 20 : 24,
+        endIndent: isMobile ? 16 : isTablet ? 20 : 24,
+      ),
+    ]);
   }
 
   Widget _buildDropdownTile({
-    required String title,
-    required String subtitle,
-    required String value,
-    required List<String> items,
+    required String         title,
+    required String         subtitle,
+    required String         value,
+    required List<String>   items,
     required Function(String) onChanged,
-    required bool isDesktop,
-    required bool isTablet,
-    required bool isMobile,
+    required bool isDesktop, required bool isTablet, required bool isMobile,
   }) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : isTablet ? 20 : 24,
-            vertical: isMobile ? 12 : isTablet ? 14 : 16,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: isDesktop ? 16 : isTablet ? 15 : 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87)),
-                    SizedBox(height: isMobile ? 2 : 4),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
-                            color: Colors.grey[600])),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 12 : isTablet ? 16 : 20,
-                  vertical: isMobile ? 8 : isTablet ? 10 : 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: value,
-                  onChanged: (String? newValue) {
-                    if (newValue != null) onChanged(newValue);
-                  },
-                  items: items.map<DropdownMenuItem<String>>((String item) {
-                    return DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(item,
-                          style: TextStyle(fontSize: isDesktop ? 14 : isTablet ? 13 : 12)),
-                    );
-                  }).toList(),
-                  underline: const SizedBox(),
-                  icon: Icon(Icons.keyboard_arrow_down, color: Colors.deepPurple,
-                      size: isDesktop ? 20 : isTablet ? 18 : 16),
-                ),
-              ),
-            ],
-          ),
+    return Column(children: [
+      Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : isTablet ? 20 : 24,
+          vertical:   isMobile ? 12 : isTablet ? 14 : 16,
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey[200],
-            indent: isMobile ? 16 : isTablet ? 20 : 24,
-            endIndent: isMobile ? 16 : isTablet ? 20 : 24),
-      ],
-    );
+        child: Row(children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontSize:   isDesktop ? 16 : isTablet ? 15 : 14,
+                        fontWeight: FontWeight.w600,
+                        color:      Colors.black87)),
+                SizedBox(height: isMobile ? 2 : 4),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                        color:    Colors.grey[600])),
+              ],
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12 : isTablet ? 16 : 20,
+              vertical:   isMobile ? 8  : isTablet ? 10 : 12,
+            ),
+            decoration: BoxDecoration(
+              border:       Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: DropdownButton<String>(
+              value:    value,
+              onChanged: (v) { if (v != null) onChanged(v); },
+              items: items.map((item) => DropdownMenuItem(
+                value: item,
+                child: Text(item,
+                    style: TextStyle(
+                        fontSize: isDesktop ? 14 : isTablet ? 13 : 12)),
+              )).toList(),
+              underline: const SizedBox(),
+              icon: Icon(Icons.keyboard_arrow_down,
+                  color: Colors.deepPurple,
+                  size: isDesktop ? 20 : isTablet ? 18 : 16),
+            ),
+          ),
+        ]),
+      ),
+      Divider(
+        height: 1, thickness: 0.5, color: Colors.grey[200],
+        indent:    isMobile ? 16 : isTablet ? 20 : 24,
+        endIndent: isMobile ? 16 : isTablet ? 20 : 24,
+      ),
+    ]);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  ACTIONS
+  // ─────────────────────────────────────────────────────────────────────────────
   void _saveSettings() async {
+    final stored = _mapLocalizedToStoredValue(_sessionTimeoutValue);
     if (_sessionTimeout) {
-      // Utiliser la valeur stockée (en anglais) pour le service
-      final storedDuration = _mapLocalizedToStoredValue(_sessionTimeoutValue);
-      _autoLogoutService.startAutoLogout(storedDuration);
+      _autoLogoutService.startAutoLogout(stored);
       await _autoLogoutService.saveAutoLogoutSettings(
-          enabled: true, duration: storedDuration);
+          enabled: true, duration: stored);
     } else {
       _autoLogoutService.stopAutoLogout();
-      // Utiliser la valeur stockée (en anglais) pour la sauvegarde
-      final storedDuration = _mapLocalizedToStoredValue(_sessionTimeoutValue);
       await _autoLogoutService.saveAutoLogoutSettings(
-          enabled: false, duration: storedDuration);
+          enabled: false, duration: stored);
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppLocalizations.get('notif_saved_success')),
-      backgroundColor: Colors.green,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    _showSnack(AppLocalizations.get('notif_saved_success'), Colors.green);
     Navigator.of(context).pop();
   }
 
@@ -666,24 +1071,21 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => const ActiveSessionsDialog(),
+      builder: (_) => const ActiveSessionsDialog(),
     );
   }
 
   void _downloadData() async {
     final user = _auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppLocalizations.get('error')),
-        backgroundColor: Colors.red,
-      ));
+      _showSnack(AppLocalizations.get('error'), Colors.red);
       return;
     }
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.get('personal_info')),
+        title:   Text(AppLocalizations.get('personal_info')),
         content: Text(
           '${AppLocalizations.get('confirm')} ?\n\n'
               '• ${AppLocalizations.get('profile')}\n'
@@ -699,49 +1101,45 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white),
             child: Text(AppLocalizations.get('save')),
           ),
         ],
       ),
     );
-
     if (confirmed != true) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppLocalizations.get('loading')),
-      backgroundColor: Colors.blue,
-      duration: const Duration(seconds: 2),
-    ));
+    _showSnack(AppLocalizations.get('loading'), Colors.blue);
 
     try {
-      final userData = await _getUserCompleteData(user.uid);
-
+      final userData   = await _getUserCompleteData(user.uid);
       final exportData = {
         'export_info': {
-          'date': DateTime.now().toIso8601String(),
-          'version': '1.0.0',
-          'user_id': user.uid,
+          'date':     DateTime.now().toIso8601String(),
+          'version':  '1.0.0',
+          'user_id':  user.uid,
           'app_name': 'Winzy Marketplace',
         },
         'profile': {
-          'email': user.email,
-          'display_name': user.displayName,
-          'photo_url': user.photoURL,
+          'email':          user.email,
+          'display_name':   user.displayName,
+          'photo_url':      user.photoURL,
           'email_verified': user.emailVerified,
-          'creation_time': user.metadata.creationTime?.toIso8601String(),
-          'last_sign_in': user.metadata.lastSignInTime?.toIso8601String(),
+          'creation_time':  user.metadata.creationTime?.toIso8601String(),
+          'last_sign_in':   user.metadata.lastSignInTime?.toIso8601String(),
         },
-        'addresses': userData['addresses'] ?? [],
-        'preferences': userData['preferences'] ?? {},
+        'addresses':           userData['addresses'] ?? [],
+        'preferences':         userData['preferences'] ?? {},
         'notifications_count': userData['notifications_count'] ?? 0,
       };
 
-      final jsonString = jsonEncode(exportData);
-      final readableContent = '========================================\n'
-          '     MES DONNÉES PERSONNELLES - WINZY MARKETPLACE\n'
+      final jsonString      = jsonEncode(exportData);
+      final readableContent =
+          '========================================\n'
+          '     MES DONNÉES PERSONNELLES - WINZY\n'
           '========================================\n\n'
-          'Date d\'export: ${DateTime.now().toString().split('.')[0]}\n\n'
+          'Date: ${DateTime.now().toString().split('.')[0]}\n\n'
           '$jsonString\n';
 
       final bytes = utf8.encode(readableContent);
@@ -752,57 +1150,54 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       } else {
         directory = await getApplicationDocumentsDirectory();
       }
-
       final fileName = 'winzy_donnees_${DateTime.now().millisecondsSinceEpoch}.txt';
-      final file = File('${directory.path}/$fileName');
+      final file     = File('${directory.path}/$fileName');
       await file.writeAsBytes(bytes);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${AppLocalizations.get('success')} : ${file.path}'),
+          content:         Text('${AppLocalizations.get('success')} : ${file.path}'),
           backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 10),
+          behavior:        SnackBarBehavior.floating,
+          duration:        const Duration(seconds: 10),
           action: SnackBarAction(
-            label: AppLocalizations.get('edit'),
+            label:     AppLocalizations.get('edit'),
             textColor: Colors.white,
-            onPressed: () async {
-              await Share.share(readableContent,
-                  subject: AppLocalizations.get('personal_info'));
-            },
+            onPressed: () async => await Share.share(readableContent,
+                subject: AppLocalizations.get('personal_info')),
           ),
         ));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${AppLocalizations.get('error')}: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ));
-      }
+      _showSnack('${AppLocalizations.get('error')}: $e', Colors.red);
     }
   }
 
   Future<Map<String, dynamic>> _getUserCompleteData(String userId) async {
     try {
-      final addresses = await _authService.getUserAddresses();
+      final addresses     = await _authService.getUserAddresses();
       final notifications = await _authService.getUserNotifications();
       return {
         'addresses': addresses.map((addr) => {
-          'id': addr['id'],
-          'street': addr['street'],
-          'city': addr['city'],
+          'id':          addr['id'],
+          'street':      addr['street'],
+          'city':        addr['city'],
           'postal_code': addr['postalCode'],
-          'country': addr['country'],
-          'is_default': addr['isDefault'],
+          'country':     addr['country'],
+          'is_default':  addr['isDefault'],
         }).toList(),
-        'preferences': {'theme': 'light', 'language': AppLocalizations.getLanguage()},
+        'preferences': {
+          'theme':    'light',
+          'language': AppLocalizations.getLanguage(),
+        },
         'notifications_count': notifications.length,
       };
-    } catch (e) {
-      return {'addresses': <Map<String, dynamic>>[], 'preferences': {}, 'notifications_count': 0};
+    } catch (_) {
+      return {
+        'addresses':           <Map<String, dynamic>>[],
+        'preferences':         {},
+        'notifications_count': 0,
+      };
     }
   }
 
@@ -811,35 +1206,18 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) => DeleteAccountDialog(
-        onConfirmDelete: () {
-          // Le DeleteAccountDialog gère maintenant toute la logique
-          // Pas besoin de code supplémentaire ici
-        },
+      builder: (_) => DeleteAccountDialog(
+        onConfirmDelete: () {},
         onDeactivated: () async {
           try {
-            // Attendre un peu pour s'assurer que tout est bien déconnecté
             await Future.delayed(const Duration(milliseconds: 300));
-            
-            // Forcer la navigation vers login
             if (mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/login',
-                (route) => false,
-              );
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
             }
           } catch (e) {
-            print('❌ Erreur dans onDeactivated: $e');
-            // Dernière tentative de redirection
-            try {
-              if (mounted) {
-                Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
-                  '/login',
-                  (route) => false,
-                );
-              }
-            } catch (e2) {
-              print('❌ Erreur finale de redirection: $e2');
+            if (mounted) {
+              Navigator.of(context, rootNavigator: true)
+                  .pushNamedAndRemoveUntil('/login', (_) => false);
             }
           }
         },

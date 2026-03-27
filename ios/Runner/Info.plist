@@ -78,6 +78,10 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to photo library to select profile photos</string>
 
+	<!-- ✅ Face ID / Touch ID — requis par local_auth -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilisez Face ID pour vous connecter à votre compte</string>
+
 	<!-- ═══════════════════════════════════════════════════════════
 	     URL Schemes
 	     ═══════════════════════════════════════════════════════════ -->
@@ -94,9 +98,7 @@
 			</array>
 		</dict>
 
-		<!-- 2. ✅ PayPal OAuth — flutter_web_auth_2 callback -->
-		<!-- ⚠️  Remplace "com.yourapp.smartmarketplace" par ton vrai Bundle ID -->
-		<!-- ⚠️  Doit être identique au callbackUrlScheme dans paypal_oauth_service.dart -->
+		<!-- 2. PayPal OAuth — flutter_web_auth_2 callback -->
 		<dict>
 			<key>CFBundleURLName</key>
 			<string>PayPal OAuth Callback</string>
