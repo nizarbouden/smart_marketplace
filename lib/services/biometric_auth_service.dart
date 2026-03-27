@@ -88,7 +88,7 @@ class BiometricAuthService {
     String? preferredMethod, // ← nouveau paramètre
   }) async {
     try {
-      if (!await isAvailable()) return BiometricSetupResult.notAvailable;
+     // if (!await isAvailable()) return BiometricSetupResult.notAvailable;
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return BiometricSetupResult.noUser;

@@ -137,7 +137,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       final label     = await _biometricService.getBiometricLabel();
       if (mounted) {
         setState(() {
-          _biometricAvailable = available;
+          _biometricAvailable = true;
           _biometricAuth      = enabled;
           _biometricType      = label;
         });
@@ -243,28 +243,21 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     }
 
     // ── ACTIVER ───────────────────────────────────────────────────
+    // ── ACTIVER ───────────────────────────────────────────────────
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showSnack(AppLocalizations.get('biometric_no_user'), Colors.red);
       return;
     }
 
-    // 1. Détecter si les deux méthodes sont disponibles
-    final supportsBoth = await _biometricService.supportsBothMethods();
-
-    // 2. Choisir la méthode préférée
-    String? preferredMethod;
-    if (supportsBoth) {
-      // L'appareil supporte Face ID ET empreinte → on demande à l'utilisateur
-      preferredMethod = await _showBiometricMethodDialog();
-      if (preferredMethod == null) return; // annulé
-    } else {
-      // Un seul type disponible → on le détecte automatiquement
-      final types = await _biometricService.getAvailableBiometrics();
-      preferredMethod = types.contains(BiometricType.face) ? 'face' : 'fingerprint';
+// Détecter automatiquement la méthode disponible
+    final types = await _biometricService.getAvailableBiometrics();
+    String detectedMethod = 'fingerprint'; // défaut
+    if (types.contains(BiometricType.face)) {
+      detectedMethod = 'face';
     }
 
-    // 3. Si email/password → demander le mot de passe
+// Si email/password → demander le mot de passe
     final provider = user.providerData.isNotEmpty
         ? user.providerData.first.providerId
         : 'password';
@@ -272,19 +265,18 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     String? password;
     if (provider == 'password') {
       password = await _showPasswordDialog();
-      if (password == null) return; // annulé
+      if (password == null) return;
     }
 
-    // 4. Activer avec la méthode choisie
     setState(() => _biometricLoading = true);
     final result = await _biometricService.enableBiometric(
       password:        password,
-      preferredMethod: preferredMethod,
+      preferredMethod: detectedMethod,
     );
     setState(() {
       _biometricLoading = false;
       if (result == BiometricSetupResult.success) {
-        _biometricType = preferredMethod == 'face'
+        _biometricType = detectedMethod == 'face'
             ? AppLocalizations.get('biometric_face_id')
             : AppLocalizations.get('biometric_fingerprint');
       }
@@ -316,76 +308,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  //  DIALOG — CHOIX DE LA MÉTHODE BIOMÉTRIQUE
-  // ─────────────────────────────────────────────────────────────────────────────
-  Future<String?> _showBiometricMethodDialog() async {
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding:   const EdgeInsets.fromLTRB(24, 24, 24, 0),
-        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-        title: Column(children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.deepPurple.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.security, color: Colors.deepPurple, size: 32),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            AppLocalizations.get('biometric_choose_method_title'),
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppLocalizations.get('biometric_choose_method_subtitle'),
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Option Face ID ────────────────────────────────────
-            _buildMethodOption(
-              ctx:         ctx,
-              value:       'face',
-              icon:        Icons.face_retouching_natural,
-              label:       AppLocalizations.get('biometric_face_id'),
-              description: AppLocalizations.get('biometric_face_id_desc'),
-              color:       Colors.indigo,
-            ),
-            const SizedBox(height: 12),
-
-            // ── Option Empreinte digitale ─────────────────────────
-            _buildMethodOption(
-              ctx:         ctx,
-              value:       'fingerprint',
-              icon:        Icons.fingerprint,
-              label:       AppLocalizations.get('biometric_fingerprint'),
-              description: AppLocalizations.get('biometric_fingerprint_desc'),
-              color:       Colors.deepPurple,
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: Text(AppLocalizations.get('cancel'),
-                style: const TextStyle(color: Colors.grey)),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Carte cliquable pour chaque option biométrique dans le dialog
   Widget _buildMethodOption({
