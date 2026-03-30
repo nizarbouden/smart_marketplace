@@ -22,8 +22,6 @@ class EmailJSService {
     try {
       // ✅ Lien deep link intercepté par l'app Android via AndroidManifest
       //    Format : winzy://reactivate?token=XXXX
-      final deepLink = 'winzy://reactivate?token=$reactivationToken';
-
       final response = await http.post(
         Uri.parse(_baseUrl),
         headers: {'Content-Type': 'application/json'},

@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../localization/app_localizations.dart';
 import '../models/user_model.dart';
 import '../services/firebase_auth_service.dart';
 
@@ -229,7 +228,7 @@ class AuthProvider with ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         if (rememberMe) {
           await prefs.setBool('rememberMe', true);
-          await prefs.setString('lastEmail', _user!.email ?? '');
+          await prefs.setString('lastEmail', _user!.email );
         } else {
           await prefs.remove('rememberMe');
           await prefs.remove('lastEmail');
@@ -380,15 +379,18 @@ class AuthProvider with ChangeNotifier {
   //  VALIDATION
   // ─────────────────────────────────────────────────────────────
   bool isValidEmail(String email) =>
-      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+      RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
 
   String? validatePassword(String password) {
-    if (password.length < 6)
+    if (password.length < 6) {
       return 'Le mot de passe doit contenir au moins 6 caractères';
-    if (!password.contains(RegExp(r'[A-Z]')))
+    }
+    if (!password.contains(RegExp(r'[A-Z]'))) {
       return 'Le mot de passe doit contenir au moins une majuscule';
-    if (!password.contains(RegExp(r'[0-9]')))
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
       return 'Le mot de passe doit contenir au moins un chiffre';
+    }
     return null;
   }
 

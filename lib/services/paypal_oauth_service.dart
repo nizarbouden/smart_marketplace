@@ -124,7 +124,9 @@ class PayPalOAuthService {
         if (parts.length == 3) {
           String payload = parts[1];
           payload = payload.replaceAll('-', '+').replaceAll('_', '/');
-          while (payload.length % 4 != 0) payload += '=';
+          while (payload.length % 4 != 0) {
+            payload += '=';
+          }
 
           final decoded = utf8.decode(base64Decode(payload));
           final data    = jsonDecode(decoded) as Map<String, dynamic>;

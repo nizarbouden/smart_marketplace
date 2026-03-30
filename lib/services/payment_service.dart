@@ -81,7 +81,7 @@ class PaymentService {
     }
 
     final setupIntent     = await Stripe.instance.retrieveSetupIntent(clientSecret);
-    final paymentMethodId = setupIntent.paymentMethodId!;
+    final paymentMethodId = setupIntent.paymentMethodId;
 
     final detailsRes = await http.post(
       Uri.parse('$_baseUrl/get-payment-method'),
@@ -211,8 +211,6 @@ class PaymentService {
         url:               approvalUrl,
         callbackUrlScheme: _paypalScheme,
       );
-
-      final uri = Uri.parse(callbackResult);
 
       // Annulé si redirigé vers cancel URL
       if (callbackResult.contains('paypal-cancel')) {

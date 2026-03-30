@@ -134,7 +134,7 @@ class SessionManagementService {
           deviceId = 'web_${_uuid.v4()}';
         }
         
-        await _prefs?.setString('device_id', deviceId!);
+        await _prefs?.setString('device_id', deviceId);
       } catch (e) {
         deviceId = 'unknown_${_uuid.v4()}';
         await _prefs?.setString('device_id', deviceId);

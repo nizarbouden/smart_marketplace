@@ -326,8 +326,6 @@ class AppLocalizations {
     'notif_section_account': 'Compte et sécurité',
     'notif_account_title': 'Mises à jour du compte',
     'notif_account_subtitle': 'Changements importants sur votre compte',
-    'notif_security_title': 'Alertes de sécurité',
-    'notif_security_subtitle': 'Activités suspectes et connexions',
 
     // ── Moyens de paiement ────────────────────────────────────────
     'payment_methods_title': 'Moyens de paiement',
@@ -1427,8 +1425,6 @@ class AppLocalizations {
     'notif_section_account': 'Account & Security',
     'notif_account_title': 'Account Updates',
     'notif_account_subtitle': 'Important changes to your account',
-    'notif_security_title': 'Security Alerts',
-    'notif_security_subtitle': 'Suspicious activity and logins',
 
     // ── Payment Methods ───────────────────────────────────────────
     'payment_methods_title': 'Payment Methods',
@@ -2521,8 +2517,6 @@ class AppLocalizations {
     'notif_section_account': 'الحساب والأمان',
     'notif_account_title': 'تحديثات الحساب',
     'notif_account_subtitle': 'تغييرات مهمة في حسابك',
-    'notif_security_title': 'تنبيهات الأمان',
-    'notif_security_subtitle': 'الأنشطة المشبوهة وتسجيلات الدخول',
 
     // ── طرق الدفع ─────────────────────────────────────────────────
     'payment_methods_title': 'طرق الدفع',

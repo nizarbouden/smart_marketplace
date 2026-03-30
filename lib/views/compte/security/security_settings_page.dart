@@ -29,7 +29,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   // ─────────────────────────────────────────────────────────────────────────────
   bool   _twoFactorAuth        = false;
   bool   _biometricAuth        = false;
-  bool   _loginNotifications   = true;
   bool   _sessionTimeout       = true;
   String _sessionTimeoutValue  = '30 minutes';
 
@@ -133,8 +132,22 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   Future<void> _checkBiometric() async {
     try {
       final available = await _biometricService.isAvailable();
-      final enabled   = await _biometricService.isBiometricEnabled();
-      final label     = await _biometricService.getBiometricLabel();
+
+      if (!available) {
+        // L'appareil ne supporte pas la biométrie
+        if (mounted) {
+          setState(() {
+            _biometricAvailable = false;
+            _biometricAuth      = false; // forcer à false
+            _biometricType      = '';
+          });
+        }
+        return; // ← AJOUTER ce return pour sortir proprement
+      }
+
+      final enabled = await _biometricService.isBiometricEnabled();
+      final label   = await _biometricService.getBiometricLabel();
+
       if (mounted) {
         setState(() {
           _biometricAvailable = true;
@@ -143,7 +156,14 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         });
       }
     } catch (e) {
+      // En cas d'erreur → désactiver proprement
       debugPrint('⚠️ Biométrie non disponible: $e');
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = false;
+          _biometricAuth      = false;
+        });
+      }
     }
   }
 
@@ -306,57 +326,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         _showSnack(AppLocalizations.get('error'), Colors.red);
         break;
     }
-  }
-
-
-  /// Carte cliquable pour chaque option biométrique dans le dialog
-  Widget _buildMethodOption({
-    required BuildContext ctx,
-    required String       value,
-    required IconData     icon,
-    required String       label,
-    required String       description,
-    required Color        color,
-  }) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(ctx, value),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color:        color.withOpacity(0.06),
-          border:       Border.all(color: color.withOpacity(0.3), width: 1.5),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color:        color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 26),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize:   15,
-                        fontWeight: FontWeight.w700,
-                        color:      color)),
-                const SizedBox(height: 2),
-                Text(description,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios, size: 14, color: color.withOpacity(0.5)),
-        ]),
-      ),
-    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -627,13 +596,6 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
             title: AppLocalizations.get('section_confidentiality'),
             icon:  Icons.privacy_tip,
             children: [
-              _buildSwitchTile(
-                title:    AppLocalizations.get('notif_security_title'),
-                subtitle: AppLocalizations.get('notif_security_subtitle'),
-                value:    _loginNotifications,
-                onChanged: (v) => setState(() => _loginNotifications = v),
-                isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile,
-              ),
               _buildActionTile(
                 title:    AppLocalizations.get('save'),
                 subtitle: AppLocalizations.get('personal_info'),
