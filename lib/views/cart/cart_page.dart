@@ -5,8 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/shipping_zone_model.dart';
+import '../../providers/buyer_address_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/currency_provider.dart'; // ✅
+import '../../providers/currency_provider.dart';
 import '../payment/checkout_page.dart';
 import '../compte/adress/address_page.dart';
 import '../../main.dart' show routeObserver;
@@ -40,16 +41,23 @@ class CartPageState extends State<CartPage>
   bool                _showSummary     = false;
   int                 _hiddenItemCount = 0;
 
-  Map<String, dynamic>? _buyerAddress;
   Map<String, dynamic>? _sellerStoreAddress;
-  String?               _buyerCountryCode;
-  bool                  _loadingAddress = true;
 
   late AnimationController _summaryCtrl;
   late Animation<Offset>   _summarySlide;
 
   User?  get _currentUser => _auth.currentUser;
   String _t(String k) => AppLocalizations.get(k);
+
+  // ── Getters qui lisent le provider ──────────────────────────
+  Map<String, dynamic>? get _buyerAddress =>
+      context.read<BuyerAddressProvider>().address;
+
+  String? get _buyerCountryCode =>
+      context.read<BuyerAddressProvider>().countryCode;
+
+  bool get _loadingAddress =>
+      context.read<BuyerAddressProvider>().isLoading;
 
   ShippingZone get _effectiveZone {
     if (_buyerCountryCode == null) return ShippingZone.world;
@@ -115,7 +123,6 @@ class CartPageState extends State<CartPage>
   }
 
   Future<void> _init() async {
-    await _loadBuyerAddress();
     await loadCart();
   }
 
@@ -136,48 +143,13 @@ class CartPageState extends State<CartPage>
   @override
   void didPopNext() => _init();
 
-  Future<void> _loadBuyerAddress() async {
-    final uid = _currentUser?.uid;
-    if (uid == null) {
-      if (mounted) setState(() => _loadingAddress = false);
-      return;
-    }
-    try {
-      final snap = await _firestore
-          .collection('users').doc(uid).collection('addresses')
-          .limit(10).get();
-
-      Map<String, dynamic>? addr;
-      if (snap.docs.isNotEmpty) {
-        final docs = snap.docs.map((d) => d.data()).toList();
-        addr = docs.firstWhere(
-                (d) => d['isDefault'] == true, orElse: () => docs.first);
-      }
-
-      String? iso;
-      if (addr != null) {
-        final flag = addr['countryFlag'] as String? ?? '';
-        iso = ShippingZoneExt.isoFromFlag(flag);
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _buyerAddress     = addr;
-        _buyerCountryCode = iso;
-        _loadingAddress   = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingAddress = false);
-    }
-  }
-
   Future<void> _goToAddAddress() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AddressPage()),
     );
     if (!mounted) return;
-    setState(() => _loadingAddress = true);
+    await context.read<BuyerAddressProvider>().load();
     await _init();
   }
 
@@ -396,8 +368,9 @@ class CartPageState extends State<CartPage>
 
   @override
   Widget build(BuildContext context) {
-    // ✅ context.watch → rebuild auto quand devise change
-    final currency = context.watch<CurrencyProvider>();
+    final currency     = context.watch<CurrencyProvider>();
+    // ← watch déclenche rebuild automatique quand l'adresse change
+    context.watch<BuyerAddressProvider>();
     final isRtl    = AppLocalizations.isRtl;
     final isTablet = MediaQuery.of(context).size.width > 600;
 
@@ -787,7 +760,6 @@ class CartPageState extends State<CartPage>
                   ? const Color(0xFF475569) : const Color(0xFFF97316),
               fontWeight: FontWeight.w500),
         )),
-        // ✅ frais livraison par vendeur dans la devise choisie
         Text(
           shippingPrice != null
               ? '+ ${currency.formatPrice(shippingPrice)}'
@@ -853,7 +825,6 @@ class CartPageState extends State<CartPage>
                     fontSize: isTablet ? 16 : 14, color: const Color(0xFF1E293B)),
                 maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            // ✅ prix article dans la devise choisie
             Text(currency.formatPrice(item.price),
                 style: const TextStyle(color: Colors.deepPurple,
                     fontWeight: FontWeight.w800, fontSize: 15)),
@@ -863,7 +834,6 @@ class CartPageState extends State<CartPage>
             else if (_buyerAddress == null)
               _ShippingBadge.unknown(_t('cart_shipping_no_address'))
             else if (canDeliver == true && shipPrice != null)
-              // ✅ frais livraison dans la devise choisie
                 _ShippingBadge.available(currency.formatPrice(shipPrice), zone.emoji)
               else
                 _ShippingBadge.unavailable(_t('cart_not_deliverable')),
@@ -933,7 +903,6 @@ class CartPageState extends State<CartPage>
             Text(_t('cart_products_subtotal'),
                 style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
             const Spacer(),
-            // ✅ sous-total produits
             Text(currency.formatPrice(_selectedProductsTotal),
                 style: const TextStyle(fontSize: 13,
                     fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
@@ -951,7 +920,6 @@ class CartPageState extends State<CartPage>
                 ? Text(_t('cart_shipping_to_calculate'),
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
                     color: Color(0xFF94A3B8)))
-            // ✅ frais livraison
                 : Text(
                 _selectedShippingTotal > 0
                     ? '+ ${currency.formatPrice(_selectedShippingTotal)}'
@@ -979,7 +947,6 @@ class CartPageState extends State<CartPage>
           if (_selectedCount > 0) ...[
             Column(crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min, children: [
-                  // ✅ grand total
                   Text(currency.formatPrice(_grandTotal),
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900,
                           color: Colors.deepPurple)),
@@ -1113,7 +1080,6 @@ class CartPageState extends State<CartPage>
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              // ✅ prix mini dans la devise choisie
                               Text('${currency.formatPrice(item.price)} ×${item.quantity}',
                                   style: const TextStyle(fontSize: 10,
                                       fontWeight: FontWeight.w600),
@@ -1130,7 +1096,6 @@ class CartPageState extends State<CartPage>
                       decoration: BoxDecoration(color: Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(14)),
                       child: Column(children: [
-                        // ✅ sous-total produits
                         _summaryRow(_t('cart_products_subtotal'),
                             currency.formatPrice(_selectedProductsTotal)),
                         const SizedBox(height: 4),
@@ -1152,7 +1117,6 @@ class CartPageState extends State<CartPage>
                               Expanded(child: Text(e.key,
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                   maxLines: 1, overflow: TextOverflow.ellipsis)),
-                              // ✅ livraison par vendeur
                               Text('+ ${currency.formatPrice(e.value)}',
                                   style: const TextStyle(fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -1160,7 +1124,6 @@ class CartPageState extends State<CartPage>
                             ]),
                           )),
                           const Divider(height: 14),
-                          // ✅ sous-total livraison
                           _summaryRow(
                             '${_t('cart_shipping_subtotal')} '
                                 '(${zone.emoji} ${zone.label(AppLocalizations.getLanguage())})',
@@ -1178,7 +1141,6 @@ class CartPageState extends State<CartPage>
                         ],
 
                         const Divider(height: 16),
-                        // ✅ grand total
                         _summaryRow(_t('cart_total'),
                             currency.formatPrice(_grandTotal),
                             isBold: true, isLarge: true,
@@ -1303,7 +1265,6 @@ class _ShippingBadge extends StatelessWidget {
         const SizedBox(width: 4),
         const Icon(Icons.local_shipping_rounded, size: 12, color: Color(0xFF3B82F6)),
         const SizedBox(width: 4),
-        // ✅ price est déjà formaté par currency.formatPrice()
         Text(price, style: const TextStyle(fontSize: 11,
             fontWeight: FontWeight.w700, color: Color(0xFF3B82F6))),
       ]),

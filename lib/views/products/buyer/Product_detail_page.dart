@@ -11,6 +11,7 @@ import '../../../models/product_model.dart';
 import '../../../models/shipping_zone_model.dart' hide ShippingCompanies;
 import '../../../models/shipping_company_model.dart';
 import '../../../providers/currency_provider.dart';
+import '../../../services/product_interactions_service.dart';
 import '../../../widgets/shipping_price_display_widget.dart';
 import '../../compte/adress/address_page.dart';
 
@@ -182,20 +183,26 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   Future<void> _toggleFavorite() async {
-    if (_currentUser == null) { _showLoginSnack(); return; }
+    if (_currentUser == null) {
+      _showLoginSnack();
+      return;
+    }
+
     _heartCtrl.forward(from: 0);
-    setState(() => _isFavorite = !_isFavorite);
-    final favRef = _firestore
-        .collection('users').doc(_currentUser!.uid)
-        .collection('favorites').doc(widget.product.id);
+    final newState = !_isFavorite;
+    setState(() => _isFavorite = newState);
+
     try {
-      if (_isFavorite) {
-        await favRef.set({'productId': widget.product.id, 'addedAt': Timestamp.now()});
-      } else {
-        await favRef.delete();
-      }
-    } catch (_) {
-      setState(() => _isFavorite = !_isFavorite);
+      await ProductInteractionsService.toggleFavorite(
+        widget.product.id,
+        !newState, // ancien état (avant le toggle)
+      );
+      // Le service notifiera automatiquement tous les écouteurs
+    } catch (e) {
+      // En cas d'erreur, on remet l'état précédent
+      setState(() => _isFavorite = !newState);
+      _showSnack(_t('detail_favorite_error'),
+          color: Colors.red, icon: Icons.error_outline);
     }
   }
 

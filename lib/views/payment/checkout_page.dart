@@ -6,8 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/shipping_zone_model.dart';
+import '../../providers/buyer_address_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/currency_provider.dart';              // ✅
+import '../../providers/currency_provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../services/create_order_service.dart';
 import '../../services/payment_service.dart';
@@ -51,7 +52,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  ZONE
+  //  ZONE — basée sur _selectedAddress (adresse choisie pour la commande)
+  //  et non sur BuyerAddressProvider (qui est l'adresse par défaut du profil)
   // ─────────────────────────────────────────────────────────────
 
   ShippingZone get _effectiveZone {
@@ -151,7 +153,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  CALCUL LIVRAISON (toujours en USD — base de stockage)
+  //  CALCUL LIVRAISON
   // ─────────────────────────────────────────────────────────────
 
   double _totalShippingUSD(List<CartItemModel> items) {
@@ -178,12 +180,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _selectedAddress      = result;
         _loadingSellerAddress = true;
       });
+      // Recharge aussi le provider pour garder la synchro globale
+      await context.read<BuyerAddressProvider>().load();
       await _loadSellerStoreAddress();
     }
   }
 
   Future<void> _addAddress() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressPage()));
+    if (!mounted) return;
+    // Recharge le provider global
+    await context.read<BuyerAddressProvider>().load();
     setState(() => _loadingAddress = true);
     await _loadDefaultAddress();
   }
@@ -203,9 +210,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  PAIEMENT — toujours en USD (prix stockés en USD)
-  //  L'affichage est converti dans la devise choisie
-  //  mais Stripe reçoit toujours le montant en USD
+  //  PAIEMENT
   // ─────────────────────────────────────────────────────────────
 
   Future<void> _processPayment(List<CartItemModel> items) async {
@@ -214,7 +219,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       final cart        = context.read<CartProvider>();
       final shippingUSD = _totalShippingUSD(items);
-      // ✅ totalUSD = montant réel envoyé au serveur de paiement
       final totalUSD    = cart.selectedProductsTotal + shippingUSD;
       bool  success     = false;
 
@@ -222,7 +226,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         case 'card':
           final pmId = _selectedPayment!.stripePaymentMethodId;
           final cId  = _selectedPayment!.stripeCustomerId;
-          // ✅ Stripe reçoit toujours USD
           success = (pmId != null && cId != null)
               ? await PaymentService.processPaymentWithSavedCard(
               amount: totalUSD, currency: 'usd',
@@ -275,8 +278,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final cart          = context.watch<CartProvider>();
-    // ✅ currency → rebuild auto quand devise change
     final currency      = context.watch<CurrencyProvider>();
+    // ← watch pour rebuild si l'adresse change en arrière-plan
+    context.watch<BuyerAddressProvider>();
+
     final selectedItems = cart.selectedItems;
     final isTablet      = MediaQuery.of(context).size.width > 600;
     final bottomPad     = MediaQuery.of(context).padding.bottom;
@@ -415,7 +420,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  LISTE PRODUITS ✅ devise choisie
+  //  LISTE PRODUITS
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildProductsList(List<CartItemModel> items,
@@ -473,7 +478,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ])),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  // ✅ prix article dans la devise choisie
                   Text(currency.formatPrice(item.price),
                       style: const TextStyle(fontWeight: FontWeight.w800,
                           fontSize: 14, color: Colors.deepPurple)),
@@ -494,7 +498,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               else if (!canDeliver)
                 _badgeUnavailable()
               else if (shipPrice != null)
-                // ✅ frais livraison dans la devise choisie
                   _badgeAvailable(shipPrice, zone, currency)
                 else
                   _badgeFree(),
@@ -508,7 +511,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  // ✅ Frais livraison formatés dans la devise choisie
   Widget _badgeAvailable(double price, ShippingZone zone, CurrencyProvider currency) =>
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -692,7 +694,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  RÉCAP PRIX ✅ devise choisie
+  //  RÉCAP PRIX
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildPriceSummary(CartProvider cart, List<CartItemModel> items,
@@ -716,7 +718,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05),
               blurRadius: 10, offset: const Offset(0, 3))]),
       child: Column(children: [
-        // ✅ sous-total produits dans la devise choisie
         _priceRow(_t('cart_products_subtotal'),
             currency.formatPrice(cart.selectedProductsTotal)),
         const SizedBox(height: 10),
@@ -738,14 +739,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Expanded(child: Text(e.key,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
-              // ✅ livraison par vendeur dans la devise choisie
               Text('+ ${currency.formatPrice(e.value)}',
                   style: const TextStyle(fontSize: 12,
                       fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
             ]),
           )),
           const Divider(height: 14),
-          // ✅ sous-total livraison dans la devise choisie
           _priceRow(
             '${_t('cart_shipping_subtotal')} '
                 '(${zone.emoji} ${zone.label(AppLocalizations.getLanguage())})',
@@ -758,11 +757,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
         const Padding(padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1)),
-        // ✅ total dans la devise choisie
         _priceRow(_t('cart_total'), currency.formatPrice(totalUSD),
             isBold: true, isLarge: true, valueColor: Colors.deepPurple),
 
-        // ✅ Note informative si devise ≠ USD
         if (context.read<CurrencyProvider>().selectedCode != 'USD') ...[
           const SizedBox(height: 8),
           Container(
@@ -775,7 +772,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF0284C7)),
               const SizedBox(width: 6),
               Expanded(child: Text(
-                // ✅ indique le montant USD réel débité
                 '${_t('checkout_payment_usd_note')} \$${totalUSD.toStringAsFixed(2)} USD',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF0369A1)),
               )),
@@ -811,7 +807,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  BOTTOM BAR ✅ devise choisie
+  //  BOTTOM BAR
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildBottomBar(List<CartItemModel> items, double totalUSD,
@@ -879,7 +875,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.lock_rounded, size: 18),
               const SizedBox(width: 8),
-              // ✅ bouton paiement dans la devise choisie
               Text(
                 undeliverable
                     ? _t('checkout_fix_selection')
@@ -894,11 +889,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  //  DIALOG SUCCÈS ✅ devise choisie
+  //  DIALOG SUCCÈS
   // ─────────────────────────────────────────────────────────────
 
   void _showSuccessDialog(double totalUSD) {
-    // Lire currency une fois hors du build
     final currency = context.read<CurrencyProvider>();
 
     showDialog(
@@ -936,12 +930,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.payments_rounded, color: Colors.green.shade600, size: 20),
                   const SizedBox(width: 8),
-                  // ✅ montant payé dans la devise choisie
                   Text(currency.formatPrice(totalUSD),
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
                           color: Colors.green.shade600)),
                 ]),
-                // ✅ note USD si devise ≠ USD
                 if (currency.selectedCode != 'USD') ...[
                   const SizedBox(height: 4),
                   Text('\$${totalUSD.toStringAsFixed(2)} USD',

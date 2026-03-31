@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
 import 'package:smart_marketplace/models/countries.dart';
 import 'package:smart_marketplace/widgets/address_form_widget.dart';
 import 'package:smart_marketplace/widgets/default_address_toggle_widget.dart';
 import 'package:smart_marketplace/widgets/save_address_button_widget.dart';
 import 'package:smart_marketplace/services/firebase_auth_service.dart';
 import 'package:smart_marketplace/localization/app_localizations.dart';
+
+import '../../../providers/buyer_address_provider.dart';
 
 class EditAddressPage extends StatefulWidget {
   final Map<String, dynamic> addressData;
@@ -342,6 +346,8 @@ class _EditAddressPageState extends State<EditAddressPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
+          // notifie le provider → drawer se met à jour automatiquement
+          context.read<BuyerAddressProvider>().load();
           Navigator.of(context).pop();
         }
       } catch (e) {

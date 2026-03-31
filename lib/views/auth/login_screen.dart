@@ -720,7 +720,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // ── Erreur provider ────────────────────────
                         if (showProviderError)
-                          _buildErrorBanner(providerErrMsg!),
+                          _buildErrorBanner(providerErrMsg),
 
                         // ── Bouton Connexion ───────────────────────
                         _buildLoginButton(lang),

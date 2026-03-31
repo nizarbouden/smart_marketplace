@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
+import 'package:smart_marketplace/providers/buyer_address_provider.dart';
 import 'package:smart_marketplace/providers/cart_provider.dart';
 import 'package:smart_marketplace/providers/currency_provider.dart';
 import 'package:smart_marketplace/views/SplashScreen/SplashScreen.dart';
@@ -44,8 +45,6 @@ void main() async {
     statusBarBrightness: Brightness.light,
   ));
 
-  print('=== DÉMARRAGE DE L\'APPLICATION ===');
-
   print('📱 Initialisation Firebase...');
   await FirebaseConfig.initializeFirebase();
   print('✅ Firebase initialisé');
@@ -78,6 +77,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => LanguageProvider()),
         ChangeNotifierProvider(create: (context) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
+        ChangeNotifierProvider(create: (_) => BuyerAddressProvider()..load()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, _) {

@@ -925,7 +925,12 @@ class AppLocalizations {
     'filter_availability':   'Disponibilité',
     'filter_in_stock_only':  'En stock uniquement',
     'filter_apply':          'Appliquer les filtres',
-
+    'filter_zone_title': 'Zone de livraison',
+    'filter_zone_label': 'Produits livrables chez moi',
+    'filter_zone_no_address_hint': 'Ajoutez une adresse d\'abord',
+    'filter_zone_no_address_title': 'Adresse requise',
+    'filter_zone_no_address_desc': 'Pour filtrer par zone de livraison, ajoutez d\'abord une adresse de livraison.',
+    'filter_zone_active_hint': 'Affiche uniquement les produits livrés dans votre zone',
 
 // ── product detail page   ─────────────────────────────────────────────
     'detail_description':       'Description',
@@ -962,6 +967,9 @@ class AppLocalizations {
     'reviews_empty':       'Aucun avis pour l\'instant',
     'reviews_empty_sub':   'Soyez le premier à donner votre avis sur ce produit.',
     'reviews_anonymous':   'Anonyme',
+    'shipping_no_address_title': 'Aucune adresse de livraison',
+    'shipping_no_address_desc':  'Ajoutez une adresse pour voir les options de livraison et filtrer les produits disponibles dans votre zone.',
+    'shipping_add_address_btn':  'Ajouter une adresse',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Rechercher un produit...',
@@ -2018,6 +2026,12 @@ class AppLocalizations {
     'filter_availability':   'Availability',
     'filter_in_stock_only':  'In stock only',
     'filter_apply':          'Apply filters',
+    'filter_zone_title': 'Delivery zone',
+    'filter_zone_label': 'Products deliverable to me',
+    'filter_zone_no_address_hint': 'Add an address first',
+    'filter_zone_no_address_title': 'Address required',
+    'filter_zone_no_address_desc': 'To filter by delivery zone, please add a delivery address first.',
+    'filter_zone_active_hint': 'Showing only products delivered to your zone',
 
     // ── product detail page   ─────────────────────────────────────────────
     'detail_description':       'Description',
@@ -2054,6 +2068,9 @@ class AppLocalizations {
     'reviews_empty':       'No reviews yet',
     'reviews_empty_sub':   'Be the first to share your experience with this product.',
     'reviews_anonymous':   'Anonymous',
+    'shipping_no_address_title': 'No delivery address',
+    'shipping_no_address_desc':  'Add an address to see shipping options and filter products available in your zone.',
+    'shipping_add_address_btn':  'Add address',
 
     // ── home page    ─────────────────────────────────────
     'search_hint': 'Search for a product...',
@@ -3117,6 +3134,13 @@ class AppLocalizations {
     'filter_availability':   'التوفر',
     'filter_in_stock_only':  'المتوفر فقط',
     'filter_apply':          'تطبيق الفلاتر',
+    'filter_zone_title': 'منطقة التوصيل',
+    'filter_zone_label': 'المنتجات القابلة للتوصيل',
+    'filter_zone_no_address_hint': 'أضف عنواناً أولاً',
+    'filter_zone_no_address_title': 'العنوان مطلوب',
+    'filter_zone_no_address_desc': 'لتصفية المنتجات حسب منطقة التوصيل، أضف عنوان التوصيل أولاً.',
+    'filter_zone_active_hint': 'يعرض فقط المنتجات المتوفرة في منطقتك',
+
     // ── product detail page   ─────────────────────────────────────────────
     'detail_description':       'الوصف',
     'detail_quantity':          'الكمية',
@@ -3152,6 +3176,9 @@ class AppLocalizations {
     'reviews_empty':       'لا توجد تقييمات بعد',
     'reviews_empty_sub':   'كن أول من يشارك رأيه حول هذا المنتج.',
     'reviews_anonymous':   'مجهول',
+    'shipping_no_address_title': 'لا توجد عنوان تسليم',
+    'shipping_no_address_desc':  'أضف عنوانًا لعرض خيارات الشحن وتصفية المنتجات المتاحة في منطقتك.',
+    'shipping_add_address_btn':  'إضافة عنوان',
 
       // ── home page    ─────────────────────────────────────
     'search_hint': 'البحث عن منتج...',

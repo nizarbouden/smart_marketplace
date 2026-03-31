@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
 import 'dart:io';
 import 'package:smart_marketplace/models/countries.dart';
 import 'package:smart_marketplace/models/profile_model.dart';
