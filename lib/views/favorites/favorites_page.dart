@@ -138,8 +138,9 @@ class _FavoritesPageState extends State<FavoritesPage>
           .collection('favorites').doc(favoriteDocId).delete();
       setState(() => _favorites.removeAt(index));
 
-      // ← Notifie la HomePage pour qu'elle rafraîchisse l'icône cœur
+      // Notifie tous les écouteurs (HomePage cards + autres pages)
       favoriteRemovedNotifier.value = favoriteDocId;
+      favoriteChangedNotifier.value = FavoriteChange(productId: favoriteDocId, isAdded: false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

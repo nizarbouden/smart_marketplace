@@ -1,0 +1,1306 @@
+// lib/views/home/home_page.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../localization/app_localizations.dart';
+import '../../models/product_categories.dart';
+import '../../models/product_model.dart';
+import '../../models/shipping_zone_model.dart';
+import '../../providers/buyer_address_provider.dart';
+import '../../providers/currency_provider.dart';
+import '../../services/product_interactions_service.dart';
+import '../../services/product_service.dart';
+import '../../widgets/filter_drawer.dart';
+import '../products/buyer/Product_detail_page.dart';
+
+final GlobalKey<HomePageState> homePageKey = GlobalKey<HomePageState>();
+
+// ── Nombre de produits par page ───────────────────────────────────
+const int _kPageSize = 10;
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => HomePageState();
+}
+
+class HomePageState extends State<HomePage> {
+  final ProductService           _service       = ProductService();
+  final TextEditingController    _searchController = TextEditingController();
+  final FocusNode                _searchFocusNode  = FocusNode();
+  final GlobalKey<ScaffoldState> _scaffoldKey      = GlobalKey<ScaffoldState>();
+  final ScrollController         _scrollCtrl       = ScrollController();
+
+  String        _searchQuery   = '';
+  FilterOptions _filters       = FilterOptions(maxPrice: 10000);
+  List<Product> _allProducts   = [];
+  bool          _productsLoading = true;
+  String?       _productsError;
+
+  // ── Pagination ────────────────────────────────────────────────
+  int _currentPage = 0; // 0-based
+
+  StreamSubscription<List<Product>>? _productsSub;
+
+  String _t(String key) => AppLocalizations.get(key);
+  void openFilterDrawer() => _scaffoldKey.currentState?.openDrawer();
+
+  bool get hasActiveFilters =>
+      _filters.selectedCategory != null ||
+          _filters.minPrice > 0 ||
+          _filters.maxPrice < _getMaxPrice(_allProducts) ||
+          _filters.sortOrder != 'none' ||
+          _filters.inStockOnly ||
+          _filters.zoneOnly;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _productsSub?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Appelé depuis FavoritesPage via homePageKey ───────────────
+  void refreshAfterFavoriteChange() {
+    if (mounted) setState(() {});
+  }
+
+  void _subscribe() {
+    _productsSub?.cancel();
+    _productsSub = _service.getApprovedProducts().listen(
+          (products) {
+        if (mounted) {
+          setState(() {
+            _allProducts     = products;
+            _productsLoading = false;
+            _productsError   = null;
+            _currentPage     = 0; // reset page à chaque refresh
+          });
+        }
+      },
+      onError: (error) {
+        if (mounted) {
+          setState(() {
+            _productsError   = error.toString();
+            _productsLoading = false;
+          });
+        }
+      },
+    );
+  }
+
+  Future<void> _onRefresh() async {
+    setState(() { _productsLoading = true; _currentPage = 0; });
+    _subscribe();
+    int waited = 0;
+    while (_productsLoading && waited < 30) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      waited++;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  FILTRES
+  // ─────────────────────────────────────────────────────────────
+
+  List<Product> _applyFilters(List<Product> products) {
+    final now          = DateTime.now();
+    final addrProvider = context.read<BuyerAddressProvider>();
+
+    List<Product> result = products.where((p) {
+      if (!p.isActive) return false;
+      if (p.hiddenAfterAt != null && now.isAfter(p.hiddenAfterAt!)) return false;
+      return true;
+    }).toList();
+
+    if (_searchQuery.isNotEmpty) {
+      result = result
+          .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+    if (_filters.selectedCategory != null) {
+      result = result.where((p) => p.category == _filters.selectedCategory).toList();
+    }
+    result = result
+        .where((p) => p.price >= _filters.minPrice && p.price <= _filters.maxPrice)
+        .toList();
+    if (_filters.inStockOnly) {
+      result = result.where((p) => p.stock > 0).toList();
+    }
+    if (_filters.zoneOnly) {
+      final iso = addrProvider.countryCode;
+      if (iso != null) {
+        result = result.where((p) {
+          if (!p.shipping.isConfigured) return true;
+          final zone = ShippingZoneExt.zoneForCountry(iso);
+          final rate = p.shipping.zoneRates
+              .where((r) => r.zone == zone && r.enabled)
+              .firstOrNull;
+          return rate != null;
+        }).toList();
+      }
+    }
+    if (_filters.sortOrder == 'asc') {
+      result.sort((a, b) => a.price.compareTo(b.price));
+    } else if (_filters.sortOrder == 'desc') {
+      result.sort((a, b) => b.price.compareTo(a.price));
+    }
+    return result;
+  }
+
+  List<String> _getCategories(List<Product> products) =>
+      products.map((p) => p.category).toSet().toList()..sort();
+
+  double _getMaxPrice(List<Product> products) {
+    if (products.isEmpty) return 10000;
+    return products.map((p) => p.price).reduce((a, b) => a > b ? a : b);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  PAGINATION
+  // ─────────────────────────────────────────────────────────────
+
+  List<Product> _getPageProducts(List<Product> filtered) {
+    final start = _currentPage * _kPageSize;
+    if (start >= filtered.length) return [];
+    final end = (start + _kPageSize).clamp(0, filtered.length);
+    return filtered.sublist(start, end);
+  }
+
+  int _totalPages(List<Product> filtered) =>
+      (filtered.length / _kPageSize).ceil().clamp(1, 999);
+
+  void _goToPage(int page, int totalPages) {
+    if (page < 0 || page >= totalPages) return;
+    setState(() => _currentPage = page);
+    _scrollCtrl.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final addrProvider = context.watch<BuyerAddressProvider>();
+    final filtered     = _applyFilters(_allProducts);
+    final totalPages   = _totalPages(filtered);
+    // Garde _currentPage dans les bornes si les filtres changent
+    final safePage     = _currentPage.clamp(0, (totalPages - 1).clamp(0, 999));
+    if (safePage != _currentPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _currentPage = safePage);
+      });
+    }
+    final pageProducts = _getPageProducts(filtered);
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF0F2F7),
+      drawer: _allProducts.isEmpty
+          ? null
+          : FilterDrawer(
+        categories:       _getCategories(_allProducts),
+        currentFilters:   _filters,
+        absoluteMaxPrice: _getMaxPrice(_allProducts),
+        onApply: (newFilters) => setState(() {
+          _filters     = newFilters;
+          _currentPage = 0;
+        }),
+        buyerAddress:     addrProvider.address,
+        buyerCountryCode: addrProvider.countryCode,
+        onAddressAdded:   () => context.read<BuyerAddressProvider>().load(),
+      ),
+      body: _productsLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _productsError != null
+          ? Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+            const SizedBox(height: 12),
+            Text('${_t('error_prefix')}: $_productsError'),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      )
+          : RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: const Color(0xFF16A34A),
+        strokeWidth: 2.5,
+        displacement: 60,
+        child: CustomScrollView(
+          controller: _scrollCtrl,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // ── Barre de recherche ─────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: _SearchBar(
+                  controller: _searchController,
+                  focusNode:  _searchFocusNode,
+                  hintText:   _t('search_hint'),
+                  onChanged:  (v) => setState(() {
+                    _searchQuery = v;
+                    _currentPage = 0;
+                  }),
+                ),
+              ),
+            ),
+
+            // ── Tags filtres actifs ────────────────────
+            if (hasActiveFilters)
+              SliverToBoxAdapter(
+                child: _ActiveFilterTags(
+                  filters:       _filters,
+                  labelPriceAsc:  _t('price_asc'),
+                  labelPriceDesc: _t('price_desc'),
+                  labelInStock:   _t('in_stock_filter'),
+                  labelClearAll:  _t('clear_all'),
+                  onClear: () => setState(() {
+                    _filters     = FilterOptions(maxPrice: _getMaxPrice(_allProducts));
+                    _currentPage = 0;
+                  }),
+                ),
+              ),
+
+            // ── Compteur résultats + info page ─────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '${filtered.length} ${filtered.length > 1 ? _t('products') : _t('product')}',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (filtered.length > _kPageSize) ...[
+                      const Spacer(),
+                      Text(
+                        'Page ${safePage + 1}/$totalPages',
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Liste produits ─────────────────────────
+            filtered.isEmpty
+                ? SliverFillRemaining(
+              child: _EmptyState(
+                hasFilters:         hasActiveFilters,
+                messageWithFilters: _t('no_products_filters'),
+                messageEmpty:       _t('no_products'),
+              ),
+            )
+                : SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _ProductCard(
+                      key: ValueKey(pageProducts[i].id),
+                      product: pageProducts[i],
+                      labelOutOfStock:      _t('out_of_stock'),
+                      labelInStock:         _t('in_stock'),
+                      labelDiscountFlash:   _t('discount_flash'),
+                      labelDiscountExpires: _t('discount_expires_in'),
+                      labelVisibleFor:      _t('visible_for'),
+                      labelUrgent:          _t('urgent'),
+                      labelRewardDraw:      _t('reward_draw_label'),
+                      labelRewardDrawSub:   _t('reward_draw_sub'),
+                      labelRewardBadge:     _t('reward_badge'),
+                      labelSavings:         _t('savings_prefix'),
+                    ),
+                  ),
+                  childCount: pageProducts.length,
+                ),
+              ),
+            ),
+
+            // ── Pagination ─────────────────────────────
+            if (filtered.length > _kPageSize)
+              SliverToBoxAdapter(
+                child: _PaginationBar(
+                  currentPage: safePage,
+                  totalPages:  totalPages,
+                  onPageChanged: (p) => _goToPage(p, totalPages),
+                ),
+              ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  PAGINATION BAR
+// ─────────────────────────────────────────────────────────────────
+
+class _PaginationBar extends StatelessWidget {
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageChanged;
+
+  const _PaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    // Calcule les pages à afficher (max 5 boutons visibles)
+    List<int> pages = [];
+    if (totalPages <= 5) {
+      pages = List.generate(totalPages, (i) => i);
+    } else {
+      pages.add(0);
+      int start = (currentPage - 1).clamp(1, totalPages - 3);
+      int end   = (currentPage + 1).clamp(3, totalPages - 2);
+      if (start > 1) pages.add(-1); // ellipsis
+      for (int i = start; i <= end; i++) pages.add(i);
+      if (end < totalPages - 2) pages.add(-1); // ellipsis
+      pages.add(totalPages - 1);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ← Précédent
+          _NavBtn(
+            icon: Icons.chevron_left_rounded,
+            enabled: currentPage > 0,
+            onTap: () => onPageChanged(currentPage - 1),
+            primary: primary,
+          ),
+          const SizedBox(width: 6),
+
+          // Numéros de pages
+          ...pages.map((p) {
+            if (p == -1) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Text('…', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+              );
+            }
+            final isActive = p == currentPage;
+            return GestureDetector(
+              onTap: isActive ? null : () => onPageChanged(p),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: isActive ? primary : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isActive ? primary : Colors.grey.shade200,
+                  ),
+                  boxShadow: isActive
+                      ? [BoxShadow(color: primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))]
+                      : [],
+                ),
+                child: Center(
+                  child: Text(
+                    '${p + 1}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isActive ? Colors.white : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(width: 6),
+          // → Suivant
+          _NavBtn(
+            icon: Icons.chevron_right_rounded,
+            enabled: currentPage < totalPages - 1,
+            onTap: () => onPageChanged(currentPage + 1),
+            primary: primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavBtn extends StatelessWidget {
+  final IconData icon;
+  final bool     enabled;
+  final VoidCallback onTap;
+  final Color    primary;
+
+  const _NavBtn({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+    required this.primary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: enabled ? Colors.grey.shade200 : Colors.grey.shade100,
+          ),
+        ),
+        child: Icon(
+          icon, size: 20,
+          color: enabled ? primary : Colors.grey.shade300,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Search Bar ───────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode             focusNode;
+  final ValueChanged<String>  onChanged;
+  final String                hintText;
+
+  const _SearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+    required this.hintText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode:  focusNode,
+        onChanged:  onChanged,
+        decoration: InputDecoration(
+          hintText:  hintText,
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400, size: 22),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+            onPressed: () { controller.clear(); onChanged(''); },
+            icon: Icon(Icons.clear_rounded, color: Colors.grey.shade400, size: 18),
+          )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Active Filter Tags ───────────────────────────────────────────
+
+class _ActiveFilterTags extends StatelessWidget {
+  final FilterOptions        filters;
+  final VoidCallback         onClear;
+  final String               labelPriceAsc;
+  final String               labelPriceDesc;
+  final String               labelInStock;
+  final String               labelClearAll;
+
+  const _ActiveFilterTags({
+    required this.filters,
+    required this.onClear,
+    required this.labelPriceAsc,
+    required this.labelPriceDesc,
+    required this.labelInStock,
+    required this.labelClearAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          if (filters.selectedCategory != null)
+            _Tag(label: ProductCategories.labelFromId(
+                filters.selectedCategory!, AppLocalizations.getLanguage())),
+          if (filters.sortOrder != 'none')
+            _Tag(label: filters.sortOrder == 'asc' ? labelPriceAsc : labelPriceDesc),
+          if (filters.inStockOnly) _Tag(label: labelInStock),
+          if (filters.zoneOnly)    _Tag(label: '📍 Zone'),
+          const Spacer(),
+          TextButton(
+            onPressed: onClear,
+            child: Text(labelClearAll,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tag extends StatelessWidget {
+  final String label;
+  const _Tag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label,
+          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  PRODUCT CARD  (StatefulWidget pour interactions)
+// ─────────────────────────────────────────────────────────────────
+
+class _ProductCard extends StatefulWidget {
+  final Product product;
+  final String  labelOutOfStock;
+  final String  labelInStock;
+  final String  labelDiscountFlash;
+  final String  labelDiscountExpires;
+  final String  labelVisibleFor;
+  final String  labelUrgent;
+  final String  labelRewardDraw;
+  final String  labelRewardDrawSub;
+  final String  labelRewardBadge;
+  final String  labelSavings;
+
+  const _ProductCard({
+    super.key,
+    required this.product,
+    required this.labelOutOfStock,
+    required this.labelInStock,
+    required this.labelDiscountFlash,
+    required this.labelDiscountExpires,
+    required this.labelVisibleFor,
+    required this.labelUrgent,
+    required this.labelRewardDraw,
+    required this.labelRewardDrawSub,
+    required this.labelRewardBadge,
+    required this.labelSavings,
+  });
+
+  @override
+  State<_ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<_ProductCard> {
+  ProductInteractions _interactions        = const ProductInteractions();
+  bool                _loadingInteractions = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInteractions();
+    favoriteChangedNotifier.addListener(_onFavoriteChanged);
+  }
+
+  Future<void> _loadInteractions() async {
+    final data = await ProductInteractionsService.fetchAll(widget.product.id);
+    if (mounted) setState(() { _interactions = data; _loadingInteractions = false; });
+  }
+
+  Future<void> _toggleLike() async {
+    final wasLiked = _interactions.isLiked;
+    setState(() {
+      _interactions = _interactions.copyWith(
+        isLiked:   !wasLiked,
+        likeCount: _interactions.likeCount + (wasLiked ? -1 : 1),
+      );
+    });
+    await ProductInteractionsService.toggleLike(widget.product.id, wasLiked);
+  }
+
+  Future<void> _toggleFavorite() async {
+    final wasFav = _interactions.isFavorite;
+    setState(() => _interactions = _interactions.copyWith(isFavorite: !wasFav));
+    await ProductInteractionsService.toggleFavorite(widget.product.id, wasFav);
+    // Notifie la FavoritesPage si elle est ouverte
+    homePageKey.currentState?.refreshAfterFavoriteChange();
+  }
+  void _onFavoriteChanged() {
+    final change = favoriteChangedNotifier.value;
+    if (change != null && change.productId == widget.product.id) {
+      setState(() {
+        _interactions = _interactions.copyWith(
+          isFavorite: change.isAdded,
+        );
+      });
+    }
+  }
+  void _onFavoriteRemoved() {
+    final removedId = favoriteRemovedNotifier.value;
+    if (removedId == widget.product.id && _interactions.isFavorite) {
+      setState(() {
+        _interactions = _interactions.copyWith(isFavorite: false);
+      });
+    }
+  }
+  Uint8List? _decodeImage(String? b64) {
+    if (b64 == null || b64.isEmpty) return null;
+    try { return base64Decode(b64); } catch (_) { return null; }
+  }
+
+  @override
+  void dispose() {
+    // ← AJOUT : Retirer l'écouteur
+    favoriteChangedNotifier.removeListener(_onFavoriteChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme    = Theme.of(context);
+    final currency = context.watch<CurrencyProvider>();
+    final p        = widget.product;
+    final now      = DateTime.now();
+    final sw       = MediaQuery.of(context).size.width;
+    final isSmall  = sw < 360;
+    final isLarge  = sw >= 420;
+
+    final imageBytes     = p.images.isNotEmpty ? _decodeImage(p.images.first) : null;
+    final hasReward      = p.reward != null;
+    final rwImgBytes     = hasReward ? _decodeImage(p.reward!.image) : null;
+    final discountActive = p.isDiscountActive;
+    final effectivePrice = p.discountedPrice;
+    final discountEndsAt = p.discountEndsAt;
+    final hasDiscountCountdown = discountActive && discountEndsAt != null && now.isBefore(discountEndsAt);
+    final hiddenAfterAt  = p.hiddenAfterAt;
+    final hasHideTimer   = hiddenAfterAt != null && now.isBefore(hiddenAfterAt);
+    final stock          = p.stock;
+    final initialStock   = p.initialStock;
+    final hasInitial     = initialStock != null && initialStock > 0;
+    final stockMax       = hasInitial ? initialStock! : (stock > 0 ? stock : 1);
+    final stockRatio     = (stock / stockMax).clamp(0.0, 1.0);
+    final stockColor     = stock == 0
+        ? const Color(0xFFEF4444)
+        : stockRatio < 0.3 ? const Color(0xFFF97316)
+        : stockRatio < 0.6 ? const Color(0xFFF59E0B)
+        : const Color(0xFF10B981);
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => ProductDetailPage(product: p))),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 6)),
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6,  offset: const Offset(0, 2)),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasDiscountCountdown)
+              _CountdownBanner(
+                key: ValueKey('discount_${p.id}'),
+                endsAt: discountEndsAt!, isDiscount: true,
+                labelFlash: widget.labelDiscountFlash,
+                labelExpires: widget.labelDiscountExpires,
+                labelUrgent: widget.labelUrgent,
+              ),
+
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.22,
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                // ── Image ──────────────────────────────────────
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.32,
+                  child: Stack(fit: StackFit.expand, children: [
+                    imageBytes != null
+                        ? Image.memory(imageBytes, fit: BoxFit.contain, gaplessPlayback: true)
+                        : Container(color: const Color(0xFFF1F5F9),
+                        child: Icon(Icons.image_outlined, size: 44, color: Colors.grey.shade300)),
+                    if (stock <= 0)
+                      Container(color: Colors.black.withOpacity(0.55),
+                          alignment: Alignment.center,
+                          child: Transform.rotate(angle: -0.25,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                color: const Color(0xFFEF4444),
+                                child: Text(widget.labelOutOfStock,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900,
+                                        fontSize: 12, letterSpacing: 0.5)),
+                              ))),
+                    if (discountActive && p.discountPercent != null)
+                      Positioned(top: 0, left: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: const BoxDecoration(color: Color(0xFFEF4444),
+                                borderRadius: BorderRadius.only(bottomRight: Radius.circular(14))),
+                            child: Text('-${p.discountPercent!.toStringAsFixed(0)}%',
+                                style: const TextStyle(color: Colors.white, fontSize: 13,
+                                    fontWeight: FontWeight.w900)),
+                          )),
+                  ]),
+                ),
+
+                Container(width: 1, color: const Color(0xFFF1F5F9)),
+
+                // ── Infos ──────────────────────────────────────
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Catégorie
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Text(
+                            ProductCategories.labelFromId(p.category, AppLocalizations.getLanguage()),
+                            style: TextStyle(fontSize: 9, color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        // Nom
+                        Text(p.name,
+                            style: TextStyle(fontWeight: FontWeight.w800,
+                                fontSize: isSmall ? 13 : (isLarge ? 15 : 14),
+                                color: const Color(0xFF0F172A), height: 1.2),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 3),
+                        // Description
+                        Text(p.description,
+                            style: TextStyle(fontSize: isSmall ? 10 : 11,
+                                color: const Color(0xFF94A3B8), height: 1.3),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 6),
+                        // Prix
+                        _buildPriceBlock(effectivePrice, discountActive ? p.price : null, theme, currency),
+                        const SizedBox(height: 6),
+                        // Stock bar
+                        _buildStockBar(stock, initialStock, stockRatio, stockColor,
+                            widget.labelInStock, widget.labelOutOfStock),
+                        const SizedBox(height: 8),
+                        // ── Rating + Like + Favori ──────────────
+                        _buildInteractionsRow(theme),
+                      ],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+
+            if (hasReward)
+              _RewardBanner(
+                key: ValueKey('reward_${p.id}'),
+                imageBytes: rwImgBytes, name: p.reward?.name,
+                labelBadge: widget.labelRewardBadge,
+                labelDrawSub: widget.labelRewardDrawSub,
+              ),
+
+            if (hasHideTimer)
+              _CountdownBanner(
+                key: ValueKey('hide_${p.id}'),
+                endsAt: hiddenAfterAt!, isDiscount: false,
+                labelFlash: widget.labelVisibleFor,
+                labelExpires: widget.labelVisibleFor,
+                labelUrgent: widget.labelUrgent,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Interactions Row ─────────────────────────────────────────
+  Widget _buildInteractionsRow(ThemeData theme) {
+    return Row(
+      children: [
+        // ── Rating 5 étoiles ───────────────────────────────────
+        if (_loadingInteractions)
+          Container(width: 70, height: 14,
+              decoration: BoxDecoration(color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6)))
+        else ...[
+          // 5 étoiles colorées selon la moyenne
+          _FiveStars(rating: _interactions.avgRating, size: 12),
+          const SizedBox(width: 4),
+          if (_interactions.reviewCount > 0) ...[
+            Text(_interactions.avgRating.toStringAsFixed(1),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A))),
+            const SizedBox(width: 2),
+            Text('· ${_interactions.reviewCount}',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          ] else
+            Text('Aucun avis',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+        ],
+
+        const Spacer(),
+
+        // ── Like ────────────────────────────────────────────────
+        GestureDetector(
+          onTap: _toggleLike,
+          behavior: HitTestBehavior.opaque,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              child: Icon(
+                _interactions.isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+                key: ValueKey(_interactions.isLiked),
+                size: 16,
+                color: _interactions.isLiked ? theme.colorScheme.primary : Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Text('${_interactions.likeCount}',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                    color: _interactions.isLiked ? theme.colorScheme.primary : Colors.grey.shade500)),
+          ]),
+        ),
+
+        const SizedBox(width: 10),
+
+        // ── Favori ──────────────────────────────────────────────
+        GestureDetector(
+          onTap: _toggleFavorite,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+            child: Icon(
+              _interactions.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              key: ValueKey(_interactions.isFavorite),
+              size: 18,
+              color: _interactions.isFavorite ? const Color(0xFFEF4444) : Colors.grey.shade400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceBlock(double effectivePrice, double? originalPrice,
+      ThemeData theme, CurrencyProvider currency) {
+    if (originalPrice == null) {
+      return Text(currency.formatPrice(effectivePrice),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+              color: theme.colorScheme.primary, letterSpacing: -0.3));
+    }
+    final savingsPct = ((originalPrice - effectivePrice) / originalPrice * 100).toStringAsFixed(0);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text(currency.formatPrice(originalPrice),
+            style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1),
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Color(0xFFCBD5E1), decorationThickness: 2)),
+        const SizedBox(width: 6),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
+            child: Text('-$savingsPct%',
+                style: const TextStyle(fontSize: 9, color: Color(0xFF16A34A), fontWeight: FontWeight.w800))),
+      ]),
+      const SizedBox(height: 2),
+      Text(currency.formatPrice(effectivePrice),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+              color: Color(0xFF16A34A), letterSpacing: -0.5)),
+    ]);
+  }
+
+  Widget _buildStockBar(int stock, int? initialStock, double ratio, Color color,
+      String labelInStock, String labelOutOfStock) {
+    final hasInitial = initialStock != null && initialStock > 0;
+    final sold       = hasInitial ? (initialStock - stock).clamp(0, initialStock) : 0;
+    final pctLeft    = (ratio * 100).round();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(children: [
+          Container(width: 7, height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text(stock > 0 ? '$stock $labelInStock' : labelOutOfStock,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+        ]),
+        Row(children: [
+          if (hasInitial && sold > 0) ...[
+            Text('$sold vendus',
+                style: TextStyle(fontSize: 9, color: Colors.grey.shade400, fontWeight: FontWeight.w500)),
+            const SizedBox(width: 5),
+            Container(width: 1, height: 10, color: const Color(0xFFE2E8F0)),
+            const SizedBox(width: 5),
+          ],
+          Text('$pctLeft%',
+              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700)),
+        ]),
+      ]),
+      const SizedBox(height: 5),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(children: [
+          Container(height: 5, color: const Color(0xFFF1F5F9)),
+          FractionallySizedBox(
+            widthFactor: ratio,
+            child: Container(height: 5,
+                decoration: BoxDecoration(color: color,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [BoxShadow(color: color.withOpacity(0.35), blurRadius: 3,
+                        offset: const Offset(0, 1))])),
+          ),
+        ]),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  5 ÉTOILES — colorées selon la moyenne
+// ─────────────────────────────────────────────────────────────────
+
+class _FiveStars extends StatelessWidget {
+  final double rating; // 0.0 – 5.0
+  final double size;
+
+  const _FiveStars({required this.rating, this.size = 14});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (i) {
+        final filled = i < rating.floor();
+        final half   = !filled && (i < rating) && (rating - i >= 0.25);
+        return Icon(
+          filled ? Icons.star_rounded
+              : half ? Icons.star_half_rounded
+              : Icons.star_outline_rounded,
+          size:  size,
+          color: (filled || half)
+              ? const Color(0xFFF59E0B)
+              : Colors.grey.shade300,
+        );
+      }),
+    );
+  }
+}
+
+// ── Reward Banner ─────────────────────────────────────────────────
+
+class _RewardBanner extends StatelessWidget {
+  final Uint8List? imageBytes;
+  final String?   name;
+  final String    labelBadge;
+  final String    labelDrawSub;
+
+  const _RewardBanner({
+    super.key, this.imageBytes, this.name,
+    required this.labelBadge, required this.labelDrawSub,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFEAB308)],
+          begin: Alignment.centerLeft, end: Alignment.centerRight,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(children: [
+        Container(width: 64, height: 64,
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4)),
+                  BoxShadow(color: const Color(0xFFEAB308).withOpacity(0.6), blurRadius: 20, spreadRadius: 2),
+                ]),
+            child: ClipOval(
+              child: imageBytes != null
+                  ? Image.memory(imageBytes!, fit: BoxFit.cover, gaplessPlayback: true)
+                  : Container(color: const Color(0xFFFDE68A),
+                  child: const Icon(Icons.card_giftcard_rounded, size: 32, color: Color(0xFFD97706))),
+            )),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withOpacity(0.5), width: 1)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.emoji_events_rounded, size: 12, color: Colors.white),
+                const SizedBox(width: 5),
+                Text(labelBadge,
+                    style: const TextStyle(fontSize: 9, color: Colors.white,
+                        fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+              ])),
+          const SizedBox(height: 6),
+          if (name != null) Text(name!,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900,
+                  color: Colors.white, height: 1.2),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.confirmation_number_rounded, size: 12, color: Colors.white),
+            const SizedBox(width: 5),
+            Expanded(child: Text(labelDrawSub,
+                style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500, height: 1.3),
+                maxLines: 2, overflow: TextOverflow.ellipsis)),
+          ]),
+        ])),
+        const SizedBox(width: 10),
+        Container(width: 34, height: 34,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.5))),
+            child: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white)),
+      ]),
+    );
+  }
+}
+
+// ── Countdown Banner ──────────────────────────────────────────────
+
+class _CountdownBanner extends StatefulWidget {
+  final DateTime endsAt;
+  final bool     isDiscount;
+  final String   labelFlash;
+  final String   labelExpires;
+  final String   labelUrgent;
+
+  const _CountdownBanner({
+    super.key, required this.endsAt, required this.isDiscount,
+    required this.labelFlash, required this.labelExpires, required this.labelUrgent,
+  });
+
+  @override
+  State<_CountdownBanner> createState() => _CountdownBannerState();
+}
+
+class _CountdownBannerState extends State<_CountdownBanner>
+    with SingleTickerProviderStateMixin {
+  Timer?  _timer;
+  Duration _remaining = Duration.zero;
+  late AnimationController _pulseCtrl;
+  late Animation<double>   _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 1.0, end: 1.04)
+        .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _tick();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) { if (mounted) _tick(); });
+  }
+
+  void _tick() {
+    final r = widget.endsAt.difference(DateTime.now());
+    if (mounted) setState(() => _remaining = r.isNegative ? Duration.zero : r);
+  }
+
+  @override
+  void dispose() { _timer?.cancel(); _pulseCtrl.dispose(); super.dispose(); }
+
+  String _fmt(Duration d) {
+    if (d.inSeconds <= 0) return '0s';
+    if (d.inDays    > 0) { final h = d.inHours % 24;   return h > 0 ? '${d.inDays}j ${h}h'  : '${d.inDays}j'; }
+    if (d.inHours   > 0) { final m = d.inMinutes % 60; return m > 0 ? '${d.inHours}h ${m}min': '${d.inHours}h'; }
+    if (d.inMinutes > 0) { final s = d.inSeconds % 60; return s > 0 ? '${d.inMinutes}min ${s}s': '${d.inMinutes}min'; }
+    return '${d.inSeconds}s';
+  }
+
+  List<_TimeSegment> _parse(String label) => label.trim().split(' ').map((part) {
+    final m = RegExp(r'^(\d+)([a-zA-Zé]+)$').firstMatch(part);
+    return m != null ? _TimeSegment(m.group(1)!, m.group(2)!) : _TimeSegment(part, '');
+  }).toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final isUrgent  = _remaining.inHours < 24;
+    final isLastMin = _remaining.inSeconds < 60;
+    final segments  = _parse(_fmt(_remaining));
+
+    if (widget.isDiscount) {
+      return AnimatedBuilder(
+        animation: _pulse,
+        builder: (_, child) => Transform.scale(
+            scaleY: isUrgent ? _pulse.value : 1.0, alignment: Alignment.topCenter, child: child),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(gradient: LinearGradient(
+              colors: isUrgent ? [const Color(0xFFFF2D55), const Color(0xFFFF6B35)]
+                  : [const Color(0xFFFF6B35), const Color(0xFFFF8C42)])),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(children: [
+            Container(width: 38, height: 38,
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(isLastMin ? Icons.local_fire_department_rounded : Icons.local_offer_rounded,
+                    color: Colors.white, size: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(isUrgent ? widget.labelFlash : widget.labelExpires,
+                  style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.85),
+                      fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+              const SizedBox(height: 3),
+              Row(children: segments.map(_chip).toList()),
+            ])),
+            if (isUrgent) Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                child: Text(widget.labelUrgent,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFFF2D55), fontWeight: FontWeight.w900))),
+          ]),
+        ),
+      );
+    } else {
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(gradient: LinearGradient(
+            colors: isUrgent ? [const Color(0xFF4F46E5), const Color(0xFF7C3AED)]
+                : [const Color(0xFF0EA5E9), const Color(0xFF38BDF8)])),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(children: [
+          Icon(isLastMin ? Icons.timer_off_rounded : Icons.schedule_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Text(widget.labelExpires,
+              style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w500)),
+          const SizedBox(width: 4),
+          Row(children: segments.map(_smallChip).toList()),
+          const Spacer(),
+          if (isUrgent) Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.white.withOpacity(0.4))),
+              child: Text(widget.labelUrgent,
+                  style: const TextStyle(fontSize: 9, color: Colors.white,
+                      fontWeight: FontWeight.w900, letterSpacing: 0.8))),
+        ]),
+      );
+    }
+  }
+
+  Widget _chip(_TimeSegment seg) => Padding(padding: const EdgeInsets.only(right: 6),
+      child: RichText(text: TextSpan(children: [
+        TextSpan(text: seg.value, style: const TextStyle(fontSize: 22, color: Colors.white,
+            fontWeight: FontWeight.w900, height: 1.0)),
+        TextSpan(text: seg.unit, style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8),
+            fontWeight: FontWeight.w600)),
+      ])));
+
+  Widget _smallChip(_TimeSegment seg) => Padding(padding: const EdgeInsets.only(right: 4),
+      child: RichText(text: TextSpan(children: [
+        TextSpan(text: seg.value, style: const TextStyle(fontSize: 15, color: Colors.white,
+            fontWeight: FontWeight.w900)),
+        TextSpan(text: seg.unit, style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8),
+            fontWeight: FontWeight.w600)),
+      ])));
+}
+
+class _TimeSegment {
+  final String value, unit;
+  const _TimeSegment(this.value, this.unit);
+}
+
+// ── Empty State ───────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final bool   hasFilters;
+  final String messageWithFilters;
+  final String messageEmpty;
+
+  const _EmptyState({
+    required this.hasFilters,
+    required this.messageWithFilters,
+    required this.messageEmpty,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Icon(hasFilters ? Icons.filter_alt_off_rounded : Icons.storefront_outlined,
+          size: 64, color: Colors.grey.shade300),
+      const SizedBox(height: 16),
+      Text(hasFilters ? messageWithFilters : messageEmpty,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+    ]));
+  }
+}

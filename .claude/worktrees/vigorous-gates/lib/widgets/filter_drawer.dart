@@ -1,0 +1,800 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
+import 'package:smart_marketplace/models/product_categories.dart';
+import 'package:smart_marketplace/providers/currency_provider.dart';
+import '../views/compte/adress/add_address_page.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FILTER OPTIONS MODEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+class FilterOptions {
+  String? selectedCategory;
+  double  minPrice;
+  double  maxPrice;
+  String  sortOrder;
+  bool    inStockOnly;
+  bool    zoneOnly;
+
+  FilterOptions({
+    this.selectedCategory,
+    this.minPrice    = 0,
+    this.maxPrice    = 10000,
+    this.sortOrder   = 'none',
+    this.inStockOnly = false,
+    this.zoneOnly    = false, // ← NOUVEAU
+  });
+
+  FilterOptions copyWith({
+    String? selectedCategory,
+    double? minPrice,
+    double? maxPrice,
+    String? sortOrder,
+    bool?   inStockOnly,
+    bool?   zoneOnly,        // ← NOUVEAU
+    bool    clearCategory = false,
+  }) {
+    return FilterOptions(
+      selectedCategory: clearCategory ? null : (selectedCategory ?? this.selectedCategory),
+      minPrice:    minPrice    ?? this.minPrice,
+      maxPrice:    maxPrice    ?? this.maxPrice,
+      sortOrder:   sortOrder   ?? this.sortOrder,
+      inStockOnly: inStockOnly ?? this.inStockOnly,
+      zoneOnly:    zoneOnly    ?? this.zoneOnly,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FILTER DRAWER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class FilterDrawer extends StatefulWidget {
+  final List<String>           categories;
+  final FilterOptions          currentFilters;
+  final double                 absoluteMaxPrice;
+  final ValueChanged<FilterOptions> onApply;
+  final Map<String, dynamic>?  buyerAddress;
+  final String?                buyerCountryCode;
+  final VoidCallback?          onAddressAdded;
+
+  const FilterDrawer({
+    super.key,
+    required this.categories,
+    required this.currentFilters,
+    required this.onApply,
+    this.absoluteMaxPrice = 10000,
+    this.buyerAddress,
+    this.buyerCountryCode,
+    this.onAddressAdded,
+  });
+
+  @override
+  State<FilterDrawer> createState() => _FilterDrawerState();
+}
+
+class _FilterDrawerState extends State<FilterDrawer> {
+  late FilterOptions _filters;
+  bool _categoryExpanded = false;
+
+  String _t(String key) => AppLocalizations.get(key);
+
+  @override
+  void initState() {
+    super.initState();
+    _filters = FilterOptions(
+      selectedCategory: widget.currentFilters.selectedCategory,
+      minPrice:    widget.currentFilters.minPrice,
+      maxPrice:    widget.currentFilters.maxPrice.clamp(0, widget.absoluteMaxPrice),
+      sortOrder:   widget.currentFilters.sortOrder,
+      inStockOnly: widget.currentFilters.inStockOnly,
+      zoneOnly:    widget.currentFilters.zoneOnly,
+    );
+    _categoryExpanded = widget.currentFilters.selectedCategory != null;
+  }
+  @override
+  void didUpdateWidget(FilterDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('🔁 didUpdateWidget — identical: ${identical(oldWidget.buyerAddress, widget.buyerAddress)}'); // ← ajouter
+    if (!identical(oldWidget.buyerAddress, widget.buyerAddress) ||
+        oldWidget.buyerCountryCode != widget.buyerCountryCode) {
+      setState(() {});
+    }
+  }
+  void _update(FilterOptions newFilters) {
+    setState(() => _filters = newFilters);
+    widget.onApply(newFilters);
+  }
+
+  void _resetFilters() {
+    final reset = FilterOptions(maxPrice: widget.absoluteMaxPrice);
+    setState(() {
+      _filters          = reset;
+      _categoryExpanded = false;
+    });
+    widget.onApply(reset);
+  }
+
+  // ── Dialog : aucune adresse enregistrée ──────────────────────────────────
+  void _showNoAddressDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.add_location_alt_rounded,
+                color: Color(0xFF3B82F6),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _t('filter_zone_no_address_title'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _t('filter_zone_no_address_desc'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // Divider between title area and actions
+        content: const Divider(height: 1),
+        actions: [
+          // ── Both buttons on one row, language-safe ──────────────
+          Row(
+            children: [
+              // Cancel — flex 1
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey.shade300),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    _t('cancel'),
+                    style: const TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Add address — flex 2
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddAddressPage()),
+                    );
+                    widget.onAddressAdded?.call();
+                  },
+                  icon: const Icon(Icons.add_location_alt_rounded, size: 16),
+                  label: Text(
+                    _t('add_address_title'),
+                    style: const TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final lang  = AppLocalizations.getLanguage();
+
+    final selectedCatLabel = _filters.selectedCategory != null
+        ? '${ProductCategories.iconFromId(_filters.selectedCategory!)} '
+        '${ProductCategories.labelFromId(_filters.selectedCategory!, lang)}'
+        : _t('filter_category_all');
+
+    return Drawer(
+      width: 300,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            // ── Header ────────────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 24, 12, 16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: const BorderRadius.only(
+                    bottomRight: Radius.circular(16)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                Text(
+                  _t('filter_title'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                      color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _resetFilters,
+                  tooltip: _t('filter_reset'),
+                  icon: const Icon(Icons.refresh_rounded,
+                      color: Colors.white, size: 22),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.15),
+                    padding: const EdgeInsets.all(6),
+                    minimumSize: const Size(34, 34),
+                  ),
+                ),
+              ]),
+            ),
+
+            // ── Contenu ───────────────────────────────────────────────────
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+
+                  // ── Catégories ─────────────────────────────────────────
+                  _SectionTitle(title: _t('filter_category')),
+                  const SizedBox(height: 10),
+
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _categoryExpanded = !_categoryExpanded),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _filters.selectedCategory != null
+                            ? theme.colorScheme.primary.withOpacity(0.08)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _filters.selectedCategory != null
+                              ? theme.colorScheme.primary.withOpacity(0.4)
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Row(children: [
+                        Expanded(
+                          child: Text(
+                            selectedCatLabel,
+                            style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600,
+                              color: _filters.selectedCategory != null
+                                  ? theme.colorScheme.primary
+                                  : Colors.grey.shade700,
+                            ),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${widget.categories.length}',
+                            style: TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary),
+                          ),
+                        ),
+                        AnimatedRotation(
+                          turns: _categoryExpanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(Icons.keyboard_arrow_down_rounded,
+                              color: Colors.grey.shade500, size: 20),
+                        ),
+                      ]),
+                    ),
+                  ),
+
+                  AnimatedCrossFade(
+                    duration: const Duration(milliseconds: 220),
+                    crossFadeState: _categoryExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      decoration: BoxDecoration(
+                        color:        Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border:       Border.all(color: Colors.grey.shade200),
+                        boxShadow: [BoxShadow(
+                            color:      Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset:     const Offset(0, 2))],
+                      ),
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListView(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          children: [
+                            _CategoryListTile(
+                              icon:     '🏷️',
+                              label:    _t('filter_category_all'),
+                              selected: _filters.selectedCategory == null,
+                              onTap: () {
+                                _update(_filters.copyWith(
+                                    clearCategory: true));
+                                setState(() => _categoryExpanded = false);
+                              },
+                            ),
+                            const Divider(
+                                height: 1, indent: 16, endIndent: 16),
+                            ...widget.categories.map((id) {
+                              final icon  = ProductCategories.iconFromId(id);
+                              final label =
+                              ProductCategories.labelFromId(id, lang);
+                              return _CategoryListTile(
+                                icon: icon, label: label,
+                                selected:
+                                _filters.selectedCategory == id,
+                                onTap: () {
+                                  _update(_filters.copyWith(
+                                      selectedCategory: id));
+                                  setState(
+                                          () => _categoryExpanded = false);
+                                },
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Prix ───────────────────────────────────────────────
+                  _SectionTitle(title: _t('filter_price_range')),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _PriceLabel(value: _filters.minPrice),
+                      _PriceLabel(value: _filters.maxPrice),
+                    ],
+                  ),
+                  RangeSlider(
+                    values: RangeValues(
+                      _filters.minPrice.clamp(0, widget.absoluteMaxPrice),
+                      _filters.maxPrice.clamp(0, widget.absoluteMaxPrice),
+                    ),
+                    min:         0,
+                    max:         widget.absoluteMaxPrice,
+                    divisions:   100,
+                    activeColor: theme.colorScheme.primary,
+                    inactiveColor:
+                    theme.colorScheme.primary.withOpacity(0.15),
+                    onChangeEnd: (v) => _update(_filters.copyWith(
+                        minPrice: v.start, maxPrice: v.end)),
+                    onChanged: (v) => setState(() => _filters =
+                        _filters.copyWith(
+                            minPrice: v.start, maxPrice: v.end)),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Tri ────────────────────────────────────────────────
+                  _SectionTitle(title: _t('filter_sort_by_price')),
+                  const SizedBox(height: 10),
+                  _SortTile(
+                    label:    _t('filter_sort_default'),
+                    icon:     Icons.sort_rounded,
+                    selected: _filters.sortOrder == 'none',
+                    onTap:    () =>
+                        _update(_filters.copyWith(sortOrder: 'none')),
+                  ),
+                  const SizedBox(height: 8),
+                  _SortTile(
+                    label:    _t('filter_sort_asc'),
+                    icon:     Icons.arrow_upward_rounded,
+                    selected: _filters.sortOrder == 'asc',
+                    onTap: () =>
+                        _update(_filters.copyWith(sortOrder: 'asc')),
+                  ),
+                  const SizedBox(height: 8),
+                  _SortTile(
+                    label:    _t('filter_sort_desc'),
+                    icon:     Icons.arrow_downward_rounded,
+                    selected: _filters.sortOrder == 'desc',
+                    onTap: () =>
+                        _update(_filters.copyWith(sortOrder: 'desc')),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Disponibilité ──────────────────────────────────────
+                  _SectionTitle(title: _t('filter_availability')),
+                  const SizedBox(height: 8),
+                  _ToggleTile(
+                    label:     _t('filter_in_stock_only'),
+                    value:     _filters.inStockOnly,
+                    onChanged: (v) =>
+                        _update(_filters.copyWith(inStockOnly: v)),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Zone de livraison ← NOUVEAU ────────────────────────
+                  _SectionTitle(title: _t('filter_zone_title')),
+                  const SizedBox(height: 8),
+                  _ZoneTile(
+                    value:           _filters.zoneOnly,
+                    hasAddress:      widget.buyerAddress != null,
+                    buyerAddress:    widget.buyerAddress,
+                    buyerCountryCode: widget.buyerCountryCode,
+                    onChanged: (v) {
+                      // Si l'user active sans adresse → afficher le dialog
+                      if (v && widget.buyerAddress == null) {
+                        _showNoAddressDialog();
+                        return;
+                      }
+                      _update(_filters.copyWith(zoneOnly: v));
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ZONE TILE ← NOUVEAU
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ZoneTile extends StatelessWidget {
+  final bool                   value;
+  final bool                   hasAddress;
+  final Map<String, dynamic>?  buyerAddress;
+  final String?                buyerCountryCode;
+  final ValueChanged<bool>     onChanged;
+
+
+  const _ZoneTile({
+    required this.value,
+    required this.hasAddress,
+    required this.onChanged,
+    this.buyerAddress,
+    this.buyerCountryCode,
+
+  });
+
+  String _t(String key) => AppLocalizations.get(key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Label résumé de l'adresse acheteur
+    String zoneLabel = '';
+    if (hasAddress && buyerAddress != null) {
+      final city    = buyerAddress!['city']        as String? ?? '';
+      final country = buyerAddress!['countryFlag'] as String? ?? '';
+      zoneLabel = city.isNotEmpty ? '📍 $city $country' : country;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Ligne switch ────────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _t('filter_zone_label'),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  // Adresse connue → afficher la zone ; sinon avertissement
+                  if (hasAddress && zoneLabel.isNotEmpty)
+                    Text(
+                      zoneLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: value
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade500,
+                      ),
+                    )
+                  else
+                    Text(
+                      _t('filter_zone_no_address_hint'),
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.orange.shade600),
+                    ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value:      value,
+              onChanged:  onChanged,
+              activeColor: theme.colorScheme.primary,
+            ),
+          ],
+        ),
+
+        // ── Bannière info quand le filtre est actif ─────────────
+        if (value && hasAddress) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color:        theme.colorScheme.primary.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.2)),
+            ),
+            child: Row(children: [
+              Icon(Icons.local_shipping_rounded,
+                  size: 14, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _t('filter_zone_active_hint'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CATEGORY LIST TILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CategoryListTile extends StatelessWidget {
+  final String        icon;
+  final String        label;
+  final bool          selected;
+  final VoidCallback  onTap;
+
+  const _CategoryListTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        color: selected ? primary.withOpacity(0.08) : Colors.transparent,
+        child: Row(children: [
+          Text(icon, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                  fontSize:   13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color:      selected ? primary : Colors.grey.shade800,
+                )),
+          ),
+          if (selected)
+            Icon(Icons.check_rounded, size: 16, color: primary),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SUB-WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  const _SectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        fontWeight:    FontWeight.w700,
+        color:         Theme.of(context).colorScheme.onSurface,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _SortTile extends StatelessWidget {
+  final String       label;
+  final IconData     icon;
+  final bool         selected;
+  final VoidCallback onTap;
+
+  const _SortTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color:        selected
+              ? primary.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: selected ? primary : Colors.grey.shade200),
+        ),
+        child: Row(children: [
+          Icon(icon,
+              size:  18,
+              color: selected ? primary : Colors.grey.shade500),
+          const SizedBox(width: 10),
+          Text(label,
+              style: TextStyle(
+                color:      selected ? primary : Colors.grey.shade700,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontSize:   14,
+              )),
+          if (selected) ...[
+            const Spacer(),
+            Icon(Icons.check_rounded, size: 16, color: primary),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+class _ToggleTile extends StatelessWidget {
+  final String            label;
+  final bool              value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w500)),
+        ),
+        Switch.adaptive(
+          value:      value,
+          onChanged:  onChanged,
+          activeColor: Theme.of(context).colorScheme.primary,
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PRICE LABEL — devise choisie par l'utilisateur
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PriceLabel extends StatelessWidget {
+  final double value;
+  const _PriceLabel({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = context.watch<CurrencyProvider>();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color:        Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        currency.formatPrice(value),
+        style: TextStyle(
+          fontSize:   12,
+          fontWeight: FontWeight.w600,
+          color:      Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+}

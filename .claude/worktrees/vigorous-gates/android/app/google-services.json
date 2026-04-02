@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "728599724051",
+    "project_id": "smartmarketplace-ac712",
+    "storage_bucket": "smartmarketplace-ac712.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:728599724051:android:3dbeb4e6c6b8487e903fe6",
+        "android_client_info": {
+          "package_name": "com.example.smart_marketplace"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAU5YuPcMcZpsFKipQGbXx6dq0ciTqToEs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

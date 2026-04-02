@@ -1,0 +1,440 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:smart_marketplace/models/countries.dart';
+import 'package:smart_marketplace/widgets/address_form_widget.dart';
+import 'package:smart_marketplace/widgets/default_address_toggle_widget.dart';
+import 'package:smart_marketplace/widgets/save_address_button_widget.dart';
+import 'package:smart_marketplace/services/firebase_auth_service.dart';
+import 'package:smart_marketplace/localization/app_localizations.dart';
+
+class AddAddressPage extends StatefulWidget {
+  /// Si true → mode vendeur :
+  ///   - cache le champ "nom de contact"
+  ///   - cache le toggle "adresse par défaut"
+  ///   - charge l'adresse boutique existante si elle existe
+  final bool isSellerMode;
+
+  const AddAddressPage({super.key, this.isSellerMode = false});
+
+  @override
+  State<AddAddressPage> createState() => _AddAddressPageState();
+}
+
+class _AddAddressPageState extends State<AddAddressPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  final _contactNameController = TextEditingController();
+  final _phoneController       = TextEditingController();
+  final _streetController      = TextEditingController();
+  final _complementController  = TextEditingController();
+  final _provinceController    = TextEditingController();
+  final _cityController        = TextEditingController();
+  final _postalCodeController  = TextEditingController();
+
+  String _selectedCountryCode = '+216';
+  String _selectedCountryName = 'Tunisia';
+  String _selectedCountryFlag = '🇹🇳';
+  bool   _isDefault   = false;
+  bool   _isLoading   = false;
+
+  // ✅ Seller : true si une adresse boutique existe déjà
+  bool   _hasStoreAddress = false;
+  String? _existingAddressId; // id Firestore pour faire un update
+
+  List<Map<String, String>> _filteredCountries =
+  CountryData.getCountriesSorted();
+
+  String _t(String key) => AppLocalizations.get(key);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isSellerMode) _loadStoreAddress();
+  }
+
+  // ── Charger l'adresse boutique existante ────────────────────────
+  Future<void> _loadStoreAddress() async {
+    setState(() => _isLoading = true);
+    try {
+      final uid = FirebaseAuthService().currentUser?.uid;
+      if (uid == null) return;
+
+      // On récupère toutes les adresses et on cherche celle avec isStoreAddress=true
+      final addresses = await FirebaseAuthService().getUserAddresses();
+      final store = addresses.cast<Map<String, dynamic>?>().firstWhere(
+            (a) => a?['isStoreAddress'] == true,
+        orElse: () => null,
+      );
+
+      if (store != null && mounted) {
+        setState(() {
+          _hasStoreAddress        = true;
+          _existingAddressId      = store['id'] as String?;
+          _phoneController.text   = store['phone']       as String? ?? '';
+          _streetController.text  = store['street']      as String? ?? '';
+          _complementController.text = store['complement'] as String? ?? '';
+          _provinceController.text   = store['province']   as String? ?? '';
+          _cityController.text       = store['city']       as String? ?? '';
+          _postalCodeController.text = store['postalCode'] as String? ?? '';
+          _selectedCountryCode    = store['countryCode']  as String? ?? '+216';
+          _selectedCountryName    = store['countryName']  as String? ?? 'Tunisia';
+          _selectedCountryFlag    = store['countryFlag']  as String? ?? '🇹🇳';
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _contactNameController.dispose();
+    _phoneController.dispose();
+    _streetController.dispose();
+    _complementController.dispose();
+    _provinceController.dispose();
+    _cityController.dispose();
+    _postalCodeController.dispose();
+    super.dispose();
+  }
+
+  // ── Build ────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final sw        = MediaQuery.of(context).size.width;
+    final isMobile  = sw < 600;
+    final isTablet  = sw >= 600 && sw < 1200;
+    final isDesktop = sw >= 1200;
+    final isRtl     = AppLocalizations.isRtl;
+
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: _buildAppBar(context, isDesktop, isTablet, isMobile),
+        body: _isLoading
+            ? const Center(
+            child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(Color(0xFF16A34A))))
+            : _buildBody(context, isDesktop, isTablet, isMobile),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+    // ✅ Titre dynamique selon mode et existence adresse boutique
+    final title = widget.isSellerMode
+        ? (_hasStoreAddress
+        ? _t('seller_edit_store_address')   // "Modifier adresse boutique"
+        : _t('seller_add_store_address'))   // "Ajouter adresse boutique"
+        : _t('add_address_title');
+
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: IconButton(
+        onPressed: () => Navigator.of(context).pop(),
+        icon: Icon(
+          AppLocalizations.isRtl ? Icons.arrow_forward : Icons.arrow_back,
+          color: Colors.black87,
+          size: isDesktop ? 28 : isTablet ? 24 : 20,
+        ),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: isDesktop ? 24 : isTablet ? 22 : 20,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Row(children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 16),
+            const SizedBox(width: 6),
+            Text(_t('all_info_encrypted'),
+                style: TextStyle(
+                    color: Colors.green,
+                    fontSize: isDesktop ? 14 : isTablet ? 13 : 12,
+                    fontWeight: FontWeight.w500)),
+          ]),
+        ],
+      ),
+      centerTitle: false,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: GestureDetector(
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(_t('info_encrypted_secure')),
+                backgroundColor: Colors.blue)),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[400]!),
+                  shape: BoxShape.circle),
+              child: Icon(Icons.help_outline,
+                  color: Colors.grey[600],
+                  size: isDesktop ? 24 : isTablet ? 22 : 20),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(
+      BuildContext context, bool isDesktop, bool isTablet, bool isMobile) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : isTablet ? 24 : 32),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            // ✅ Bannière "Adresse boutique" en mode seller
+            if (widget.isSellerMode) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16A34A).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: const Color(0xFF16A34A).withOpacity(0.25)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.storefront_rounded,
+                      color: Color(0xFF16A34A), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(_t('seller_store_address_hint'),
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF15803D),
+                            fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            ],
+
+            AddressFormWidget(
+              contactNameController: _contactNameController,
+              phoneController:       _phoneController,
+              streetController:      _streetController,
+              complementController:  _complementController,
+              provinceController:    _provinceController,
+              cityController:        _cityController,
+              postalCodeController:  _postalCodeController,
+              selectedCountryCode:   _selectedCountryCode,
+              selectedCountryName:   _selectedCountryName,
+              selectedCountryFlag:   _selectedCountryFlag,
+              filteredCountries:     _filteredCountries,
+              onCountryPickerTap:    _showCountryPicker,
+              onCountrySelected: (country) => setState(() {
+                _selectedCountryCode = country['code']!;
+                _selectedCountryName = country['name']!;
+                _selectedCountryFlag = country['flag']!;
+              }),
+              onFilterChanged: (query) => setState(() {
+                _filteredCountries = query.isEmpty
+                    ? CountryData.getCountriesSorted()
+                    : CountryData.filterCountries(query);
+              }),
+              isDesktop: isDesktop,
+              isTablet:  isTablet,
+              isMobile:  isMobile,
+              // ✅ En mode seller, on cache le champ nom de contact
+              hideContactName: widget.isSellerMode,
+            ),
+
+            SizedBox(height: isMobile ? 28 : isTablet ? 36 : 44),
+
+            // ✅ Cache le toggle "adresse par défaut" en mode seller
+            if (!widget.isSellerMode) ...[
+              DefaultAddressToggleWidget(
+                isDefault: _isDefault,
+                onChanged: (v) => setState(() => _isDefault = v),
+                isDesktop: isDesktop,
+                isTablet:  isTablet,
+                isMobile:  isMobile,
+              ),
+              SizedBox(height: isMobile ? 32 : isTablet ? 40 : 48),
+            ],
+
+            SaveAddressButtonWidget(
+              isLoading: _isLoading,
+              onPressed: _handleSave,
+              isDesktop: isDesktop,
+              isTablet:  isTablet,
+              isMobile:  isMobile,
+            ),
+            SizedBox(height: isMobile ? 24 : 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Country picker ───────────────────────────────────────────────
+
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Directionality(
+        textDirection:
+        AppLocalizations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              decoration: InputDecoration(
+                hintText: _t('search_country'),
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 8, horizontal: 12),
+              ),
+              onChanged: (query) => setState(() {
+                _filteredCountries = query.isEmpty
+                    ? CountryData.getCountriesSorted()
+                    : CountryData.filterCountries(query);
+              }),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: CountryData.getCountriesSorted().length,
+                itemBuilder: (_, i) {
+                  final country = CountryData.getCountriesSorted()[i];
+                  return ListTile(
+                    leading: Text(country['flag']!,
+                        style: const TextStyle(fontSize: 28)),
+                    title: Text(country['name']!,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500)),
+                    subtitle: Text(country['code']!,
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.grey)),
+                    onTap: () {
+                      setState(() {
+                        _selectedCountryCode = country['code']!;
+                        _selectedCountryName = country['name']!;
+                        _selectedCountryFlag = country['flag']!;
+                      });
+                      Navigator.pop(ctx);
+                    },
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ── Save ─────────────────────────────────────────────────────────
+
+  Future<void> _handleSave() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _isLoading = true);
+
+    try {
+      if (widget.isSellerMode) {
+        await _saveStoreAddress();
+      } else {
+        await _saveNormalAddress();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_t('address_saved')),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${_t('error')}: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// ✅ Adresse boutique vendeur — stockée avec isStoreAddress: true
+  /// Si elle existe déjà → update, sinon → create
+  Future<void> _saveStoreAddress() async {
+    final uid = FirebaseAuthService().currentUser?.uid;
+    if (uid == null) throw Exception('User not logged in');
+
+    final data = {
+      'phone':          _phoneController.text.trim(),
+      'countryCode':    _selectedCountryCode,
+      'countryName':    _selectedCountryName,
+      'countryFlag':    _selectedCountryFlag,
+      'street':         _streetController.text.trim(),
+      'complement':     _complementController.text.trim(),
+      'province':       _provinceController.text.trim(),
+      'city':           _cityController.text.trim(),
+      'postalCode':     _postalCodeController.text.trim(),
+      'contactName':    '',          // vide pour vendeur
+      'isDefault':      false,       // pas de notion de défaut pour boutique
+      'isStoreAddress': true,        // ✅ flag distinctif
+    };
+
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('addresses');
+
+    if (_hasStoreAddress && _existingAddressId != null) {
+      // Update
+      await ref.doc(_existingAddressId).update(data);
+    } else {
+      // Create — on génère un id et on le stocke dans le doc
+      final docRef = ref.doc();
+      await docRef.set({...data, 'id': docRef.id});
+    }
+  }
+
+  /// Adresse normale buyer (comportement original)
+  Future<void> _saveNormalAddress() async {
+    await FirebaseAuthService().addAddress(
+      contactName: _contactNameController.text.trim(),
+      phone:       _phoneController.text.trim(),
+      countryCode: _selectedCountryCode,
+      countryName: _selectedCountryName,
+      countryFlag: _selectedCountryFlag,
+      street:      _streetController.text.trim(),
+      complement:  _complementController.text.trim(),
+      province:    _provinceController.text.trim(),
+      city:        _cityController.text.trim(),
+      postalCode:  _postalCodeController.text.trim(),
+      isDefault:   _isDefault,
+    );
+  }
+}
