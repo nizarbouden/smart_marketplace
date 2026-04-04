@@ -57,6 +57,8 @@ dependencies:
   universal_io: ^2.2.2
   path_provider: ^2.1.1
   share_plus: ^7.2.1
+  pdf: ^3.11.1
+  open_filex: ^4.5.0
   
   # Session management
   device_info_plus: ^9.1.1

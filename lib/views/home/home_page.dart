@@ -1,6 +1,7 @@
 // lib/views/home/home_page.dart
 import 'dart:async';
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -28,109 +29,188 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  final ProductService           _service       = ProductService();
+  final ProductService           _service          = ProductService();
   final TextEditingController    _searchController = TextEditingController();
   final FocusNode                _searchFocusNode  = FocusNode();
   final GlobalKey<ScaffoldState> _scaffoldKey      = GlobalKey<ScaffoldState>();
   final ScrollController         _scrollCtrl       = ScrollController();
+  Timer?                         _searchDebounce;
 
-  String        _searchQuery   = '';
-  FilterOptions _filters       = FilterOptions(maxPrice: 10000);
-  List<Product> _allProducts   = [];
-  bool          _productsLoading = true;
-  String?       _productsError;
+  String        _searchQuery = '';
+  FilterOptions _filters     = FilterOptions(maxPrice: 10000);
 
-  // ── Pagination ────────────────────────────────────────────────
-  int _currentPage = 0; // 0-based
+  // ── Page state ────────────────────────────────────────────────
+  // _rawPageProducts: documents from Firestore (hiddenAfterAt already filtered).
+  // Client-side filters (price, stock, zone, search) are applied in build().
+  List<Product> _rawPageProducts = [];
+  bool          _pageLoading     = true;
+  String?       _pageError;
+  int           _currentPage     = 0;
+  int           _totalCount      = 0; // from count() aggregation
 
-  StreamSubscription<List<Product>>? _productsSub;
+  // Cursor cache — key: page index, value: startAfterDocument for that page.
+  // Entry [0] is always null (= start of collection).
+  // Entry [n] is the lastDoc of page (n-1).
+  final Map<int, DocumentSnapshot?> _pageStartCursors = {0: null};
+
+  // ── Filter metadata (fetched once, refreshed on pull-to-refresh) ───
+  List<String> _filterCategories = [];
+  double       _filterMaxPrice   = 10000;
 
   String _t(String key) => AppLocalizations.get(key);
   void openFilterDrawer() => _scaffoldKey.currentState?.openDrawer();
 
   bool get hasActiveFilters =>
       _filters.selectedCategory != null ||
-          _filters.minPrice > 0 ||
-          _filters.maxPrice < _getMaxPrice(_allProducts) ||
-          _filters.sortOrder != 'none' ||
-          _filters.inStockOnly ||
-          _filters.zoneOnly;
+      _filters.minPrice > 0 ||
+      _filters.maxPrice < _filterMaxPrice ||
+      _filters.sortOrder != 'none' ||
+      _filters.inStockOnly ||
+      _filters.zoneOnly ||
+      _searchQuery.isNotEmpty;
+
+  int get _totalPages =>
+      _totalCount == 0 ? 1 : (_totalCount / _kPageSize).ceil();
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _fetchFilterMetadata();
+    _fetchPage(0, fetchCount: true);
+  }
+
+  Future<void> _fetchFilterMetadata() async {
+    final meta = await _service.fetchFilterMetadata();
+    if (mounted) {
+      setState(() {
+        _filterCategories = meta.categories;
+        _filterMaxPrice   = meta.maxPrice;
+        // Sync the default filter maxPrice with the real value
+        if (_filters.maxPrice == 10000 || _filters.maxPrice > meta.maxPrice) {
+          _filters.maxPrice = meta.maxPrice;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    _productsSub?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
 
-  // ── Appelé depuis FavoritesPage via homePageKey ───────────────
   void refreshAfterFavoriteChange() {
     if (mounted) setState(() {});
   }
 
-  void _subscribe() {
-    _productsSub?.cancel();
-    _productsSub = _service.getApprovedProducts().listen(
-          (products) {
-        if (mounted) {
-          setState(() {
-            _allProducts     = products;
-            _productsLoading = false;
-            _productsError   = null;
-            _currentPage     = 0; // reset page à chaque refresh
-          });
-        }
-      },
-      onError: (error) {
-        if (mounted) {
-          setState(() {
-            _productsError   = error.toString();
-            _productsLoading = false;
-          });
-        }
-      },
-    );
+  // ── Reset cursor cache and re-fetch from page 0 ──────────────
+  void _resetAndFetch() {
+    _pageStartCursors.clear();
+    _pageStartCursors[0] = null;
+    if (mounted) {
+      setState(() {
+        _currentPage     = 0;
+        _totalCount      = 0;
+        _rawPageProducts = [];
+        _pageLoading     = true;
+        _pageError       = null;
+      });
+    }
+    _fetchPage(0, fetchCount: true);
   }
 
-  Future<void> _onRefresh() async {
-    setState(() { _productsLoading = true; _currentPage = 0; });
-    _subscribe();
-    int waited = 0;
-    while (_productsLoading && waited < 30) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      waited++;
+  // ── Paginated fetch ───────────────────────────────────────────
+  Future<void> _fetchPage(int targetPage, {bool fetchCount = false}) async {
+    // Capture filter params synchronously before any await
+    final category   = _filters.selectedCategory;
+    final sortOrder  = _filters.sortOrder;
+    final knownCount = fetchCount ? 0 : _totalCount;
+
+    // Build cursor chain for pages we have not yet visited
+    for (int i = 0; i < targetPage; i++) {
+      if (_pageStartCursors.containsKey(i + 1)) continue;
+      try {
+        final step = await _service.fetchPage(
+          category:   category,
+          sortOrder:  sortOrder,
+          pageSize:   _kPageSize,
+          startAfter: _pageStartCursors[i],
+          knownCount: _totalCount,
+        );
+        if (step.lastDoc == null) break;
+        _pageStartCursors[i + 1] = step.lastDoc;
+      } catch (_) {
+        break;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() { _pageLoading = true; _pageError = null; });
+
+    try {
+      final result = await _service.fetchPage(
+        category:   category,
+        sortOrder:  sortOrder,
+        pageSize:   _kPageSize,
+        startAfter: _pageStartCursors[targetPage],
+        knownCount: knownCount,
+      );
+
+      if (result.lastDoc != null) {
+        _pageStartCursors[targetPage + 1] = result.lastDoc;
+      }
+
+      if (mounted) {
+        setState(() {
+          _currentPage     = targetPage;
+          _rawPageProducts = result.products;
+          _totalCount      = result.totalCount;
+          _pageLoading     = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pageError   = e.toString();
+          _pageLoading = false;
+        });
+      }
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  //  FILTRES
-  // ─────────────────────────────────────────────────────────────
+  Future<void> _onRefresh() async {
+    _pageStartCursors.clear();
+    _pageStartCursors[0] = null;
+    setState(() {
+      _currentPage     = 0;
+      _totalCount      = 0;
+      _rawPageProducts = [];
+    });
+    await Future.wait([
+      _fetchFilterMetadata(),
+      _fetchPage(0, fetchCount: true),
+    ]);
+  }
 
-  List<Product> _applyFilters(List<Product> products) {
-    final now          = DateTime.now();
-    final addrProvider = context.read<BuyerAddressProvider>();
-
-    List<Product> result = products.where((p) {
+  // ── Client-side filters applied in build() ───────────────────
+  // Category and sortOrder are pushed to Firestore. Everything else
+  // (price range, stock, zone, search, expiry) is applied here so
+  // the widget reacts to address/search changes without a refetch.
+  List<Product> _applyClientFilters(
+      List<Product> raw, BuyerAddressProvider addrProvider) {
+    final now = DateTime.now();
+    List<Product> result = raw.where((p) {
       if (!p.isActive) return false;
       if (p.hiddenAfterAt != null && now.isAfter(p.hiddenAfterAt!)) return false;
       return true;
     }).toList();
 
     if (_searchQuery.isNotEmpty) {
-      result = result
-          .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-          .toList();
-    }
-    if (_filters.selectedCategory != null) {
-      result = result.where((p) => p.category == _filters.selectedCategory).toList();
+      final q = _searchQuery.toLowerCase();
+      result = result.where((p) => p.name.toLowerCase().contains(q)).toList();
     }
     result = result
         .where((p) => p.price >= _filters.minPrice && p.price <= _filters.maxPrice)
@@ -144,51 +224,18 @@ class HomePageState extends State<HomePage> {
         result = result.where((p) {
           if (!p.shipping.isConfigured) return true;
           final zone = ShippingZoneExt.zoneForCountry(iso);
-          final rate = p.shipping.zoneRates
-              .where((r) => r.zone == zone && r.enabled)
-              .firstOrNull;
-          return rate != null;
+          return p.shipping.zoneRates.any((r) => r.zone == zone && r.enabled);
         }).toList();
       }
-    }
-    if (_filters.sortOrder == 'asc') {
-      result.sort((a, b) => a.price.compareTo(b.price));
-    } else if (_filters.sortOrder == 'desc') {
-      result.sort((a, b) => b.price.compareTo(a.price));
     }
     return result;
   }
 
-  List<String> _getCategories(List<Product> products) =>
-      products.map((p) => p.category).toSet().toList()..sort();
-
-  double _getMaxPrice(List<Product> products) {
-    if (products.isEmpty) return 10000;
-    return products.map((p) => p.price).reduce((a, b) => a > b ? a : b);
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  //  PAGINATION
-  // ─────────────────────────────────────────────────────────────
-
-  List<Product> _getPageProducts(List<Product> filtered) {
-    final start = _currentPage * _kPageSize;
-    if (start >= filtered.length) return [];
-    final end = (start + _kPageSize).clamp(0, filtered.length);
-    return filtered.sublist(start, end);
-  }
-
-  int _totalPages(List<Product> filtered) =>
-      (filtered.length / _kPageSize).ceil().clamp(1, 999);
-
-  void _goToPage(int page, int totalPages) {
-    if (page < 0 || page >= totalPages) return;
-    setState(() => _currentPage = page);
-    _scrollCtrl.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+  void _goToPage(int page) {
+    if (page < 0 || page >= _totalPages) return;
+    _scrollCtrl.animateTo(0,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    _fetchPage(page);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -197,48 +244,37 @@ class HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final addrProvider = context.watch<BuyerAddressProvider>();
-    final filtered     = _applyFilters(_allProducts);
-    final totalPages   = _totalPages(filtered);
-    // Garde _currentPage dans les bornes si les filtres changent
-    final safePage     = _currentPage.clamp(0, (totalPages - 1).clamp(0, 999));
-    if (safePage != _currentPage) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _currentPage = safePage);
-      });
-    }
-    final pageProducts = _getPageProducts(filtered);
+    final addrProvider  = context.watch<BuyerAddressProvider>();
+    final pageProducts  = _applyClientFilters(_rawPageProducts, addrProvider);
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF0F2F7),
-      drawer: _allProducts.isEmpty
-          ? null
-          : FilterDrawer(
-        categories:       _getCategories(_allProducts),
+      drawer: FilterDrawer(
+        categories:       _filterCategories,
         currentFilters:   _filters,
-        absoluteMaxPrice: _getMaxPrice(_allProducts),
-        onApply: (newFilters) => setState(() {
-          _filters     = newFilters;
-          _currentPage = 0;
-        }),
+        absoluteMaxPrice: _filterMaxPrice,
+        onApply: (newFilters) {
+          setState(() => _filters = newFilters);
+          _resetAndFetch();
+        },
         buyerAddress:     addrProvider.address,
         buyerCountryCode: addrProvider.countryCode,
         onAddressAdded:   () => context.read<BuyerAddressProvider>().load(),
       ),
-      body: _productsLoading
+      body: _pageLoading && _rawPageProducts.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : _productsError != null
+          : _pageError != null
           ? Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
             const SizedBox(height: 12),
-            Text('${_t('error_prefix')}: $_productsError'),
+            Text('${_t('error_prefix')}: $_pageError'),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _onRefresh,
+              onPressed: _resetAndFetch,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Réessayer'),
             ),
@@ -262,10 +298,14 @@ class HomePageState extends State<HomePage> {
                   controller: _searchController,
                   focusNode:  _searchFocusNode,
                   hintText:   _t('search_hint'),
-                  onChanged:  (v) => setState(() {
-                    _searchQuery = v;
-                    _currentPage = 0;
-                  }),
+                  onChanged:  (v) {
+                    setState(() => _searchQuery = v);
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 400),
+                      _resetAndFetch,
+                    );
+                  },
                 ),
               ),
             ),
@@ -274,15 +314,19 @@ class HomePageState extends State<HomePage> {
             if (hasActiveFilters)
               SliverToBoxAdapter(
                 child: _ActiveFilterTags(
-                  filters:       _filters,
+                  filters:        _filters,
                   labelPriceAsc:  _t('price_asc'),
                   labelPriceDesc: _t('price_desc'),
                   labelInStock:   _t('in_stock_filter'),
                   labelClearAll:  _t('clear_all'),
-                  onClear: () => setState(() {
-                    _filters     = FilterOptions(maxPrice: _getMaxPrice(_allProducts));
-                    _currentPage = 0;
-                  }),
+                  onClear: () {
+                    _searchController.clear();
+                    setState(() {
+                      _filters     = FilterOptions(maxPrice: _filterMaxPrice);
+                      _searchQuery = '';
+                    });
+                    _resetAndFetch();
+                  },
                 ),
               ),
 
@@ -293,23 +337,32 @@ class HomePageState extends State<HomePage> {
                 child: Row(
                   children: [
                     Text(
-                      '${filtered.length} ${filtered.length > 1 ? _t('products') : _t('product')}',
+                      '$_totalCount ${_totalCount > 1 ? _t('products') : _t('product')}',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (filtered.length > _kPageSize) ...[
+                    if (_totalCount > _kPageSize) ...[
                       const Spacer(),
-                      Text(
-                        'Page ${safePage + 1}/$totalPages',
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                      if (_pageLoading)
+                        SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.grey.shade400,
+                          ),
+                        )
+                      else
+                        Text(
+                          'Page ${_currentPage + 1}/$_totalPages',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
                     ],
                   ],
                 ),
@@ -317,9 +370,11 @@ class HomePageState extends State<HomePage> {
             ),
 
             // ── Liste produits ─────────────────────────
-            filtered.isEmpty
+            pageProducts.isEmpty
                 ? SliverFillRemaining(
-              child: _EmptyState(
+              child: _pageLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _EmptyState(
                 hasFilters:         hasActiveFilters,
                 messageWithFilters: _t('no_products_filters'),
                 messageEmpty:       _t('no_products'),
@@ -352,12 +407,12 @@ class HomePageState extends State<HomePage> {
             ),
 
             // ── Pagination ─────────────────────────────
-            if (filtered.length > _kPageSize)
+            if (_totalCount > _kPageSize)
               SliverToBoxAdapter(
                 child: _PaginationBar(
-                  currentPage: safePage,
-                  totalPages:  totalPages,
-                  onPageChanged: (p) => _goToPage(p, totalPages),
+                  currentPage:   _currentPage,
+                  totalPages:    _totalPages,
+                  onPageChanged: _goToPage,
                 ),
               ),
 

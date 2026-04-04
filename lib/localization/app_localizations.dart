@@ -402,7 +402,7 @@ class AppLocalizations {
     'seller_store_name_hint'     : 'Ex : Ma Boutique',
     'seller_store_name_required' : 'Le nom du magasin est obligatoire',
 
-    // ── Sécurité ──────────────────────────────────────────────────
+    // ── Security page──────────────────────────────────────────────────
     'security_title': 'Sécurité',
     'section_confidentiality': 'Confidentialité',
     'section_session': 'Session',
@@ -492,6 +492,12 @@ class AppLocalizations {
     "biometric_choose_method_subtitle": "Sélectionnez comment vous souhaitez vous authentifier",
     "biometric_face_id_desc": "Déverrouillez avec votre visage",
     "biometric_fingerprint_desc": "Déverrouillez avec votre empreinte digitale",
+    "export_format_pdf_title": "PDF",
+    "export_format_pdf_desc": "Document structuré avec sections et mise en page",
+    "export_format_txt_title": "TXT / JSON",
+    "export_format_txt_desc": "Fichier texte avec données JSON brutes",
+    "open_file": "Ouvrir",
+    "share": "Partager",
 
     // ── Layout principal ──────────────────────────────────────────
     'main_smart_market': 'Winzy',
@@ -1595,6 +1601,12 @@ class AppLocalizations {
     "biometric_choose_method_subtitle": "Select how you want to authenticate",
     "biometric_face_id_desc": "Unlock with your face",
     "biometric_fingerprint_desc": "Unlock with your fingerprint",
+    "export_format_pdf_title": "PDF",
+    "export_format_pdf_desc": "Structured document with sections and layout",
+    "export_format_txt_title": "TXT / JSON",
+    "export_format_txt_desc": "Text file with raw JSON data",
+    "open_file": "Open",
+    "share": "Share",
 
     // ── Main Layout ───────────────────────────────────────────────
     'main_smart_market': 'Winzy',
@@ -2610,7 +2622,7 @@ class AppLocalizations {
     'seller_store_name_hint'     : 'مثال: متجري',
     'seller_store_name_required' : 'اسم المتجر مطلوب',
 
-    // ── الأمان ────────────────────────────────────────────────────
+    // ── Security page──────────────────────────────────────────────────
     'security_title': 'الأمان',
     'section_confidentiality': 'الخصوصية',
     'section_session': 'الجلسة',
@@ -2697,6 +2709,12 @@ class AppLocalizations {
     "biometric_choose_method_subtitle": "اختر كيف تريد تسجيل الدخول",
     "biometric_face_id_desc": "افتح القفل باستخدام وجهك",
     "biometric_fingerprint_desc": "افتح القفل باستخدام بصمة الإصبع",
+    "export_format_pdf_title": "PDF",
+    "export_format_pdf_desc": "مستند منظم مع أقسام وتخطيط",
+    "export_format_txt_title": "TXT / JSON",
+    "export_format_txt_desc": "ملف نصي مع بيانات JSON خام",
+    "open_file": "فتح",
+    "share": "مشاركة",
 
     // ── التخطيط الرئيسي ───────────────────────────────────────────
     'main_smart_market': 'السوق الذكي',

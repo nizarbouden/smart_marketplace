@@ -4,11 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';                          // ✅
+import 'package:provider/provider.dart';
 import '../../localization/app_localizations.dart';
 import '../../models/sub_order_model.dart';
 import '../../models/shipping_company_model.dart';
-import '../../providers/currency_provider.dart';                   // ✅
+import '../../providers/currency_provider.dart';
 import '../order chat/order_chat_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -135,6 +135,7 @@ class HistoryPageState extends State<HistoryPage>
     if (status == 'all') return _subOrders.length;
     return _subOrders.where((o) => o.status == status).length;
   }
+
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}/${d.year}  '
           '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
@@ -147,60 +148,63 @@ class HistoryPageState extends State<HistoryPage>
     return '$raw ${_t("days_label")}';
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final currency = context.watch<CurrencyProvider>(); // ✅ rebuild auto quand devise change
+    final isRtl = AppLocalizations.isRtl; // ✅ détection RTL
+    final currency = context.watch<CurrencyProvider>();
     final isTablet = MediaQuery.of(context).size.width > 600;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: RefreshIndicator(
-        onRefresh: loadOrders,
-        color: const Color(0xFF7C3AED),
-        strokeWidth: 2.5,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _buildStatsBar(isTablet)),
-            SliverToBoxAdapter(child: _buildFilters(isTablet)),
-            if (_isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED))),
-              )
-            else if (_filtered.isEmpty)
-              SliverFillRemaining(child: _buildEmptyState(isTablet))
-            else
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                    isTablet ? 24 : 16, 16, isTablet ? 24 : 16, 24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                        (ctx, i) {
-                      final anim = Tween<double>(begin: 0, end: 1).animate(
-                        CurvedAnimation(
-                          parent: _animController,
-                          curve: Interval(
-                            (i / _filtered.length) * 0.6,
-                            ((i + 1) / _filtered.length) * 0.6 + 0.4,
-                            curve: Curves.easeOutCubic,
+    return Directionality(
+      textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF1F5F9),
+        body: RefreshIndicator(
+          onRefresh: loadOrders,
+          color: const Color(0xFF7C3AED),
+          strokeWidth: 2.5,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildStatsBar(isTablet)),
+              SliverToBoxAdapter(child: _buildFilters(isTablet)),
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED))),
+                )
+              else if (_filtered.isEmpty)
+                SliverFillRemaining(child: _buildEmptyState(isTablet))
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                      isTablet ? 24 : 16, 16, isTablet ? 24 : 16, 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (ctx, i) {
+                        final anim = Tween<double>(begin: 0, end: 1).animate(
+                          CurvedAnimation(
+                            parent: _animController,
+                            curve: Interval(
+                              (i / _filtered.length) * 0.6,
+                              ((i + 1) / _filtered.length) * 0.6 + 0.4,
+                              curve: Curves.easeOutCubic,
+                            ),
                           ),
-                        ),
-                      );
-                      return AnimatedBuilder(
-                        animation: anim,
-                        builder: (_, child) => Transform.translate(
-                          offset: Offset(0, 24 * (1 - anim.value)),
-                          child: Opacity(opacity: anim.value.clamp(0.0, 1.0), child: child),
-                        ),
-                        child: _buildSubOrderCard(_filtered[i], isTablet, currency), // ✅
-                      );
-                    },
-                    childCount: _filtered.length,
+                        );
+                        return AnimatedBuilder(
+                          animation: anim,
+                          builder: (_, child) => Transform.translate(
+                            offset: Offset(0, 24 * (1 - anim.value)),
+                            child: Opacity(opacity: anim.value.clamp(0.0, 1.0), child: child),
+                          ),
+                          child: _buildSubOrderCard(_filtered[i], isTablet, currency, isRtl), // ✅ isRtl passé
+                        );
+                      },
+                      childCount: _filtered.length,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -299,8 +303,8 @@ class HistoryPageState extends State<HistoryPage>
     );
   }
 
-  // ✅ currency parameter added
-  Widget _buildSubOrderCard(SubOrderModel s, bool isTablet, CurrencyProvider currency) {
+  // ✅ currency parameter added + isRtl
+  Widget _buildSubOrderCard(SubOrderModel s, bool isTablet, CurrencyProvider currency, bool isRtl) {
     final cfg     = _getStatus(s.status);
     final shortId = s.subOrderId.length >= 8
         ? s.subOrderId.substring(0, 8).toUpperCase()
@@ -398,7 +402,6 @@ class HistoryPageState extends State<HistoryPage>
                 Row(children: [
                   _miniTag('×${s.quantity}', Colors.grey.shade600, Colors.grey.shade100),
                   const SizedBox(width: 6),
-                  // ✅ prix article dans la devise choisie
                   _miniTag(currency.formatPrice(s.price),
                       const Color(0xFF7C3AED), const Color(0xFFEDE9FE)),
                 ]),
@@ -440,16 +443,15 @@ class HistoryPageState extends State<HistoryPage>
                       ]))),
                 ]),
               ),
-            _buildPriceRecap(s, cfg, currency), // ✅
+            _buildPriceRecap(s, cfg, currency),
             const SizedBox(height: 14),
-            _buildActionsZone(s, cfg, isTablet, currency), // ✅
+            _buildActionsZone(s, cfg, isTablet, currency, isRtl), // ✅ isRtl passé
           ]),
         ),
       ]),
     );
   }
 
-  // ✅ Prix dans la devise choisie
   Widget _buildPriceRecap(SubOrderModel s, _StatusConfig cfg, CurrencyProvider currency) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -498,7 +500,7 @@ class HistoryPageState extends State<HistoryPage>
   }
 
   Widget _buildActionsZone(SubOrderModel s, _StatusConfig cfg, bool isTablet,
-      CurrencyProvider currency) {
+      CurrencyProvider currency, bool isRtl) {
     final bool isDelivered = s.status == 'delivered';
     final bool isShipping  = s.status == 'shipping';
 
@@ -536,7 +538,7 @@ class HistoryPageState extends State<HistoryPage>
         ),
       ],
       if (isShipping && !s.buyerConfirmed) ...[
-        _buildConfirmDeliveryButton(s, isTablet),
+        _buildConfirmDeliveryButton(s, isTablet, isRtl), // ✅ isRtl passé
         const SizedBox(height: 10),
       ],
       Row(children: [
@@ -545,7 +547,7 @@ class HistoryPageState extends State<HistoryPage>
           icon: Icons.receipt_long_rounded,
           color: const Color(0xFF7C3AED),
           bgColor: const Color(0xFFEDE9FE),
-          onTap: () => _showDetails(s, isTablet, currency), // ✅
+          onTap: () => _showDetails(s, isTablet, currency),
           flex: 2,
         ),
         if (!isDelivered) ...[
@@ -571,7 +573,8 @@ class HistoryPageState extends State<HistoryPage>
     ]);
   }
 
-  Widget _buildConfirmDeliveryButton(SubOrderModel s, bool isTablet) {
+  // ✅ isRtl added to flip arrow icon
+  Widget _buildConfirmDeliveryButton(SubOrderModel s, bool isTablet, bool isRtl) {
     return GestureDetector(
       onTap: () => _confirmDelivery(s),
       child: Container(
@@ -608,7 +611,10 @@ class HistoryPageState extends State<HistoryPage>
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+              child: Icon(
+                isRtl ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+                color: Colors.white, size: 16,
+              ),
             ),
           ]),
         ),
@@ -865,7 +871,6 @@ class HistoryPageState extends State<HistoryPage>
     } catch (_) {}
   }
 
-  // ✅ currency parameter pour afficher les prix dans la devise choisie
   void _showDetails(SubOrderModel s, bool isTablet, CurrencyProvider currency) {
     final cfg = _getStatus(s.status);
     final shortId = s.subOrderId.length >= 8
@@ -944,7 +949,6 @@ class HistoryPageState extends State<HistoryPage>
                         fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF0F172A)),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
-                    // ✅ prix × qté dans la devise choisie
                     Text('${currency.formatPrice(s.price)} × ${s.quantity}',
                         style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
                   ])),
@@ -975,7 +979,6 @@ class HistoryPageState extends State<HistoryPage>
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFE2E8F0))),
                   child: Column(children: [
-                    // ✅ tous les prix dans la devise choisie
                     _priceRow(_t('cart_products_subtotal'), currency.formatPrice(s.subtotal)),
                     const SizedBox(height: 8),
                     _priceRow(_t('seller_shipping_cost'), currency.formatPrice(s.shippingCost),
